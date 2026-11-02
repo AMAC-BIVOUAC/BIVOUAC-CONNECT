@@ -1,0 +1,179 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="robots" content="noindex" />
+  <title>Connecter une IA · BIVOUAC-TECH</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <style>
+    :root { --navy:#0E2A3B; --teal:#12809A; --orange:#F28C28; --bg:#F3F5F8; --line:#E4E8EE; --muted:#6B7A8C; --danger:#D9534F; }
+    * { box-sizing: border-box; }
+    body { margin:0; min-height:100vh; display:grid; place-items:center; padding:24px 16px;
+           font-family:'Montserrat','Segoe UI',system-ui,sans-serif; color:var(--navy);
+           background:linear-gradient(180deg,#0E2A3B 0%,#29506A 55%,#F2A66A 100%); }
+    .card { width:100%; max-width:440px; background:#fff; border-radius:18px; padding:30px 28px;
+            box-shadow:0 20px 60px rgba(14,42,59,.35); }
+    .brand { display:flex; align-items:center; gap:12px; margin-bottom:22px; }
+    .word { font-weight:800; font-size:24px; letter-spacing:1px; line-height:1; display:flex; flex-direction:column; }
+    .word small { font-size:10px; font-weight:600; letter-spacing:4px; color:var(--orange); margin-top:4px; }
+    h1 { font-size:20px; margin:0 0 8px; }
+    p { line-height:1.5; margin:8px 0; }
+    .muted { color:var(--muted); font-size:13px; }
+    label { display:block; font-size:12px; font-weight:600; color:var(--muted); margin:14px 0 6px; }
+    input { width:100%; font:inherit; padding:11px 12px; border:1px solid var(--line); border-radius:10px; outline:none; }
+    input:focus { border-color:var(--teal); box-shadow:0 0 0 3px #E3F3F6; }
+    .btn { font:inherit; font-weight:600; border-radius:10px; padding:11px 16px; cursor:pointer; border:1px solid var(--line); background:#fff; color:var(--navy); }
+    .btn.primary { background:var(--orange); border-color:var(--orange); color:#fff; }
+    .btn:disabled { opacity:.6; cursor:wait; }
+    .row { display:flex; gap:10px; margin-top:20px; }
+    .row .btn { flex:1; }
+    .client { display:flex; align-items:center; gap:12px; padding:14px; border:1px solid var(--line); border-radius:12px; margin:16px 0; }
+    .client img { width:40px; height:40px; border-radius:10px; object-fit:contain; }
+    .client strong { display:block; }
+    ul { padding-left:20px; margin:8px 0; line-height:1.6; font-size:14px; }
+    .msg { min-height:1em; font-size:13px; color:var(--muted); margin-top:12px; }
+    .msg.error { color:var(--danger); }
+    .hidden { display:none !important; }
+    .who { font-size:12px; color:var(--muted); margin-top:16px; }
+    .who button { background:none; border:0; color:var(--teal); font:inherit; font-weight:600; cursor:pointer; padding:0; }
+  </style>
+</head>
+<body>
+  <main class="card">
+    <div class="brand">
+      <svg width="44" height="44" viewBox="0 0 120 120" aria-hidden="true">
+        <rect x="4" y="4" width="112" height="112" rx="28" fill="#0E2A3B"/>
+        <path d="M31 58 A29 29 0 0 1 89 58" fill="none" stroke="#F28C28" stroke-width="8" stroke-linecap="round"/>
+        <path d="M18 92 L47 57 L60 71 L75 51 L102 92" fill="none" stroke="#fff" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      <div class="word">BIVOUAC<small>— TECH —</small></div>
+    </div>
+
+    <!-- Chargement -->
+    <section id="s-loading"><p class="muted">Chargement…</p></section>
+
+    <!-- Connexion -->
+    <section id="s-login" class="hidden">
+      <h1>Connectez-vous</h1>
+      <p class="muted">Utilisez le même e-mail et mot de passe que dans l'application BIVOUAC-TECH.</p>
+      <form id="login-form">
+        <label for="email">Adresse e-mail</label>
+        <input id="email" type="email" required autocomplete="email" />
+        <label for="password">Mot de passe</label>
+        <input id="password" type="password" required autocomplete="current-password" />
+        <div class="row"><button class="btn primary" type="submit">Se connecter</button></div>
+      </form>
+    </section>
+
+    <!-- Consentement -->
+    <section id="s-consent" class="hidden">
+      <h1>Autoriser l'accès à BIVOUAC-TECH ?</h1>
+      <div class="client">
+        <img id="client-logo" alt="" class="hidden" />
+        <div><strong id="client-name">Application</strong><span class="muted" id="client-host"></span></div>
+      </div>
+      <p>Cette application pourra, <strong>en votre nom</strong> :</p>
+      <ul>
+        <li>lire vos projets, l'Atelier IA, les discussions, idées et tâches ;</li>
+        <li>écrire dans l'Atelier IA, ajouter des idées et des tâches ;</li>
+        <li>répondre aux demandes que vos coéquipiers adressent à votre IA.</li>
+      </ul>
+      <p class="muted">Elle n'accède qu'aux projets dont vous êtes membre. Vous pourrez retirer cet accès à tout moment
+        en supprimant le connecteur dans votre application.</p>
+      <div class="row">
+        <button class="btn" id="deny">Refuser</button>
+        <button class="btn primary" id="approve">Autoriser</button>
+      </div>
+      <p class="who">Connecté en tant que <strong id="who"></strong> · <button id="switch">changer de compte</button></p>
+    </section>
+
+    <!-- Erreur -->
+    <section id="s-error" class="hidden">
+      <h1>Impossible de continuer</h1>
+      <p id="error-text"></p>
+      <p class="muted">Recommencez la connexion du connecteur depuis votre application Claude.</p>
+    </section>
+
+    <p class="msg" id="msg"></p>
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.118.0/dist/umd/supabase.js"></script>
+  <script>
+    // Adresse et clé PUBLIQUE du projet Supabase de BIVOUAC-TECH (les mêmes que dans l'application)
+    const SUPABASE_URL = 'https://cdcnwomszyovsebfdwmm.supabase.co';
+    const SUPABASE_KEY = 'sb_publishable_K2lAX9kunDhk8bkxC9Yw6g_yRojn3CO';
+
+    if (!window.supabase) {
+      document.getElementById('error-text').textContent = 'Impossible de charger le module de connexion. Vérifiez votre connexion internet.';
+      document.getElementById('s-loading').classList.add('hidden');
+      document.getElementById('s-error').classList.remove('hidden');
+      throw new Error('supabase-js indisponible');
+    }
+    const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+    const authorizationId = new URLSearchParams(location.search).get('authorization_id');
+    const $ = (id) => document.getElementById(id);
+
+    function show(section) {
+      ['s-loading', 's-login', 's-consent', 's-error'].forEach((s) => $(s).classList.toggle('hidden', s !== section));
+    }
+    function msg(text, error = false) {
+      $('msg').textContent = text;
+      $('msg').classList.toggle('error', error);
+    }
+    function fail(text) {
+      $('error-text').textContent = text;
+      show('s-error');
+    }
+
+    async function start() {
+      if (!authorizationId) return fail('Lien incomplet : identifiant de la demande d\'autorisation manquant.');
+      const { data: { session } } = await sb.auth.getSession();
+      if (!session) return show('s-login');
+
+      const { data, error } = await sb.auth.oauth.getAuthorizationDetails(authorizationId);
+      if (error) return fail(error.message);
+
+      // Déjà autorisé auparavant : on renvoie directement vers l'application
+      if (!data.authorization_id && data.redirect_url) {
+        msg('Accès déjà autorisé, redirection…');
+        location.href = data.redirect_url;
+        return;
+      }
+
+      $('client-name').textContent = data.client?.name || 'Application';
+      try { $('client-host').textContent = 'Renverra vers ' + new URL(data.redirect_uri).host; } catch { /* ignoré */ }
+      if (data.client?.logo_uri) { $('client-logo').src = data.client.logo_uri; $('client-logo').classList.remove('hidden'); }
+      $('who').textContent = data.user?.email || session.user.email;
+      show('s-consent');
+    }
+
+    $('login-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      e.submitter.disabled = true;
+      msg('Connexion…');
+      const { error } = await sb.auth.signInWithPassword({ email: $('email').value.trim(), password: $('password').value });
+      e.submitter.disabled = false;
+      if (error) return msg(/invalid login/i.test(error.message) ? 'E-mail ou mot de passe incorrect.' : error.message, true);
+      msg('');
+      start();
+    });
+
+    async function decide(approve) {
+      $('approve').disabled = $('deny').disabled = true;
+      msg(approve ? 'Autorisation…' : 'Refus…');
+      const fn = approve ? sb.auth.oauth.approveAuthorization : sb.auth.oauth.denyAuthorization;
+      const { data, error } = await fn.call(sb.auth.oauth, authorizationId, { skipBrowserRedirect: true });
+      if (error) { $('approve').disabled = $('deny').disabled = false; return msg(error.message, true); }
+      msg(approve ? 'C\'est fait ! Retour vers votre application…' : 'Accès refusé. Retour vers votre application…');
+      location.href = data.redirect_url;
+    }
+    $('approve').addEventListener('click', () => decide(true));
+    $('deny').addEventListener('click', () => decide(false));
+    $('switch').addEventListener('click', async () => { await sb.auth.signOut(); show('s-login'); });
+
+    start().catch((err) => fail(err.message || String(err)));
+  </script>
+</body>
+</html>
