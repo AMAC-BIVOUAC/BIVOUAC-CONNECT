@@ -1,0 +1,136 @@
+<!doctype html>
+<!--
+  Page publique « Rejoindre » — https://amac-bivouac.github.io/bivouac-connect/rejoindre/#K7QM-4TPX
+  Source : dépôt BIVOUAC-TECH, dossier pages-publiques/. Déposée dans bivouac-connect par
+  l'action « Publier une version ». AUCUN secret ici : cette page est publique.
+  Elle lit le code après le #, propose d'ouvrir l'app (bivouac://rejoindre/<code>)
+  ou de la télécharger. Le code n'est jamais envoyé à un serveur depuis cette page.
+-->
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="robots" content="noindex" />
+  <meta http-equiv="Content-Security-Policy"
+        content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; connect-src https://api.github.com; img-src data:" />
+  <title>Rejoindre un projet · BIVOUAC-TECH</title>
+  <style>
+    :root { --night: #0E2A3B; --teal: #12809A; --mint: #5ECDB5; --orange: #F28C28; --sand: #F7E1C0; --muted: #5B6B78; }
+    * { box-sizing: border-box; }
+    body { margin: 0; min-height: 100vh; font-family: Montserrat, "Segoe UI", system-ui, -apple-system, Arial, sans-serif;
+           background: linear-gradient(180deg, var(--night) 0%, #1E4A63 55%, #2D6A7A 100%); color: var(--night);
+           display: flex; align-items: center; justify-content: center; padding: 24px 16px; }
+    .card { width: 100%; max-width: 520px; background: #fff; border-radius: 18px; padding: 32px 28px; box-shadow: 0 20px 60px rgba(0,0,0,.25); }
+    .brand { display: flex; align-items: center; gap: 12px; margin-bottom: 22px; }
+    .brand svg { width: 46px; height: 46px; background: var(--night); border-radius: 12px; padding: 6px; }
+    .word { font-weight: 800; letter-spacing: 1px; font-size: 20px; }
+    .word small { display: block; color: var(--orange); font-size: 11px; letter-spacing: 4px; font-weight: 600; }
+    h1 { font-size: 22px; margin: 0 0 8px; }
+    p { line-height: 1.55; margin: 0 0 12px; color: #33475A; }
+    .code { font-family: Consolas, "Courier New", monospace; font-size: 30px; font-weight: 700; letter-spacing: 4px; text-align: center;
+            background: #F1F5F8; border-radius: 12px; padding: 14px; margin: 16px 0 18px; color: var(--night); }
+    .btn { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; padding: 14px 18px; border-radius: 12px;
+           font: inherit; font-weight: 700; font-size: 15px; text-decoration: none; text-align: center; cursor: pointer; border: 2px solid transparent; margin-bottom: 10px; }
+    .btn.primary { background: var(--orange); color: #fff; }
+    .btn.primary:hover { background: #E07B17; }
+    .btn.second { background: #fff; color: var(--teal); border-color: var(--teal); }
+    .btn.second:hover { background: #E3F3F6; }
+    .btn.small { width: auto; display: inline-flex; padding: 6px 12px; font-size: 13px; margin: 0; border-color: #D5DEE6; color: var(--night); background: #fff; }
+    ol { padding-left: 20px; margin: 18px 0 8px; color: #33475A; line-height: 1.55; }
+    li { margin-bottom: 6px; }
+    .help { margin-top: 18px; padding-top: 14px; border-top: 1px solid #EEF2F6; font-size: 13px; color: var(--muted); }
+    .help p { color: var(--muted); font-size: 13px; }
+    .err { background: #FDEBD8; color: #8A4A10; border-radius: 10px; padding: 12px 14px; font-weight: 600; }
+    .hidden { display: none !important; }
+  </style>
+</head>
+<body>
+  <main class="card">
+    <div class="brand">
+      <svg viewBox="0 0 120 120" aria-hidden="true">
+        <path d="M27 56 A33 33 0 0 1 93 56" fill="none" stroke="#F28C28" stroke-width="9" stroke-linecap="round"/>
+        <path d="M12 94 L45 54 L60 70 L77 47 L108 94" fill="none" stroke="#FFFFFF" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      <div class="word">BIVOUAC<small>— TECH —</small></div>
+    </div>
+
+    <section id="ok" class="hidden">
+      <h1 data-t="title">Vous êtes invité dans un projet</h1>
+      <p data-t="intro">Quelqu'un vous invite à le rejoindre sur BIVOUAC-TECH, le camp de base où humains et IA construisent ensemble.</p>
+      <div class="code" id="code"></div>
+
+      <a class="btn primary" id="open" href="#" data-t="open">Ouvrir dans BIVOUAC-TECH</a>
+      <a class="btn second" id="download" href="https://github.com/AMAC-BIVOUAC/bivouac-connect/releases/latest" data-t="download">Télécharger BIVOUAC-TECH pour Windows</a>
+
+      <ol>
+        <li data-t="s1">Pas encore l'application ? Téléchargez-la et installez-la. Si Windows affiche un avertissement : « Informations complémentaires », puis « Exécuter quand même ».</li>
+        <li data-t="s2">Revenez sur cette page et cliquez sur « Ouvrir dans BIVOUAC-TECH ».</li>
+        <li data-t="s3">Créez votre compte (ou connectez-vous) : vous arrivez directement dans le projet.</li>
+      </ol>
+
+      <div class="help">
+        <p data-t="manual">L'application ne s'ouvre pas ? Dans BIVOUAC-TECH, cliquez sur « Nouvel espace », puis collez ce code dans « Rejoindre ».</p>
+        <button class="btn small" id="copy" data-t="copy">Copier le code</button>
+        <p style="margin-top:10px" data-t="once">Ce lien est personnel : il ne sert qu'une fois et expire au bout de 15 jours.</p>
+      </div>
+    </section>
+
+    <section id="bad" class="hidden">
+      <h1 data-t="badTitle">Lien d'invitation incomplet</h1>
+      <p class="err" data-t="bad">Ce lien ne contient pas de code d'invitation valide. Demandez un nouveau lien à la personne qui vous a invité.</p>
+    </section>
+  </main>
+
+  <script>
+    (function () {
+      var EN = {
+        title: 'You are invited to a project',
+        intro: 'Someone invites you to join them on BIVOUAC-TECH, the base camp where humans and AI build together.',
+        open: 'Open in BIVOUAC-TECH',
+        download: 'Download BIVOUAC-TECH for Windows',
+        s1: 'No app yet? Download and install it. If Windows shows a warning: “More info”, then “Run anyway”.',
+        s2: 'Come back to this page and click “Open in BIVOUAC-TECH”.',
+        s3: 'Create your account (or sign in): you land right in the project.',
+        manual: 'The app does not open? In BIVOUAC-TECH, click “New space”, then paste this code in “Join”.',
+        copy: 'Copy code', copied: 'Code copied!',
+        once: 'This link is personal: it works once and expires after 15 days.',
+        badTitle: 'Incomplete invitation link',
+        bad: 'This link does not contain a valid invite code. Ask the person who invited you for a new link.'
+      };
+      var en = !/^fr/i.test(navigator.language || 'fr');
+      if (en) {
+        document.documentElement.lang = 'en';
+        document.title = 'Join a project · BIVOUAC-TECH';
+        document.querySelectorAll('[data-t]').forEach(function (el) {
+          var k = el.getAttribute('data-t');
+          if (EN[k]) el.textContent = EN[k];
+        });
+      }
+
+      // Code d'invitation : 8 caractères sans ambiguïté (pas de 0/O ni 1/I), ex. K7QM-4TPX
+      var m = decodeURIComponent(location.hash || '').toUpperCase().match(/([A-HJ-NP-Z2-9]{4})-?([A-HJ-NP-Z2-9]{4})/);
+      if (!m) { document.getElementById('bad').classList.remove('hidden'); return; }
+      var code = m[1] + '-' + m[2];
+      document.getElementById('ok').classList.remove('hidden');
+      document.getElementById('code').textContent = code;
+      document.getElementById('open').href = 'bivouac://rejoindre/' + code;
+
+      document.getElementById('copy').onclick = function () {
+        var btn = this;
+        navigator.clipboard.writeText(code).then(function () {
+          btn.textContent = en ? EN.copied : 'Code copié !';
+        });
+      };
+
+      // Lien direct vers le dernier installateur .exe (sinon : la page des versions)
+      fetch('https://api.github.com/repos/AMAC-BIVOUAC/bivouac-connect/releases/latest')
+        .then(function (r) { return r.ok ? r.json() : null; })
+        .then(function (rel) {
+          var exe = rel && (rel.assets || []).filter(function (a) { return /\.exe$/i.test(a.name); })[0];
+          if (exe) document.getElementById('download').href = exe.browser_download_url;
+        })
+        .catch(function () { /* on garde la page des versions */ });
+    })();
+  </script>
+</body>
+</html>
