@@ -1,0 +1,141 @@
+<!doctype html>
+<!--
+  Page publique « Nouveau mot de passe » — https://amac-bivouac.github.io/BIVOUAC-CONNECT/mot-de-passe/
+  Source : dépôt BIVOUAC-TECH, dossier pages-publiques/. Déposée dans BIVOUAC-CONNECT par
+  l'action « Publier une version ». AUCUN secret ici : la clé « publishable » de Supabase est publique
+  (la même que dans l'app), la sécurité est assurée par Supabase.
+  L'e-mail « mot de passe oublié » de Supabase renvoie ici avec un jeton temporaire après le # :
+  la page demande le nouveau mot de passe et l'enregistre directement auprès de Supabase Auth.
+  Le jeton n'est jamais gardé ni envoyé ailleurs.
+-->
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="robots" content="noindex" />
+  <meta name="referrer" content="no-referrer" />
+  <meta http-equiv="Content-Security-Policy"
+        content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; connect-src https://cdcnwomszyovsebfdwmm.supabase.co; img-src data:" />
+  <title>Nouveau mot de passe · BIVOUAC-TECH</title>
+  <style>
+    :root { --night: #0E2A3B; --teal: #12809A; --mint: #5ECDB5; --orange: #F28C28; --muted: #5B6B78; }
+    * { box-sizing: border-box; }
+    body { margin: 0; min-height: 100vh; font-family: Montserrat, "Segoe UI", system-ui, -apple-system, Arial, sans-serif;
+           background: linear-gradient(180deg, var(--night) 0%, #1E4A63 55%, #2D6A7A 100%); color: var(--night);
+           display: flex; align-items: center; justify-content: center; padding: 24px 16px; }
+    .card { width: 100%; max-width: 460px; background: #fff; border-radius: 18px; padding: 32px 28px; box-shadow: 0 20px 60px rgba(0,0,0,.25); }
+    .brand { display: flex; align-items: center; gap: 12px; margin-bottom: 22px; }
+    .brand svg { width: 46px; height: 46px; background: var(--night); border-radius: 12px; padding: 6px; }
+    .word { font-weight: 800; letter-spacing: 1px; font-size: 20px; }
+    .word small { display: block; color: var(--orange); font-size: 11px; letter-spacing: 4px; font-weight: 600; }
+    h1 { font-size: 22px; margin: 0 0 8px; }
+    p { line-height: 1.55; margin: 0 0 12px; color: #33475A; }
+    label { display: block; font-weight: 700; font-size: 13px; margin: 14px 0 6px; }
+    input { width: 100%; font: inherit; font-size: 15px; padding: 12px 14px; border: 1.5px solid #D5DEE6; border-radius: 10px; }
+    input:focus { outline: none; border-color: var(--teal); }
+    .btn { display: flex; align-items: center; justify-content: center; width: 100%; padding: 14px 18px; border-radius: 12px; margin-top: 18px;
+           font: inherit; font-weight: 700; font-size: 15px; cursor: pointer; border: 0; background: var(--orange); color: #fff; text-decoration: none; }
+    .btn:disabled { opacity: .6; cursor: default; }
+    .msg { margin-top: 12px; font-weight: 600; font-size: 14px; color: #A33733; min-height: 1em; }
+    .ok { background: #E3F6F1; color: #1F6B58; border-radius: 10px; padding: 12px 14px; font-weight: 600; }
+    .err { background: #FDEBD8; color: #8A4A10; border-radius: 10px; padding: 12px 14px; font-weight: 600; }
+    .hidden { display: none !important; }
+  </style>
+</head>
+<body>
+  <main class="card">
+    <div class="brand">
+      <svg viewBox="0 0 120 120" aria-hidden="true">
+        <path d="M27 56 A33 33 0 0 1 93 56" fill="none" stroke="#F28C28" stroke-width="9" stroke-linecap="round"/>
+        <path d="M12 94 L45 54 L60 70 L77 47 L108 94" fill="none" stroke="#FFFFFF" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      <div class="word">BIVOUAC<small>— TECH —</small></div>
+    </div>
+
+    <section id="form-box" class="hidden">
+      <h1 data-t="title">Choisissez un nouveau mot de passe</h1>
+      <p data-t="intro">8 caractères minimum. Ensuite, connectez-vous dans l'application avec ce nouveau mot de passe.</p>
+      <form id="form">
+        <label for="p1" data-t="new">Nouveau mot de passe</label>
+        <input id="p1" type="password" minlength="8" required autocomplete="new-password" />
+        <label for="p2" data-t="confirm">Confirmer le mot de passe</label>
+        <input id="p2" type="password" minlength="8" required autocomplete="new-password" />
+        <button class="btn" id="go" data-t="save">Enregistrer le mot de passe</button>
+        <p class="msg" id="msg"></p>
+      </form>
+    </section>
+
+    <section id="done" class="hidden">
+      <h1 data-t="doneTitle">Mot de passe changé</h1>
+      <p class="ok" data-t="done">C'est fait ! Retournez dans BIVOUAC-TECH et connectez-vous avec votre nouveau mot de passe.</p>
+      <a class="btn" href="bivouac://" data-t="open">Ouvrir BIVOUAC-TECH</a>
+    </section>
+
+    <section id="bad" class="hidden">
+      <h1 data-t="badTitle">Lien expiré ou déjà utilisé</h1>
+      <p class="err" data-t="bad">Ce lien n'est plus valable. Dans BIVOUAC-TECH, cliquez à nouveau sur « Mot de passe oublié ? » pour en recevoir un nouveau.</p>
+    </section>
+  </main>
+
+  <script>
+    (function () {
+      // Adresse et clé PUBLIQUES du projet Supabase (les mêmes que dans l'application)
+      var SUPABASE_URL = 'https://cdcnwomszyovsebfdwmm.supabase.co';
+      var PUBLIC_KEY = 'sb_publishable_K2lAX9kunDhk8bkxC9Yw6g_yRojn3CO';
+
+      var en = !/^fr/i.test(navigator.language || 'fr');
+      var EN = {
+        title: 'Choose a new password', intro: 'At least 8 characters. Then sign in to the app with this new password.',
+        'new': 'New password', confirm: 'Confirm password', save: 'Save password',
+        doneTitle: 'Password changed', done: 'Done! Go back to BIVOUAC-TECH and sign in with your new password.', open: 'Open BIVOUAC-TECH',
+        badTitle: 'Link expired or already used', bad: 'This link is no longer valid. In BIVOUAC-TECH, click “Forgot password?” again to get a new one.'
+      };
+      var M = en ? { diff: 'The two passwords do not match.', short: 'At least 8 characters.', same: 'Choose a password different from the old one.', fail: 'Could not save: ' }
+                 : { diff: 'Les deux mots de passe ne sont pas identiques.', short: '8 caractères minimum.', same: "Choisissez un mot de passe différent de l'ancien.", fail: "Enregistrement impossible : " };
+      if (en) {
+        document.documentElement.lang = 'en';
+        document.querySelectorAll('[data-t]').forEach(function (el) { if (EN[el.dataset.t]) el.textContent = EN[el.dataset.t]; });
+        document.title = 'New password · BIVOUAC-TECH';
+      }
+
+      // Jeton temporaire transmis par Supabase après le # ; on l'efface aussitôt de la barre d'adresse
+      var h = new URLSearchParams((location.hash || '').replace(/^#/, ''));
+      var token = h.get('access_token');
+      history.replaceState(null, '', location.pathname);
+      if (!token || h.get('error') || (h.get('type') && h.get('type') !== 'recovery')) {
+        document.getElementById('bad').classList.remove('hidden');
+        return;
+      }
+      document.getElementById('form-box').classList.remove('hidden');
+      var msg = document.getElementById('msg');
+
+      document.getElementById('form').addEventListener('submit', function (e) {
+        e.preventDefault();
+        var p1 = document.getElementById('p1').value, p2 = document.getElementById('p2').value;
+        if (p1.length < 8) { msg.textContent = M.short; return; }
+        if (p1 !== p2) { msg.textContent = M.diff; return; }
+        var go = document.getElementById('go');
+        go.disabled = true; msg.textContent = '';
+        fetch(SUPABASE_URL + '/auth/v1/user', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json', apikey: PUBLIC_KEY, Authorization: 'Bearer ' + token },
+          body: JSON.stringify({ password: p1 })
+        }).then(function (r) {
+          return r.json().catch(function () { return {}; }).then(function (b) {
+            if (r.ok) {
+              token = null;
+              document.getElementById('form-box').classList.add('hidden');
+              document.getElementById('done').classList.remove('hidden');
+              return;
+            }
+            go.disabled = false;
+            var t = (b && (b.msg || b.message || b.error_description)) || ('HTTP ' + r.status);
+            if (r.status === 401 || r.status === 403) { document.getElementById('form-box').classList.add('hidden'); document.getElementById('bad').classList.remove('hidden'); return; }
+            msg.textContent = /same|different/i.test(t) ? M.same : M.fail + t;
+          });
+        }).catch(function (err) { go.disabled = false; msg.textContent = M.fail + err.message; });
+      });
+    })();
+  </script>
+</body>
+</html>
