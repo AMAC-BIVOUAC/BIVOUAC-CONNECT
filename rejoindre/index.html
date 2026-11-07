@@ -1,6 +1,6 @@
 <!doctype html>
 <!--
-  Page publique « Rejoindre » — https://amac-bivouac.github.io/bivouac-connect/rejoindre/#K7QM-4TPX
+  Page publique « Rejoindre » — https://amac-bivouac.github.io/BIVOUAC-CONNECT/rejoindre/#K7QM-4TPX
   Source : dépôt BIVOUAC-TECH, dossier pages-publiques/. Déposée dans bivouac-connect par
   l'action « Publier une version ». AUCUN secret ici : cette page est publique.
   Elle lit le code après le #, propose d'ouvrir l'app (bivouac://rejoindre/<code>)
@@ -60,7 +60,7 @@
       <div class="code" id="code"></div>
 
       <a class="btn primary" id="open" href="#" data-t="open">Ouvrir dans BIVOUAC-TECH</a>
-      <a class="btn second" id="download" href="https://github.com/AMAC-BIVOUAC/bivouac-connect/releases/latest" data-t="download">Télécharger BIVOUAC-TECH pour Windows</a>
+      <a class="btn second" id="download" href="https://github.com/AMAC-BIVOUAC/BIVOUAC-CONNECT/releases/latest" data-t="download">Télécharger BIVOUAC-TECH pour Windows</a>
 
       <ol>
         <li data-t="s1">Pas encore l'application ? Téléchargez-la et installez-la. Si Windows affiche un avertissement : « Informations complémentaires », puis « Exécuter quand même ».</li>
@@ -123,7 +123,7 @@
       };
 
       // Lien direct vers le dernier installateur .exe (sinon : la page des versions)
-      fetch('https://api.github.com/repos/AMAC-BIVOUAC/bivouac-connect/releases/latest')
+      fetch('https://api.github.com/repos/AMAC-BIVOUAC/BIVOUAC-CONNECT/releases/latest')
         .then(function (r) { return r.ok ? r.json() : null; })
         .then(function (rel) {
           var exe = rel && (rel.assets || []).filter(function (a) { return /\.exe$/i.test(a.name); })[0];
