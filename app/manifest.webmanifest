@@ -1,0 +1,16 @@
+{
+  "name": "BIVOUAC-TECH",
+  "short_name": "BIVOUAC",
+  "description": "Le camp de base de vos projets, où humains et IA construisent ensemble.",
+  "lang": "fr",
+  "start_url": "./#/home",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#0E2A3B",
+  "theme_color": "#0E2A3B",
+  "icons": [
+    { "src": "assets/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "assets/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "assets/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

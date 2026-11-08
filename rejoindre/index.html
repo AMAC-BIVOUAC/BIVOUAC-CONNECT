@@ -61,6 +61,7 @@
 
       <a class="btn primary" id="open" href="#" data-t="open">Ouvrir dans BIVOUAC-TECH</a>
       <a class="btn second" id="download" href="https://github.com/AMAC-BIVOUAC/BIVOUAC-CONNECT/releases/latest" data-t="download">Télécharger BIVOUAC-TECH pour Windows</a>
+      <a class="btn second" id="web" href="../app/" data-t="web">Ouvrir la version web (téléphone, Mac, tout navigateur)</a>
 
       <ol>
         <li data-t="s1">Pas encore l'application ? Téléchargez-la et installez-la. Si Windows affiche un avertissement : « Informations complémentaires », puis « Exécuter quand même ».</li>
@@ -88,6 +89,7 @@
         intro: 'Someone invites you to join them on BIVOUAC-TECH, the base camp where humans and AI build together.',
         open: 'Open in BIVOUAC-TECH',
         download: 'Download BIVOUAC-TECH for Windows',
+        web: 'Open the web version (phone, Mac, any browser)',
         s1: 'No app yet? Download and install it. If Windows shows a warning: “More info”, then “Run anyway”.',
         s2: 'Come back to this page and click “Open in BIVOUAC-TECH”.',
         s3: 'Create your account (or sign in): you land right in the project.',
@@ -114,6 +116,14 @@
       document.getElementById('ok').classList.remove('hidden');
       document.getElementById('code').textContent = code;
       document.getElementById('open').href = 'bivouac://rejoindre/' + code;
+      // Version web (même site, dossier app/) : rien à installer ; mise en avant hors de Windows
+      var web = document.getElementById('web');
+      web.href = '../app/#/rejoindre/' + code;
+      if (!/Windows/i.test(navigator.userAgent)) {
+        web.className = 'btn primary';
+        document.getElementById('open').className = 'btn second';
+        web.parentNode.insertBefore(web, document.getElementById('open'));
+      }
 
       document.getElementById('copy').onclick = function () {
         var btn = this;
