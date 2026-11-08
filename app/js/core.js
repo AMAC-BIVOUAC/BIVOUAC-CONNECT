@@ -174,13 +174,14 @@ B.acceptFiles = (files) => {
   return ok;
 };
 
-B.uploadFile = async (projectId, file, messageId = null) => {
+B.uploadFile = async (projectId, file, messageId = null, folderId = null) => {
   if (file.size > B.MAX_FILE_MB * 1024 * 1024) {
     throw new Error(tr('« {name} » est trop gros ({size}). Taille maximum : {max} Mo par fichier.', { name: file.name, size: fmtSize(file.size), max: B.MAX_FILE_MB }));
   }
   const path = await storeBlob(projectId, file, file.name);
   const { data, error } = await B.sb.from('files').insert({
-    project_id: projectId, message_id: messageId, name: file.name, path, size: file.size, mime: file.type || null
+    project_id: projectId, message_id: messageId, name: file.name, path, size: file.size, mime: file.type || null,
+    ...(folderId ? { folder_id: folderId } : {})
   }).select().single();
   if (error) throw error;
   return data;
