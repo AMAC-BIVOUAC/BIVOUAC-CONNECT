@@ -79,7 +79,11 @@ B.pages.settings = async (view) => {
                   <button type="button" class="btn tiny primary" data-nick-save>${tr('Enregistrer')}</button>
                   <button type="button" class="btn tiny" data-nick-cancel>${tr('Annuler')}</button>
                 </span>
-              </span></span>
+              </span>
+              ${a.connector ? (B.connectorStale(a.id)
+                ? `<span class="con-refresh stale">${icon('spark', 13)} ${tr('Nouveaux outils disponibles')} ·
+                    <button type="button" class="link small" data-refresh="${a.id}">${tr('Actualiser le connecteur')}</button></span>`
+                : `<span class="con-refresh"><button type="button" class="link small" data-refresh="${a.id}">${icon('download', 12)} ${tr('Actualiser le connecteur')}</button></span>`) : ''}</span>
             <span class="state ok">${icon('check', 14)} ${tr('Branchée')}</span>
             ${a.connector ? `<button class="link small danger con-del" data-p="${a.id}">${tr('Retirer')}</button>` : ''}
           </div>`).join('')}
@@ -297,6 +301,7 @@ B.pages.settings = async (view) => {
     $('[data-nick-cancel]', form).onclick = () => open(false);
     inp.addEventListener('keydown', (e) => { if (e.key === 'Enter') save(); if (e.key === 'Escape') open(false); });
   });
+  $$('[data-refresh]', view).forEach((b) => (b.onclick = () => B.connectorRefresh(b.dataset.refresh, refresh)));
   $$('.con-del', view).forEach((b) => (b.onclick = async () => {
     const ok = await B.confirm(tr("Ne plus proposer {ai} à l'équipe ? Pour couper vraiment l'accès, retirez aussi le connecteur BIVOUAC-TECH dans les réglages de {ai}.", { ai: PROVIDERS[b.dataset.p].label }), tr('Retirer'));
     if (!ok) return;

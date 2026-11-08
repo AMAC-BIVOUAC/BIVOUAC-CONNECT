@@ -108,6 +108,10 @@ textarea { resize: vertical; }
 .ai-duo .ai-owner .avatar { box-shadow: none; }
 .ai-status-info { display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 0; }
 .ai-nick { display: flex; align-items: center; margin-top: 2px; }
+.con-refresh { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; margin-top: 2px; font-size: 13px; }
+.con-refresh.stale { color: #B5621A; font-weight: 600; }
+.con-refresh .link svg { vertical-align: -2px; }
+.cr-steps { margin: 10px 0 4px; padding-left: 22px; display: grid; gap: 8px; line-height: 1.45; }
 .ai-nick [data-nick-edit] { display: inline-flex; align-items: center; gap: 4px; padding: 0; font-size: 12.5px; }
 .ai-nick [data-nick-edit][hidden] { display: none; }
 .ai-nick-form { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }

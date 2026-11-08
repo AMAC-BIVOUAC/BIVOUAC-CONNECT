@@ -211,3 +211,64 @@ ${window.BIVOUAC_WEB ? '' : `        <button class="cw-choice" data-advanced>${a
   show(current);
   obs.observe($('#modal'), { childList: true });
 };
+
+// ---------------------------------------------------------------------
+// « Actualiser le connecteur » : Claude et ChatGPT gardent la liste des outils vue au branchement.
+// Quand le connecteur gagne des outils (TOOLS_VERSION), l'IA ne les voit qu'après une actualisation
+// faite DANS son app (on ne peut pas la forcer d'ici). Le connecteur note la liste chargée par chaque IA
+// (profiles.connector_tools, migration 023) : l'app sait quand c'est nécessaire et quand c'est fait.
+// ---------------------------------------------------------------------
+
+/** Cette IA a-t-elle chargé la dernière liste d'outils ? (réponse « faite à la main » retenue sur ce poste) */
+B.connectorStale = (provider) =>
+  (Number(B.me?.connector_tools?.[provider]) || 0) < CONNECTOR_TOOLS_VERSION
+  && store.get(`connector-refreshed:${provider}`, 0) < CONNECTOR_TOOLS_VERSION;
+
+B.connectorRefresh = (provider, onDone = null) => {
+  const gpt = provider === 'openai';
+  const claude = provider === 'anthropic';
+  const label = PROVIDERS[provider]?.label || tr('votre IA');
+  const steps = gpt ? [
+    tr('Ouvrez ChatGPT (bouton ci-dessous), puis <strong>Plugins</strong> dans le menu de gauche.'),
+    tr('Cliquez sur <strong>BIVOUAC-TECH</strong>, puis sur <strong>Actualiser</strong>.'),
+    tr('Pas de bouton « Actualiser » ? <strong>Retirez</strong> BIVOUAC-TECH, puis ajoutez-le de nouveau : Ajouter → Ajouter un serveur MCP personnalisé, même nom, même adresse (ci-dessous), puis autorisez.'),
+    tr('Ouvrez une <strong>nouvelle conversation</strong> : les nouveaux outils y sont.')
+  ] : claude ? [
+    tr('Ouvrez une <strong>nouvelle conversation</strong> dans Claude : le plus souvent, cela suffit.'),
+    tr('Sinon : ouvrez les connecteurs de Claude (bouton ci-dessous), cliquez sur <strong>BIVOUAC-TECH</strong>, puis <strong>Déconnecter</strong> et <strong>Connecter</strong> (autorisez de nouveau).'),
+    tr('Ouvrez une nouvelle conversation.')
+  ] : [
+    tr('Dans les réglages de {ai}, actualisez le connecteur BIVOUAC-TECH (ou retirez-le puis ajoutez-le de nouveau avec la même adresse).', { ai: label }),
+    tr('Ouvrez une nouvelle conversation.')
+  ];
+  const stale = B.connectorStale(provider);
+  const m = B.modal(`
+    <h2>${tr('Actualiser le connecteur dans {ai}', { ai: esc(label) })}</h2>
+    <p>${stale
+      ? tr('BIVOUAC-TECH a de <strong>nouveaux outils</strong> (envoyer un document, ranger dans des dossiers…). {ai} garde en mémoire l\'ancienne liste : actualisez-la une fois pour qu\'il les voie.', { ai: esc(label) })
+      : tr('{ai} voit déjà les derniers outils de BIVOUAC-TECH. Actualisez seulement s\'il dit qu\'un outil n\'existe pas.', { ai: esc(label) })}</p>
+    <ol class="cr-steps">${steps.map((s) => `<li>${s}</li>`).join('')}</ol>
+    <div class="cw-copy"><label>${tr('Adresse du serveur MCP (URL)')}</label>
+      <div class="row"><code id="cr-url">${esc(CONNECTOR_URL())}</code>
+      <button class="btn small" id="cr-copy">${icon('copy', 14)} ${tr('Copier')}</button></div></div>
+    <p class="muted small">${tr('Une fois fait, cette page le voit toute seule dès que {ai} recharge les outils.', { ai: esc(label) })}</p>
+    <div class="actions">
+      ${gpt || claude ? `<button class="btn" id="cr-open">${icon('arrow', 14)} ${gpt ? tr('Ouvrir ChatGPT') : tr('Ouvrir les connecteurs de Claude')}</button>` : ''}
+      <span class="spacer"></span>
+      <button class="btn" data-close>${tr('Plus tard')}</button>
+      <button class="btn primary" id="cr-done">${tr('C\'est fait')}</button></div>`);
+  $('[data-close]', m).onclick = B.closeModal;
+  $('#cr-open', m)?.addEventListener('click', () => window.bivouac.openExternal(gpt ? CHATGPT_HOME : CLAUDE_CONNECTORS));
+  $('#cr-copy', m).onclick = async (e) => {
+    const code = $('#cr-url', m);
+    try { await navigator.clipboard.writeText(code.textContent); e.currentTarget.innerHTML = `${icon('check', 14)} ${tr('Copié !')}`; }
+    catch { getSelection().selectAllChildren(code); e.currentTarget.textContent = tr('Faites Ctrl+C'); }
+  };
+  $('#cr-done', m).onclick = () => {
+    // L'IA ne s'est peut-être pas fait reconnaître : on la croit sur parole, sur ce poste
+    store.set(`connector-refreshed:${provider}`, CONNECTOR_TOOLS_VERSION);
+    B.closeModal();
+    B.toast(tr('Merci ! Dites par exemple à {ai} : « Liste les documents de mon projet Bivouac ».', { ai: esc(label) }), { type: 'success', timeout: 7000 });
+    if (onDone) onDone();
+  };
+};
