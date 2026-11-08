@@ -80,10 +80,10 @@ B.pages.settings = async (view) => {
                   <button type="button" class="btn tiny" data-nick-cancel>${tr('Annuler')}</button>
                 </span>
               </span>
-              ${a.connector ? (B.connectorStale(a.id)
+              ${a.connector && B.connectorStale(a.id)
                 ? `<span class="con-refresh stale">${icon('spark', 13)} ${tr('Nouveaux outils disponibles')} ·
                     <button type="button" class="link small" data-refresh="${a.id}">${tr('Actualiser le connecteur')}</button></span>`
-                : `<span class="con-refresh"><button type="button" class="link small" data-refresh="${a.id}">${icon('download', 12)} ${tr('Actualiser le connecteur')}</button></span>`) : ''}</span>
+                : ''}</span>
             <span class="state ok">${icon('check', 14)} ${tr('Branchée')}</span>
             ${a.connector ? `<button class="link small danger con-del" data-p="${a.id}">${tr('Retirer')}</button>` : ''}
           </div>`).join('')}
