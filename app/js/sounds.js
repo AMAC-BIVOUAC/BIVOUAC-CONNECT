@@ -103,7 +103,7 @@ B.syncOnline = async () => {
     onlineChannels.set(pid, ch);
     ch.on('presence', { event: 'sync' }, onlineRecompute);
     ch.subscribe(async (status) => {
-      if (status === 'SUBSCRIBED') await ch.track({ at: new Date().toISOString() }).catch(() => {});
+      if (status === 'SUBSCRIBED') await ch.track(onlineState(pid)).catch(() => {});
     });
   }
   // On laisse quelques secondes aux canaux pour se remplir avant d'activer les sons
@@ -118,3 +118,51 @@ B.leaveOnline = () => {
 window.addEventListener('beforeunload', () => B.leaveOnline());
 
 B.isOnline = (uid) => uid === B.me?.id || B.online.has(uid);
+
+// ---------------------------------------------------------------------
+// Qui est en vocal, façon Discord (09/11) : ma présence dans le projet dit aussi dans quel salon vocal
+// je suis (et micro coupé / son coupé / caméra). Tout membre connecté le voit, sans rejoindre le vocal.
+// Rien en base : c'est la même présence privée online:<projet> (migration 014).
+// ---------------------------------------------------------------------
+
+/** Ce que je publie dans la présence d'un projet */
+function onlineState(pid) {
+  const v = B.voice;
+  const inVoice = v && v.project.id === pid && !v.connecting;
+  return {
+    at: new Date().toISOString(),
+    voice: inVoice ? { channel: v.channel.id, muted: Boolean(v.muted || v.deafened || v.noMic), deafened: Boolean(v.deafened), cam: Boolean(v.cam) } : null
+  };
+}
+
+// Je rejoins / quitte un vocal, coupe mon micro… : je mets ma présence à jour dans mes projets
+let lastVoiceKey = '';
+B.on('voice', debounce(() => {
+  const v = B.voice;
+  const key = v && !v.connecting ? `${v.project.id}|${v.channel.id}|${v.muted}|${v.deafened}|${v.noMic}|${Boolean(v.cam)}` : '';
+  if (key === lastVoiceKey) return;
+  lastVoiceKey = key;
+  for (const [pid, ch] of onlineChannels) ch.track(onlineState(pid)).catch(() => {});
+}, 250));
+
+/** Les personnes dans le salon vocal d'un projet (moi compris), d'après la présence : [{ id, muted, deafened, cam }] */
+B.voiceIn = (pid, channelId) => {
+  const ch = onlineChannels.get(pid);
+  if (!ch) return [];
+  const out = [];
+  for (const [uid, metas] of Object.entries(ch.presenceState())) {
+    const voice = (metas || []).map((m) => m.voice).find((x) => x && x.channel === channelId);
+    if (voice) out.push({ id: uid, ...voice });
+  }
+  return out.sort((a, b) => B.person(a.id).display_name.localeCompare(B.person(b.id).display_name, B.locale()));
+};
+
+/** Dans quel salon vocal est cette personne (dans ce projet, ou dans n'importe lequel) ? */
+B.voiceWhere = (uid, pid = null) => {
+  for (const [p, ch] of onlineChannels) {
+    if (pid && p !== pid) continue;
+    const voice = (ch.presenceState()[uid] || []).map((m) => m.voice).find(Boolean);
+    if (voice) return { project: p, ...voice };
+  }
+  return null;
+};

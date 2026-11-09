@@ -93,7 +93,8 @@ async function renderDiscussion(el, p, channelId) {
     <div class="discussion">
       <aside class="channels">
         <div class="channels-title">${tr('Salons')}</div>
-        ${channels.map((c) => `<a href="#/p/${p.id}/discussion/${c.id}" class="${c.id === current?.id ? 'on' : ''}">${icon('hash', 15)}<span class="channel-name">${esc(c.name)}</span><span class="unread-badge hidden" data-unread="channel:${c.id}"></span></a>`).join('')}
+        ${channels.map((c) => `<a href="#/p/${p.id}/discussion/${c.id}" class="${c.id === current?.id ? 'on' : ''}">${icon('hash', 15)}<span class="channel-name">${esc(c.name)}</span><span class="unread-badge hidden" data-unread="channel:${c.id}"></span></a>
+          <div class="ch-voice" data-ch-voice="${c.id}"></div>`).join('')}
         <button class="add-channel">${icon('plus', 15)} ${tr('Ajouter un salon')}</button>
         <p class="channels-note">${icon('users', 13)} ${tr("Ici, uniquement entre humains. Les IA travaillent dans l'Atelier.")}</p>
       </aside>
@@ -122,6 +123,24 @@ async function renderDiscussion(el, p, channelId) {
       location.hash = `#/p/${p.id}/discussion/${data.id}`;
     };
   };
+
+  // Qui est en vocal dans chaque salon, façon Discord (présence du projet, sounds.js) ; clic = ouvrir le salon
+  const paintChanVoice = () => $$('[data-ch-voice]', el).forEach((box) => {
+    const people = B.voiceIn(p.id, box.dataset.chVoice);
+    box.innerHTML = people.map((x) => {
+      const person = B.person(x.id);
+      const state = x.deafened ? icon('headoff', 12) : x.muted ? icon('micoff', 12) : '';
+      return `<a class="ch-voice-person" href="#/p/${p.id}/discussion/${box.dataset.chVoice}" title="${esc(person.display_name)}">
+        <span class="voice-ring ${B.voice && B.voiceSpeaking(x.id) ? 'speaking' : ''}" data-voice-uid="${esc(x.id)}">${avatar(person, 20)}</span>
+        <span class="ch-voice-name" translate="no">${esc(person.display_name)}</span>
+        ${x.cam ? `<span class="ch-voice-state">${icon('video', 12)}</span>` : ''}${state ? `<span class="ch-voice-state">${state}</span>` : ''}</a>`;
+    }).join('');
+    box.classList.toggle('hidden', !people.length);
+    paintIcons(box);
+  });
+  paintChanVoice();
+  B.onLeave(B.on('online', paintChanVoice));
+  B.onLeave(B.on('voice', debounce(paintChanVoice, 400)));
 
   B.live('chans', 'channels', `project_id=eq.${p.id}`, debounce(() => {
     if (location.hash.startsWith(`#/p/${p.id}/discussion`)) B.route();

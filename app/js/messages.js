@@ -29,11 +29,20 @@ function paintDmBadges() {
   });
 }
 
+B.paintDmBadges = paintDmBadges;
+
+/** La photo d'une personne avec, posée dessus, la pastille de ses messages privés non lus (et sa présence) */
+B.dmAvatar = (person, size = 26, { presence = true } = {}) =>
+  `<span class="online-av">${avatar(person, size)}${presence ? `<span class="presence ${B.isOnline(person.id) ? '' : 'off'}" data-online="${person.id}"></span>` : ''}<span class="av-badge hidden" data-dm-unread="${person.id}" title="${esc(tr('Messages privés non lus'))}"></span></span>`;
+
+/** Les non-lus ont changé : pastilles, et l'encart (une personne hors ligne qui m'a écrit y apparaît) */
+function dmChanged() { B.renderOnline(); }
+
 B.loadDmUnread = async () => {
   const { data, error } = await B.sb.rpc('dm_unread');
   if (error) return console.warn('Messages privés non lus', error.message); // ex. migration 024 pas encore appliquée
   B.dmUnread = new Map((data || []).map((r) => [r.sender_id, Number(r.unread)]));
-  paintDmBadges();
+  dmChanged();
 };
 
 // ---------- Encart « En ligne » de la colonne de gauche ----------
@@ -46,14 +55,19 @@ B.renderOnline = () => {
   const project = pid ? B.project(pid) : null;
   const people = project ? B.projectMembers(pid).filter((m) => m.id !== B.me.id) : B.teammates();
   const on = people.filter((m) => B.online.has(m.id));
+  // Les personnes hors ligne qui m'ont écrit restent visibles (grisées) tant que je n'ai pas lu, quel que soit le projet
+  const waiting = B.teammates().filter((m) => !B.online.has(m.id) && B.dmUnread.get(m.id));
   const scope = $('#online-scope');
   if (scope) { scope.textContent = project ? ` · ${project.name}` : ''; scope.title = project ? project.name : ''; }
-  box.innerHTML = on.length
-    ? on.map((m) => `<a class="online-person" href="#/messages/${m.id}" title="${esc(tr('Écrire à {name}', { name: m.display_name }))}">
-        <span class="online-av">${avatar(m, 26)}<span class="presence"></span></span>
+  const row = (m, offline) => `<a class="online-person ${offline ? 'offline' : ''}" href="#/messages/${m.id}" title="${esc(B.dmUnread.get(m.id)
+      ? tr('{name} vous a écrit en privé', { name: m.display_name }) : tr('Écrire à {name}', { name: m.display_name }))}">
+        ${B.dmAvatar(m, 26)}
         <span class="space-name" translate="no">${esc(m.display_name)}</span>
-        <span class="unread-badge hidden" data-dm-unread="${m.id}"></span></a>`).join('')
-    : `<p class="nav-empty">${project ? tr('Personne d\'autre de ce projet en ligne') : tr('Personne d\'autre en ligne')}</p>`;
+        ${B.voiceWhere?.(m.id, project ? pid : null) ? `<span class="online-voice" title="${esc(tr('En vocal'))}">${icon('headphones', 13)}</span>` : ''}</a>`;
+  box.innerHTML = (on.length
+    ? on.map((m) => row(m, false)).join('')
+    : `<p class="nav-empty">${project ? tr('Personne d\'autre de ce projet en ligne') : tr('Personne d\'autre en ligne')}</p>`)
+    + (waiting.length ? `<div class="online-waiting">${tr('Vous ont écrit')}</div>${waiting.map((m) => row(m, true)).join('')}` : '');
   $('#online-count') && ($('#online-count').textContent = on.length ? String(on.length) : '');
   paintDmBadges();
 };
@@ -69,7 +83,7 @@ B.startDmLive = () => {
       B.emit('dm', msg);
       if (msg.sender_id === B.dmOpen && document.hasFocus()) { B.sb.rpc('mark_dm_read', { p_other: msg.sender_id }); return; }
       B.dmUnread.set(msg.sender_id, (B.dmUnread.get(msg.sender_id) || 0) + 1);
-      paintDmBadges();
+      dmChanged();
       B.playSound('notif');
       const who = B.person(msg.sender_id).display_name;
       window.bivouac.notify('Bivouac-Tech', tr('Message privé de {name}', { name: who }), B.soundPrefs().notif);
@@ -84,7 +98,7 @@ B.startDmLive = () => {
 async function readConversation(other) {
   if (!B.dmUnread.get(other)) return;
   B.dmUnread.delete(other);
-  paintDmBadges();
+  dmChanged();
   await B.sb.rpc('mark_dm_read', { p_other: other });
 }
 
@@ -122,11 +136,11 @@ B.pages.messages = async (view, [otherId]) => {
       || a.display_name.localeCompare(b.display_name, B.locale()));
     $('.dm-list', view).innerHTML = sorted.map((m) => {
       const l = last.get(m.id);
-      return `<a class="dm-person ${m.id === other?.id ? 'on' : ''}" href="#/messages/${m.id}">
-        <span class="online-av">${avatar(m, 34)}<span class="presence ${B.isOnline(m.id) ? '' : 'off'}" data-online="${m.id}"></span></span>
+      const unread = B.dmUnread.get(m.id);
+      return `<a class="dm-person ${m.id === other?.id ? 'on' : ''} ${unread ? 'unread' : ''}" href="#/messages/${m.id}">
+        ${B.dmAvatar(m, 34)}
         <span class="dm-person-text"><strong translate="no">${esc(m.display_name)}</strong>
-          <small translate="no">${l ? `${l.sender_id === B.me.id ? tr('Vous :') + ' ' : ''}${esc(l.content.replace(/[*`#]/g, '').replace(/\s+/g, ' ').slice(0, 60))}` : `<em>${tr('Aucun message')}</em>`}</small></span>
-        <span class="unread-badge hidden" data-dm-unread="${m.id}"></span></a>`;
+          <small translate="no">${l ? `${l.sender_id === B.me.id ? tr('Vous :') + ' ' : ''}${esc(l.content.replace(/[*`#]/g, '').replace(/\s+/g, ' ').slice(0, 60))}` : `<em>${tr('Aucun message')}</em>`}</small></span></a>`;
     }).join('') || `<p class="muted small dm-pad">${tr('Personne pour l\'instant.')}</p>`;
     paintDmBadges();
   };

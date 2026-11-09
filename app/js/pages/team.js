@@ -24,7 +24,8 @@ B.pages.team = async (el, p) => {
           ${B.canInvite(p.id) ? `<button class="btn small navy" id="t-invite">${icon('plus', 14)} ${tr('Inviter')}</button>` : ''}</div>
         <div class="team-list">
           ${members.map((m) => `
-            <div class="team-row"><span class="presence ${B.isOnline(m.id) ? '' : 'off'}" data-online="${m.id}" title="${B.isOnline(m.id) ? tr('Connecté') : tr('Hors ligne')}"></span>${avatar(m, 36)}
+            <div class="team-row"><span class="presence ${B.isOnline(m.id) ? '' : 'off'}" data-online="${m.id}" title="${B.isOnline(m.id) ? tr('Connecté') : tr('Hors ligne')}"></span>${m.id === B.me.id ? avatar(m, 36)
+              : `<a href="#/messages/${m.id}" title="${esc(tr('Écrire à {name}', { name: m.display_name }))}">${B.dmAvatar ? B.dmAvatar(m, 36, { presence: false }) : avatar(m, 36)}</a>`}
               <span class="team-name">${esc(m.display_name)}<small>@${esc(m.handle)}</small></span>
               <span class="tag human">${tr('Humain')}</span>
               <span class="team-role">${m.title ? esc(m.title) : ''}</span>
@@ -57,6 +58,7 @@ B.pages.team = async (el, p) => {
     </div>`;
 
   $('#t-invite', el)?.addEventListener('click', () => B.openInvite(p.id));
+  B.paintDmBadges?.(); // pastille « messages privés non lus » sur la photo de chacun
 
   $$('.role-select', el).forEach((s) => (s.onchange = async () => {
     try {

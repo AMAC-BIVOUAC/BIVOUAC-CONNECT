@@ -176,6 +176,16 @@ textarea { resize: vertical; }
   font-size: 13px; text-decoration: none; min-width: 0; }
 .online-person:hover { background: var(--navy-2); color: #fff; }
 .online-av { position: relative; display: inline-flex; flex: none; }
+.online-voice { display: inline-flex; color: var(--mint); flex: none; }
+/* Qui est en vocal, sous chaque salon de la Discussion (façon Discord) */
+.ch-voice { display: flex; flex-direction: column; gap: 2px; margin: 0 0 4px 26px; }
+.ch-voice.hidden { display: none; }
+.ch-voice-person { display: flex; align-items: center; gap: 7px; padding: 3px 8px; border-radius: 8px; font-size: 12.5px;
+  color: var(--text); text-decoration: none; min-width: 0; }
+.ch-voice-person:hover { background: var(--bg); }
+.ch-voice-person .voice-ring { flex: none; }
+.ch-voice-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ch-voice-state { display: inline-flex; color: var(--muted); flex: none; }
 .online-av .presence { position: absolute; right: -1px; bottom: -1px; width: 9px; height: 9px; border: 2px solid var(--navy); }
 
 .me-card { display: flex; align-items: center; gap: 10px; padding: 12px 8px 0; border-top: 1px solid var(--navy-3); margin-top: 10px; }
@@ -1121,6 +1131,17 @@ video.mirror { transform: scaleX(-1); }
 .dm-person { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 10px; color: var(--navy); text-decoration: none; min-width: 0; }
 .dm-person:hover { background: #F1F8FA; }
 .dm-person.on { background: var(--teal-soft); }
+.dm-person.unread strong { color: var(--navy); font-weight: 800; }
+.dm-person.unread small { color: var(--text); font-weight: 600; }
+/* Pastille « messages privés non lus » posée sur la photo (en haut à droite), partout où elle apparaît */
+.av-badge { position: absolute; top: -7px; right: -10px; min-width: 15px; height: 15px; padding: 0 3px; border-radius: 999px;
+  background: var(--danger); color: #fff; font-size: 9.5px; font-weight: 800; line-height: 15px; text-align: center;
+  border: 2px solid #fff; box-sizing: content-box; pointer-events: none; animation: av-pop .25s ease-out; }
+.av-badge.hidden { display: none; }
+#sidebar .av-badge { border-color: var(--navy); }
+@keyframes av-pop { from { transform: scale(.4); } to { transform: scale(1); } }
+.online-person.offline { opacity: .75; }
+.online-waiting { font-size: 11.5px; color: #8FA5B6; padding: 8px 12px 2px; }
 .dm-person .online-av .presence { border-color: #fff; }
 .dm-person-text { display: flex; flex-direction: column; min-width: 0; flex: 1; }
 .dm-person-text small { color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
