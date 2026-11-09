@@ -55,6 +55,12 @@ B.pages.project = async (view, [pid, tab = 'discussion', sub]) => {
       <div id="guide-slot"></div>
       <div id="tab" class="tab tab-${tab}"></div>
     </div>`;
+  // Petit écran : les onglets défilent ; on montre l'onglet ouvert (sinon « Tâches », « Documents »… restent cachés à droite)
+  const tabsNav = $('.tabs', view), onTab = $('.tabs a.on', view);
+  if (tabsNav && onTab && tabsNav.scrollWidth > tabsNav.clientWidth) {
+    const left = onTab.getBoundingClientRect().left - tabsNav.getBoundingClientRect().left + tabsNav.scrollLeft;
+    tabsNav.scrollLeft = Math.max(0, left - (tabsNav.clientWidth - onTab.offsetWidth) / 2);
+  }
   $('#invite', view)?.addEventListener('click', () => B.openInvite(pid));
   $('#missed', view).onclick = () => B.openMissed(pid);
   B.enterProject(pid); // retient ma visite précédente (point de départ du résumé)
