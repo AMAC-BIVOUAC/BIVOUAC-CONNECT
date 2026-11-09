@@ -174,6 +174,7 @@ async function onSession(session) {
     B.renderSidebar();
     B.loadUnread();
     B.startGlobalLive();
+    B.startDmLive();
     B.refreshBadge();
     if (!B.me.onboarded) await B.runOnboarding();
     if (joined) location.hash = `#/p/${joined}`;

@@ -151,6 +151,7 @@ B.highlightNav = () => {
   const hash = location.hash || '#/home';
   $$('#sidebar [data-nav]').forEach((a) => a.classList.toggle('active', hash.startsWith(`#/${a.dataset.nav}`)));
   $$('#sidebar [data-space]').forEach((a) => a.classList.toggle('active', hash.startsWith(`#/p/${a.dataset.space}`)));
+  B.renderOnline?.(); // l'encart « En ligne » suit le projet ouvert
 };
 
 $('#new-space').addEventListener('click', () => B.openNewProject());
