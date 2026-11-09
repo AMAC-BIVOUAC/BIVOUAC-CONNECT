@@ -17,7 +17,7 @@ B.pages.hub = async (el, p) => {
         ${type === 'idea' ? `<button class="btn small tidy hidden" data-tidy title="${tr('Ranger les idées déjà transformées en tâches')}">${icon('check', 14)} <span></span></button>` : ''}</div>
       <p class="muted small">${tr(t.hint)}</p>
       <ul class="items"></ul>
-      ${type === 'idea' ? '<details class="archived hidden"><summary></summary><ul class="items archived-list"></ul></details>' : ''}
+      ${type !== 'milestone' ? '<details class="archived hidden"><summary></summary><ul class="items archived-list"></ul></details>' : ''}
       <form class="add-item">
         <input placeholder="${tr(t.placeholder)}" maxlength="200" />
         ${type === 'milestone' ? '<input type="date" class="date" />' : ''}
@@ -127,13 +127,19 @@ B.pages.hub = async (el, p) => {
         const btn = $('[data-tidy]', card);
         btn.classList.toggle('hidden', !treated.length);
         $('span', btn).textContent = tr('Ranger ({n})', { n: treated.length });
-        const archived = items.filter((i) => i.type === 'idea' && i.archived_at).sort((a, b) => b.archived_at.localeCompare(a.archived_at));
-        const box = $('.archived', card);
-        box.classList.toggle('hidden', !archived.length);
-        $('summary', box).textContent = tr(archived.length > 1 ? '{n} idées rangées' : '{n} idée rangée', { n: archived.length });
+      }
+      // Archivés : idées rangées à la main ; objectifs atteints et décisions suivies, archivés tout seuls (migration 028)
+      const box = $('.archived', card);
+      if (box) {
+        const archived = items.filter((i) => i.type === type && i.archived_at).sort((a, b) => b.archived_at.localeCompare(a.archived_at));
+        const n = archived.length;
+        box.classList.toggle('hidden', !n);
+        $('summary', box).textContent = type === 'idea' ? tr(n > 1 ? '{n} idées rangées' : '{n} idée rangée', { n })
+          : type === 'objective' ? tr(n > 1 ? '{n} objectifs atteints archivés' : '{n} objectif atteint archivé', { n })
+          : tr(n > 1 ? '{n} décisions archivées' : '{n} décision archivée', { n });
         $('.archived-list', box).innerHTML = archived.map((i) => `
           <li class="item done" data-id="${i.id}"><span class="bullet"></span>
-            <span class="item-title">${esc(i.title)}</span>
+            <span class="item-title">${esc(i.title)}${i.vote_options ? voteHtml(i) : ''}</span>
             <button class="link small" data-unarchive>${tr('Ressortir')}</button></li>`).join('');
       }
     }
@@ -235,7 +241,9 @@ B.pages.hub = async (el, p) => {
     }
     if (e.target.matches('input[type=checkbox]')) {
       await B.sb.from('items').update({ done: e.target.checked }).eq('id', item.id);
-      return load();
+      await load();
+      if (items.find((i) => i.id === item.id)?.archived_at && !item.archived_at) B.toast(tr('Objectif atteint : il est archivé en bas de la liste.'), { type: 'success' });
+      return;
     }
     if (e.target.closest('[data-archive]') || e.target.closest('[data-unarchive]')) {
       const { error } = await B.sb.from('items').update({ archived_at: e.target.closest('[data-archive]') ? new Date().toISOString() : null }).eq('id', item.id);
@@ -316,8 +324,9 @@ B.pages.hub = async (el, p) => {
           text: tr('{who} vous a confié une tâche : {title}', { who: B.me.display_name, title: t }) });
       }
       B.closeModal();
-      B.toast(tr('{what} créé(e) à partir de la décision.', { what: FOLLOW_LABEL()[type] }), { type: 'success' });
-      load();
+      await load();
+      const archived = items.find((i) => i.id === item.id)?.archived_at;
+      B.toast(tr('{what} créé(e) à partir de la décision.', { what: FOLLOW_LABEL()[type] }) + (archived ? ` ${tr('La décision est archivée en bas de la liste.')}` : ''), { type: 'success' });
     };
   }
 
