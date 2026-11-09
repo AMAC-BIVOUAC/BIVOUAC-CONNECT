@@ -57,13 +57,17 @@ B.missedData = async (pid, since, { countOnly = false } = {}) => {
   if (countOnly) return { count };
 
   const today = isoDay();
-  const [{ data: mine }, dates] = await Promise.all([
+  const [{ data: mine }, dates, { data: votes }] = await Promise.all([
     B.sb.from('tasks').select('id, title, due_date').eq('project_id', pid).eq('assignee_id', B.me.id).gt('created_at', since),
-    B.loadDates([pid], { from: today, to: isoDay(new Date(Date.now() + 7 * 86400000)) }).then((r) => r.dates.filter((x) => x.status !== 'done')).catch(() => [])
+    B.loadDates([pid], { from: today, to: isoDay(new Date(Date.now() + 7 * 86400000)) }).then((r) => r.dates.filter((x) => x.status !== 'done')).catch(() => []),
+    // Votes encore ouverts où je n'ai pas voté (une décision à trancher m'attend)
+    B.sb.from('items').select('id, title, vote_until, item_votes(user_id)').eq('project_id', pid).eq('type', 'decision')
+      .not('vote_options', 'is', null).gt('vote_until', new Date().toISOString())
   ]);
+  const openVotes = (votes || []).filter((v) => !(v.item_votes || []).some((x) => x.user_id === B.me.id));
   // Discussion d'abord, Atelier IA ensuite
   const sorted = (channels || []).slice().sort((x, y) => (x.kind === 'ai') - (y.kind === 'ai'));
-  return { since, channels: sorted, messages, activity, myTasks: mine || [], dates: dates || [], count };
+  return { since, channels: sorted, messages, activity, myTasks: mine || [], dates: dates || [], openVotes, count };
 };
 
 const mentionsMe = (m) => new RegExp(`(^|\\s)@${B.me.handle}\\b`, 'i').test(m.content || '');
@@ -130,21 +134,81 @@ B.missedMaterial = (d, project) => {
   return lines.join('\n');
 };
 
-/** Le détail cliquable sous le résumé */
-function missedDetails(d, pid) {
-  const rows = [];
-  for (const c of d.channels) {
-    const n = d.messages.filter((m) => m.channel_id === c.id).length;
-    if (!n) continue;
-    const href = c.kind === 'ai' ? `#/p/${pid}/atelier` : `#/p/${pid}/discussion/${c.id}`;
-    rows.push(`<a class="act" href="${href}"><span class="act-ico">${icon(c.kind === 'ai' ? 'spark' : 'hash', 15)}</span>
-      <span class="act-text">${c.kind === 'ai' ? tr('Atelier IA') : '#' + esc(c.name)}</span>
-      <span class="act-time">${tr(n > 1 ? '{n} messages' : '{n} message', { n })}</span></a>`);
+// ---------- Affichage lisible : des blocs courts, ce qui me concerne en premier ----------
+
+const MISSED_GROUPS = () => [
+  ['task', 'checksq', tr('Nouvelles tâches')], ['done', 'check', tr('Tâches terminées')], ['decision', 'decision', tr('Décisions')],
+  ['idea', 'bulb', tr('Idées')], ['objective', 'target', tr('Objectifs')], ['milestone', 'route', tr('Feuille de route')],
+  ['file', 'file', tr('Documents')], ['event', 'calendar', tr('Calendrier')], ['member', 'userplus', tr('Équipe')]
+];
+const plain = (s, n) => esc(String(s || '').replace(/[*`#>_]/g, '').replace(/\s+/g, ' ').trim().slice(0, n));
+const authorOf = (m) => (m.is_ai ? aiName(m.ai_provider, B.person(m.author_id)) : B.person(m.author_id).display_name);
+
+/** Les chiffres clés en haut de la fenêtre */
+function missedChips(d) {
+  const forMe = d.messages.filter(mentionsMe).length + d.myTasks.length + d.openVotes.length;
+  const chips = [
+    [forMe, 'at', forMe > 1 ? '{n} pour vous' : '{n} pour vous', 'me'],
+    [d.messages.length, 'chat', d.messages.length > 1 ? '{n} messages' : '{n} message', ''],
+    [d.activity.length, 'spark', d.activity.length > 1 ? '{n} nouveautés' : '{n} nouveauté', ''],
+    [d.dates.length, 'calendar', d.dates.length > 1 ? '{n} dates à venir' : '{n} date à venir', '']
+  ].filter(([n]) => n);
+  return chips.length ? `<div class="missed-chips">${chips.map(([n, ic, label, cls]) => `<span class="missed-chip ${cls}">${icon(ic, 13)} ${tr(label, { n })}</span>`).join('')}</div>` : '';
+}
+
+/** Tout le contenu, en blocs (sans IA, instantané) */
+function missedView(d, pid) {
+  const blocks = [];
+  const row = (href, ico, cls, title, sub, side = '') => `<a class="missed-row" href="${href}">
+    <span class="act-ico ${cls}">${icon(ico, 15)}</span>
+    <span class="missed-row-text"><strong>${title}</strong>${sub ? `<small>${sub}</small>` : ''}</span>
+    ${side ? `<span class="missed-side">${side}</span>` : ''}</a>`;
+  const block = (ico, title, body, cls = '') => `<section class="missed-block ${cls}"><h3>${icon(ico, 15)} ${title}</h3>${body}</section>`;
+  const chanHref = (c) => (c.kind === 'ai' ? `#/p/${pid}/atelier` : `#/p/${pid}/discussion/${c.id}`);
+  const chanName = (c) => (c.kind === 'ai' ? tr('Atelier IA') : `#${esc(c.name)}`);
+
+  // 1. Pour vous : mentions, tâches confiées, votes qui attendent ma voix
+  const me = [];
+  d.messages.filter(mentionsMe).forEach((m) => {
+    const c = d.channels.find((x) => x.id === m.channel_id);
+    if (c) me.push(row(chanHref(c), 'at', 'me', tr('{who} vous mentionne', { who: `<span translate="no">${esc(authorOf(m))}</span>` }),
+      `<span translate="no">« ${plain(m.content, 110)} »</span> · ${chanName(c)}`, timeAgo(m.created_at)));
+  });
+  d.myTasks.forEach((t) => me.push(row(`#/p/${pid}/taches`, 'checksq', '', tr('Tâche pour vous : {title}', { title: `<span translate="no">${esc(t.title)}</span>` }),
+    t.due_date ? tr('À faire pour le {date}', { date: fmtDate(t.due_date) }) : '')));
+  d.openVotes.forEach((v) => me.push(row(`#/p/${pid}/projet`, 'users', 'vote', tr('Vote à donner : {title}', { title: `<span translate="no">${esc(v.title)}</span>` }),
+    tr('Clôture {when}', { when: new Date(v.vote_until).toLocaleString(B.locale(), { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) }))));
+  if (me.length) blocks.push(block('at', tr('Pour vous'), me.join(''), 'for-me'));
+
+  // 2. Conversations : un salon par ligne, qui a écrit et le dernier message
+  const convs = d.channels.map((c) => {
+    const list = d.messages.filter((m) => m.channel_id === c.id);
+    if (!list.length) return '';
+    const last = list[list.length - 1];
+    const who = [...new Set(list.map(authorOf))];
+    const whoTxt = who.length <= 3 ? who.join(', ') : `${who.slice(0, 3).join(', ')} +${who.length - 3}`;
+    return row(chanHref(c), c.kind === 'ai' ? 'spark' : 'hash', c.kind === 'ai' ? 'ai' : '',
+      `${chanName(c)} <span class="missed-count">${tr(list.length > 1 ? '{n} messages' : '{n} message', { n: list.length })}</span>`,
+      `<span translate="no">${esc(whoTxt)}</span> — <span translate="no">« ${plain(last.content, 90)} »</span>`, tr('Lire'));
+  }).join('');
+  if (convs) blocks.push(block('chat', tr('Conversations'), convs));
+
+  // 3. Dans le projet : les nouveautés regroupées par type
+  const groups = MISSED_GROUPS().map(([key, ico, label]) => {
+    const list = d.activity.filter((a) => a.icon === key);
+    if (!list.length) return '';
+    const shown = list.slice(-4).reverse().map((a) => `<li translate="no">${esc(a.text)}</li>`).join('');
+    const more = list.length > 4 ? `<li class="muted">${tr(list.length - 4 > 1 ? 'et {n} autres' : 'et {n} autre', { n: list.length - 4 })}</li>` : '';
+    return `<div class="missed-group"><span class="act-ico ${key}">${icon(ico, 15)}</span><div><strong>${label} <span class="missed-count">${list.length}</span></strong><ul>${shown}${more}</ul></div></div>`;
+  }).join('');
+  if (groups) blocks.push(block('spark', tr('Dans le projet'), `<div class="missed-groups">${groups}</div><a class="link small" href="#/p/${pid}/projet">${tr('Voir « Notre projet »')}</a>`));
+
+  // 4. À venir (7 jours)
+  if (d.dates.length) {
+    blocks.push(block('calendar', tr('À venir (7 jours)'), d.dates.slice(0, 6).map((x) => row(`#/p/${pid}/calendrier`, 'calendar', 'event',
+      `<span translate="no">${esc(x.title)}</span>`, '', `${fmtDate(x.day)}${x.time ? ' · ' + esc(x.time) : ''}`)).join('')));
   }
-  const ICONS = { ai: 'spark', task: 'checksq', done: 'check', idea: 'bulb', objective: 'target', decision: 'decision', milestone: 'route', file: 'file', member: 'userplus', event: 'calendar' };
-  d.activity.slice().reverse().forEach((a) => rows.push(`<div class="act"><span class="act-ico ${esc(a.icon)}">${icon(ICONS[a.icon] || 'spark', 15)}</span>
-    <span class="act-text" translate="no">${esc(a.text)}</span><span class="act-time">${timeAgo(a.created_at)}</span></div>`));
-  return rows.length ? `<details class="missed-details"><summary>${tr('Le détail')}</summary><div class="activity">${rows.join('')}</div></details>` : '';
+  return blocks.join('') || `<p class="missed-text">${tr('Rien de nouveau depuis votre dernière visite.')}</p>`;
 }
 
 // ---------- La fenêtre ----------
@@ -165,33 +229,32 @@ B.openMissed = async (pid) => {
 
   let d;
   try { d = await B.missedData(pid, since); } catch (err) { body.textContent = errText(err); return; }
-  if (!d.count && !d.myTasks.length) {
-    body.innerHTML = `<p class="missed-text">${tr('Rien de nouveau depuis votre dernière visite.')}</p>${missedDetails(d, pid)}`;
-    return;
+  const done = () => { $$('a[href^="#/"]', body).forEach((a) => a.addEventListener('click', () => B.closeModal())); paintIcons(body); };
+  if (!d.count && !d.myTasks.length && !d.openVotes.length) {
+    body.innerHTML = `<div class="missed-empty">${icon('check', 22)}<p>${tr('Rien de nouveau depuis votre dernière visite. Vous êtes à jour !')}</p></div>${d.dates.length ? missedView(d, pid) : ''}`;
+    return done();
   }
 
   const pref = B.summaryPref();
-  const facts = esc(B.missedFacts(d));
-  const details = missedDetails(d, pid);
+  const details = missedChips(d) + missedView(d, pid);
   const opt = B.summaryOptions().find((o) => o.id === pref);
 
   if (pref === 'none') {
-    body.innerHTML = `<p class="missed-text">${facts}</p>
-      <p class="missed-hint">${tr('Résumé simple, fait sans IA. Pour un vrai résumé rédigé par l\'une de vos IA, choisissez-la dans <a href="#/settings">Paramètres</a>.')}</p>
-      ${details}`;
+    body.innerHTML = `${details}
+      <p class="missed-hint">${tr('Envie d\'un résumé rédigé par l\'une de vos IA ? Choisissez-la dans <a href="#/settings">Paramètres</a>.')}</p>`;
   } else if (pref.startsWith('api:')) {
     const provider = opt.provider;
     body.innerHTML = `<div class="missed-text typing">${icon('spark', 14)} ${tr('{ai} rédige votre résumé…', { ai: esc(opt.label) })}</div>${details}`;
+    done();
     try {
       const text = await window.bivouac.summarize({
         provider, model: await B.modelFor(provider), userName: B.me.display_name, lang: B.lang, material: B.missedMaterial(d, project)
       });
       if (!$('.missed-body', m)) return; // fenêtre fermée entre-temps
-      body.innerHTML = `<div class="missed-text md" translate="no">${md(text)}</div>
-        <p class="missed-hint">${tr('Rédigé par {ai} · votre clé API', { ai: esc(opt.label) })}</p>${details}`;
+      body.innerHTML = `<div class="missed-ai"><div class="missed-text md" translate="no">${md(text)}</div>
+        <p class="missed-hint">${icon('spark', 12)} ${tr('Rédigé par {ai} · votre clé API', { ai: esc(opt.label) })}</p></div>${details}`;
     } catch (err) {
-      body.innerHTML = `<p class="missed-text">${facts}</p>
-        <p class="missed-hint error">${tr("{ai} n'a pas pu rédiger le résumé : {err}", { ai: esc(opt.label), err: esc(errText(err)) })}</p>${details}`;
+      body.innerHTML = `<p class="missed-hint error">${tr("{ai} n'a pas pu rédiger le résumé : {err}", { ai: esc(opt.label), err: esc(errText(err)) })}</p>${details}`;
     }
   } else {
     // IA de l'abonnement : elle s'ouvre avec la demande prête (et la demande est copiée, au cas où)
@@ -203,10 +266,7 @@ B.openMissed = async (pid) => {
     const where = res.target === 'desktop' ? tr("{ai} s'ouvre (application) avec la demande prête.", { ai: esc(opt.label) })
       : res.prefilled ? tr("{ai} s'ouvre dans votre navigateur avec la demande prête.", { ai: esc(opt.label) })
         : tr("{ai} s'ouvre dans votre navigateur : collez la demande (déjà copiée).", { ai: esc(opt.label) });
-    body.innerHTML = `<p class="missed-text">${where}</p>
-      <p class="missed-hint">${tr('La demande est aussi copiée : collez-la si besoin. En attendant, l\'essentiel :')}</p>
-      <p class="missed-text small">${facts}</p>${details}`;
+    body.innerHTML = `<p class="missed-hint">${icon('spark', 12)} ${where} ${tr('La demande est aussi copiée : collez-la si besoin. En attendant, l\'essentiel :')}</p>${details}`;
   }
-  $$('a[href^="#/"]', body).forEach((a) => a.addEventListener('click', () => B.closeModal()));
-  paintIcons(body);
+  done();
 };
