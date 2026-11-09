@@ -4,7 +4,6 @@
 //   mode 'ai'   : Atelier IA (humains + IA, commandes @claude / @personne Claude)
 // =====================================================================
 
-const REACTIONS = ['👍', '🚀', '❤️', '✅', '😄', '👀'];
 
 B.chat = async (root, { project, channel, mode }) => {
   const isAi = mode === 'ai';
@@ -50,6 +49,7 @@ B.chat = async (root, { project, channel, mode }) => {
   B.markRead(channel.id);
   B.onLeave(() => { if (B.openChannel === channel.id) B.openChannel = null; });
 
+  B.watchMessageImages(root);
   const list = $('.messages', root);
   const ta = $('textarea', root);
   const acBox = $('.ac', root);
@@ -229,18 +229,19 @@ B.chat = async (root, { project, channel, mode }) => {
         ${mine && !m.is_ai ? `<small class="msg-read muted">${readersIndicator(m.id)}</small>` : ''}
       </div>
       <div class="msg-tools">
+        <button type="button" class="icon-btn msg-menu" data-msg-menu aria-label="${tr('Actions du message')}" aria-expanded="false">⋯</button><div class="msg-actions" hidden>
         <button class="icon-btn" data-react title="${tr('Réagir')}">${icon('smile', 16)}</button>
         ${st.pinsReady ? `<button class="icon-btn ${m.pinned_at ? 'on' : ''}" data-pin title="${m.pinned_at ? tr('Désépingler') : tr('Épingler en haut du salon')}">${icon('pin', 16)}</button>` : ''}
         ${mine && !m.is_ai && !editing ? `<button class="icon-btn" data-edit title="${tr('Modifier')}">${icon('edit', 16)}</button>` : ''}
         ${mine || B.isManager(project.id) ? `<button class="icon-btn" data-del title="${mine ? tr('Supprimer') : tr('Supprimer (modération)')}">${icon('trash', 16)}</button>` : ''}
-      </div>
+      </div></div>
     </div>`;
   }
 
   function fileCard(f) {
     const isImg = (f.mime || '').startsWith('image/');
     return `<button class="file-card" data-file="${esc(f.id)}" data-msg="${esc(f.message_id)}" title="${tr('Ouvrir')}">
-      <span class="file-ico">${icon(isImg ? 'image' : 'file', 20)}</span>
+      <span class="file-ico">${icon(isImg ? 'image' : 'file', 20)}</span>${B.messageImage(f, 'project-files')}
       <span><strong>${esc(f.name)}</strong><small>${fmtSize(f.size)}</small></span></button>`;
   }
 
@@ -282,15 +283,15 @@ B.chat = async (root, { project, channel, mode }) => {
     const rb = e.target.closest('.reaction');
     if (rb) return toggleReaction(id, rb.dataset.emoji);
 
+    if (e.target.closest('[data-msg-menu]')) {
+      const menu = $('.msg-actions', msgEl), button = $('[data-msg-menu]', msgEl);
+      const open = menu.hidden;
+      $$('.msg-actions', list).forEach(el => { el.hidden = true; });
+      $$('[data-msg-menu]', list).forEach(el => el.setAttribute('aria-expanded', 'false'));
+      menu.hidden = !open; button.setAttribute('aria-expanded', String(open)); return;
+    }
     if (e.target.closest('[data-react]')) {
-      const picker = h(`<div class="emoji-picker">${REACTIONS.map((r) => `<button>${r}</button>`).join('')}</div>`);
-      $('.emoji-picker', list)?.remove();
-      msgEl.appendChild(picker);
-      picker.onclick = (ev) => {
-        const b = ev.target.closest('button');
-        if (b) toggleReaction(id, b.textContent);
-        picker.remove();
-      };
+      B.openMediaPicker({ emojisOnly: true, onEmoji: emoji => toggleReaction(id, emoji) });
       return;
     }
 
@@ -423,19 +424,29 @@ B.chat = async (root, { project, channel, mode }) => {
   }
 
   async function saveEdit() {
-    if (!st.editing) return;
+    if (!st.editing || st.editing.saving) return;
     const { id, draft } = st.editing;
     const m = st.messages.find((x) => x.id === id);
     const text = draft.trim();
     if (!m) return stopEdit();
     if (!text) return B.toast(tr("Un message ne peut pas être vide. Pour l'effacer, utilisez Supprimer."), { type: 'error' });
     if (text === m.content) return stopEdit();
-    const { data, error: err } = await B.sb.from('messages')
-      .update({ content: text }).eq('id', id).select().single();
-    if (err) return B.error(err);
+    const editing = st.editing; editing.saving = true;
+    const controls = $$('textarea, button', $(`.msg[data-id="${id}"] .msg-edit`, list));
+    controls.forEach(el => { el.disabled = true; });
+    let data;
+    try {
+      const result = await B.sb.from('messages').update({ content: text }).eq('id', id).select().single();
+      if (result.error) throw result.error;
+      if (!result.data) throw new Error(tr('Message introuvable.'));
+      data = result.data;
+    } catch (err) { B.error(err); return; }
+    finally { editing.saving = false; controls.forEach(el => { el.disabled = false; }); }
+    if (!active) return;
     const before = m.content;
     Object.assign(m, data);
-    stopEdit();
+    if (st.editing === editing) stopEdit();
+    else rerenderOne(id);
     // Seules les NOUVELLES mentions déclenchent une notification
     const already = mentionedHandles(before);
     notifyMentions(text, others().filter((p) => already.includes(p.handle)).map((p) => p.id));
@@ -450,7 +461,7 @@ B.chat = async (root, { project, channel, mode }) => {
   list.addEventListener('keydown', (e) => {
     if (!st.editing || !e.target.matches('.msg-edit textarea')) return;
     if (e.key === 'Escape') { e.preventDefault(); stopEdit(); }
-    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); saveEdit(); }
+    if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) { e.preventDefault(); saveEdit(); }
   });
 
   async function toggleReaction(id, emoji) {
@@ -552,19 +563,26 @@ B.chat = async (root, { project, channel, mode }) => {
   const fileInput = $('.file-input', root);
   $('.attach', root).onclick = () => fileInput.click();
   fileInput.onchange = () => {
-    st.pendingFiles.push(...B.acceptFiles(fileInput.files));
+    addMediaFiles(fileInput.files);
     fileInput.value = '';
     renderChips();
   };
   root.addEventListener('dragover', (e) => e.preventDefault());
   root.addEventListener('drop', (e) => {
     e.preventDefault();
-    st.pendingFiles.push(...B.acceptFiles(e.dataTransfer.files));
+    addMediaFiles(e.dataTransfer.files);
     renderChips();
   });
+  const previewPending = B.bindMediaComposer($('.composer', root), ta, addMediaFiles);
+  function addMediaFiles(files) {
+    const accepted = B.acceptFiles(files);
+    if (!accepted.length) return false;
+    st.pendingFiles.push(...accepted); renderChips(); return true;
+  }
   function renderChips() {
     $('.attach-chips', root).innerHTML = st.pendingFiles.map((f, i) =>
       `<span class="chip">${icon('clip', 13)} ${esc(f.name)} <button type="button" data-i="${i}">${icon('x', 12)}</button></span>`).join('');
+    previewPending($('.attach-chips', root), st.pendingFiles);
     $$('.attach-chips button', root).forEach((b) => (b.onclick = () => {
       st.pendingFiles.splice(Number(b.dataset.i), 1);
       renderChips();
@@ -779,3 +797,4 @@ B.chat = async (root, { project, channel, mode }) => {
     }
   });
 };
+

@@ -14,6 +14,26 @@ B.lang = store.get('lang', 'fr') === 'en' ? 'en' : 'fr';
 window.bivouac?.setUiLang?.(B.lang); // menu du clic droit (correcteur) dans la même langue
 
 const EN = {
+  'Visages': 'Faces',
+  'Gestes et cœurs': 'Hands and hearts',
+  'Nature et animaux': 'Nature and animals',
+  'Objets et activités': 'Objects and activities',
+  'Symboles': 'Symbols',
+  "Actions du message": "Message actions",
+  "Le message est trop long.": "The message is too long.",
+  "Smileys, GIF et mèmes": "Emoji, GIFs and memes",
+  "Smileys": "Emoji",
+  "Mèmes": "Memes",
+  "Rechercher": "Search",
+  "Importer mon GIF ou mon mème": "Upload my GIF or meme",
+  "Aucun résultat.": "No results.",
+  "Le catalogue est indisponible. Vous pouvez importer votre image.": "The catalog is unavailable. You can upload your own image.",
+  "Ajouter au message": "Add to message",
+  "Impossible de charger cette image. Réessayez ou importez un fichier.": "Unable to load this image. Try again or upload a file.",
+  "Recherche sur Wikimedia Commons : seuls vos mots de recherche sont envoyés. Les résultats sont proposés par un service externe.": "Search Wikimedia Commons: only your search terms are sent. Results are supplied by an external service.",
+  "Message supprimé": "Message deleted",
+  "Message introuvable.": "Message not found.",
+
   'Lecture du message': 'Message read status',
   'Pièce jointe': 'Attachment',
   '10 fichiers maximum · 50 Mo par fichier': 'Up to 10 files · 50 MB per file',
@@ -1253,3 +1273,4 @@ function translateStatic(root) {
 }
 document.documentElement.lang = B.lang;
 translateStatic(document.body);
+

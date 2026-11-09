@@ -377,7 +377,7 @@ textarea { resize: vertical; }
 .reaction { font: inherit; font-size: 12.5px; border: 1px solid var(--line); background: #fff; border-radius: 14px; padding: 2px 9px; cursor: pointer; }
 .reaction.mine { border-color: var(--teal); background: var(--teal-soft); }
 .msg-tools { position: absolute; top: 4px; right: 8px; display: none; background: #fff; border-radius: 10px; box-shadow: var(--shadow); }
-.msg:hover .msg-tools { display: flex; }
+.msg:hover .msg-tools, .msg:focus-within .msg-tools { display: flex; }
 .emoji-picker { position: absolute; right: 8px; top: 38px; z-index: 5; display: flex; gap: 2px; background: #fff; border-radius: 12px; box-shadow: 0 8px 24px rgba(14,42,59,.15); padding: 4px; }
 .emoji-picker button { font-size: 18px; background: none; border: 0; cursor: pointer; padding: 4px 6px; border-radius: 8px; }
 .emoji-picker button:hover { background: var(--bg); }
@@ -1217,3 +1217,51 @@ video.mirror { transform: scaleX(-1); }
 .read-indicator:focus-visible { outline: 2px solid var(--teal); outline-offset: 2px; }
 .msg-read { display: block; margin-top: 2px; }
 .read-details { overflow-wrap: anywhere; }
+
+
+/* Messagerie : commandes au toucher / clavier, médias et sélecteur partagé. */
+.msg-tools { display: flex; }
+.msg-tools .msg-actions:not([hidden]) { display: flex; flex-wrap: wrap; }
+.msg-tools .msg-actions[hidden], .dm-actions[hidden] { display: none; }
+.msg-tools { align-items: center; }
+.msg-actions { background: #fff; border-radius: 10px; box-shadow: var(--shadow); }
+.dm-tools { display: flex; align-items: center; gap: 4px; }
+.dm-actions { display: flex; gap: 4px; flex-wrap: wrap; }
+.dm-msg .msg-edit { max-width: 100%; width: 340px; }
+.dm-msg .msg-edit textarea { width: 100%; }
+.media-compose { flex: none; }
+.media-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.media-head h2 { font-size: 18px; margin: 0; }
+.media-picker { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.media-tabs, .media-categories { display: flex; gap: 6px; flex-wrap: wrap; }
+.media-categories[hidden] { display: none; }
+.media-categories .pill { font-size: 11px; }
+.media-search { display: flex; gap: 6px; }
+.media-search input { min-width: 0; flex: 1; }
+.media-results { overflow-y: auto; max-height: min(42vh, 340px); min-height: 120px; }
+.emoji-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(40px, 1fr)); gap: 3px; }
+.emoji-grid button { border: 0; border-radius: 8px; background: var(--bg); font-size: 26px; padding: 5px; min-height: 44px; cursor: pointer; }
+.emoji-grid button:hover, .emoji-grid button:focus-visible { background: var(--sand); }
+.media-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.media-grid button { padding: 4px; border: 1px solid var(--line); border-radius: 10px; background: var(--bg); cursor: pointer; min-width: 0; }
+.media-grid img { width: 100%; height: 90px; object-fit: contain; }
+.media-grid span { display: block; font-size: 10px; overflow-wrap: anywhere; }
+.media-preview { min-width: 0; }
+.media-preview img { max-width: 100%; max-height: 140px; display: block; margin: auto; }
+.media-preview p { font-size: 11px; overflow-wrap: anywhere; margin: 6px 0; }
+.message-image { display: block; max-width: 220px; max-height: 200px; object-fit: contain; border-radius: 8px; }
+.message-image:not([src]), .message-image[hidden] { display: none; }
+.file-card:has(.message-image) { flex-wrap: wrap; max-width: 100%; }
+.file-card .message-image { flex-basis: 100%; }
+.pending-image { width: 54px; height: 44px; object-fit: contain; border-radius: 6px; }
+.dm-compose-row textarea { min-width: 0; }
+@media (max-width: 600px) {
+  .msg { flex-wrap: wrap; }
+  .msg-body { flex: 1; }
+  .msg-tools { position: static; margin-left: auto; max-width: 100%; }
+  .msg-actions { max-width: 240px; }
+  .media-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .dm-compose-row { gap: 3px; }
+  .dm-compose-row .icon-btn { width: 30px; min-width: 30px; padding: 4px; }
+  .message-image { max-width: min(220px, 60vw); }
+}
