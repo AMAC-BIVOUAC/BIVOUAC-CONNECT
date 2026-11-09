@@ -47,13 +47,15 @@ async function grammarCheck(ta) {
   if (text.trim().length < 3) { st.checked = text; st.matches = []; return paint(ta); }
   if (Date.now() < cooldownUntil) { ta.spellcheck = true; return; }
   const asked = text;
+  const generation = st.generation;
   try {
     const r = await window.bivouac.grammarCheck({ text, lang: grammarLang() });
-    if (ta.value.slice(0, GRAMMAR_MAX) !== asked) return; // on a retapé entre-temps : la vérification suivante prendra le relais
+    if (st.generation !== generation || !B.grammarPrefs().on || ta.value.slice(0, GRAMMAR_MAX) !== asked) return; // on a retapé entre-temps : la vérification suivante prendra le relais
     st.checked = asked;
     st.matches = r.matches || [];
     ta.spellcheck = false; // LanguageTool souligne aussi l'orthographe : pas de double soulignement
   } catch (err) {
+    if (st.generation !== generation || !B.grammarPrefs().on) return;
     // Hors ligne, quota gratuit atteint… : on garde le correcteur de base 1 minute
     cooldownUntil = Date.now() + (/429|quota|trop/i.test(err.message || '') ? 60000 : 30000);
     st.matches = [];
@@ -120,9 +122,11 @@ function attach(ta) {
   const parent = ta.parentElement;
   if (getComputedStyle(parent).position === 'static') parent.style.position = 'relative';
   ta.insertAdjacentElement('afterend', layer);
-  const st = { layer, checked: '', matches: [], timer: null, ignored: new Set() };
+  const st = { layer, checked: '', matches: [], timer: null, generation: 0, ignored: new Set() };
   states.set(ta, st);
   ta.addEventListener('input', () => {
+    if (!ta.value) return B.grammarReset(ta);
+    st.generation++;
     paint(ta);
     clearTimeout(st.timer);
     st.timer = setTimeout(() => grammarCheck(ta), GRAMMAR_DELAY);
@@ -136,9 +140,24 @@ function attach(ta) {
 document.addEventListener('focusin', (e) => {
   if (e.target.matches?.('textarea') && B.grammarPrefs().on) attach(e.target);
 });
-// Après un envoi (zone vidée par le code) : effacer les soulignements
+/** Après un effacement par le code : annuler les vérifications et vider immédiatement le calque.
+ * Appeler au moment réel de l'effacement, notamment après le succès d'un envoi asynchrone.
+ */
+B.grammarReset = (ta) => {
+  const st = states.get(ta);
+  if (!st) return;
+  clearTimeout(st.timer);
+  st.timer = null;
+  st.generation++;
+  st.checked = null; // le même texte retapé doit être vérifié à nouveau
+  st.matches = [];
+  st.ignored.clear();
+  paint(ta);
+};
+
+// Repli pour les autres formulaires dont les champs sont vidés de façon synchrone.
 document.addEventListener('submit', () => setTimeout(() => {
-  document.querySelectorAll('textarea').forEach((ta) => { if (states.has(ta) && !ta.value) { states.get(ta).matches = []; paint(ta); } });
+  document.querySelectorAll('textarea').forEach((ta) => { if (!ta.value) B.grammarReset(ta); });
 }, 0), true);
 
 // Réglage changé : tout redessiner (ou tout effacer)
@@ -146,7 +165,9 @@ B.on('grammar', () => document.querySelectorAll('textarea').forEach((ta) => {
   const st = states.get(ta);
   if (!st) return;
   if (!B.grammarPrefs().on) { st.matches = []; ta.spellcheck = true; }
-  st.checked = '';
+  clearTimeout(st.timer);
+  st.generation++;
+  st.checked = null;
   paint(ta);
   if (B.grammarPrefs().on) grammarCheck(ta);
 }));

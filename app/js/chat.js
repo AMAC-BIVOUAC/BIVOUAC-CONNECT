@@ -726,6 +726,7 @@ B.chat = async (root, { project, channel, mode }) => {
     if (!text && !st.pendingFiles.length) return;
     const content = text || st.pendingFiles.map((f) => `📎 ${f.name}`).join('\n');
     ta.value = '';
+    B.grammarReset?.(ta);
     autoGrow();
     closeAc();
 

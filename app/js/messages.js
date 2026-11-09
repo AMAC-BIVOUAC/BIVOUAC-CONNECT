@@ -307,6 +307,7 @@ B.pages.messages = async (view, [otherId]) => {
       if (err) throw new Error(/row-level security/.test(err.message || '') ? tr('Vous ne partagez plus de projet avec cette personne.') : errText(err));
       committed = true;
       ta.value = '';
+      B.grammarReset?.(ta);
       pending = [];
       paintPending();
       if (active) { add(data); box.scrollTop = box.scrollHeight; renderList(); }
