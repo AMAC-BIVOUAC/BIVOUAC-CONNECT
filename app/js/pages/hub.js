@@ -330,7 +330,7 @@ B.pages.hub = async (el, p) => {
       <label>${tr('Date (facultatif)')}</label><input id="it-date" type="date" value="${item.due_date || ''}" />
       <p class="muted small">${tr('Ajouté par {who}', { who: esc(B.person(item.author_id).display_name) })} · ${timeAgo(item.created_at)}</p>
       <div class="actions">
-        <button class="btn danger-ghost" id="it-del">${icon('trash', 15)} ${tr('Supprimer')}</button>
+        ${B.canDelete(p.id, item.author_id, { voted: Boolean(item.vote_options) }) ? `<button class="btn danger-ghost" id="it-del">${icon('trash', 15)} ${tr('Supprimer')}</button>` : ''}
         ${item.type === 'decision' && !item.vote_options ? `<button class="btn" id="it-vote">${icon('users', 14)} ${tr('Soumettre au vote')}</button>` : ''}
         ${item.type === 'decision' && !(item.vote_options && new Date(item.vote_until) > new Date()) ? `<button class="btn" id="it-follow">${icon('arrow', 14)} ${tr('Donner suite')}</button>` : ''}
         <span class="spacer"></span>
@@ -349,11 +349,11 @@ B.pages.hub = async (el, p) => {
     };
     $('#it-follow', m)?.addEventListener('click', () => followUp(item));
     $('#it-vote', m)?.addEventListener('click', () => newVote(item));
-    $('#it-del', m).onclick = async () => {
+    $('#it-del', m)?.addEventListener('click', async () => {
       if (!(await B.confirm(tr('Supprimer « {name} » ?', { name: item.title }), tr('Supprimer')))) return;
-      await B.sb.from('items').delete().eq('id', item.id);
+      try { await B.deleteRow('items', item.id); } catch (err) { return B.error(err); }
       load();
-    };
+    });
   }
 
   await load();

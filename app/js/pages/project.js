@@ -99,7 +99,11 @@ async function renderDiscussion(el, p, channelId) {
         <p class="channels-note">${icon('users', 13)} ${tr("Ici, uniquement entre humains. Les IA travaillent dans l'Atelier.")}</p>
       </aside>
       <section class="channel-main">
-        ${current ? `<header class="channel-head"><h2># ${esc(current.name)}</h2><p>${esc(current.description || '')}</p></header>
+        ${current ? `<header class="channel-head"><h2># ${esc(current.name)}</h2><p>${esc(current.description || '')}</p>
+          ${B.isManager(p.id) ? `<span class="channel-tools">
+            <button class="icon-btn" id="ch-rename" title="${tr('Renommer le salon')}">${icon('edit', 15)}</button>
+            ${current.id !== channels[0].id ? `<button class="icon-btn" id="ch-delete" title="${tr('Supprimer le salon')}">${icon('trash', 15)}</button>` : ''}
+          </span>` : ''}</header>
         <div class="voice-strip"></div>` : ''}
         <div class="chat-slot"></div>
       </section>
@@ -123,6 +127,30 @@ async function renderDiscussion(el, p, channelId) {
       location.hash = `#/p/${p.id}/discussion/${data.id}`;
     };
   };
+
+  // Responsables (Créateur, Administrateurs) : renommer / supprimer un salon (#général ne se supprime pas)
+  $('#ch-rename', el)?.addEventListener('click', () => {
+    const m = B.modal(`<h2>${tr('Renommer le salon')}</h2>
+      <label>${tr('Nom')}</label><input id="cr-name" maxlength="40" value="${esc(current.name)}" />
+      <label>${tr('Sujet (facultatif)')}</label><input id="cr-desc" maxlength="200" value="${esc(current.description || '')}" />
+      <p class="msg" id="cr-msg"></p>
+      <div class="actions"><span class="spacer"></span><button class="btn" data-close>${tr('Annuler')}</button><button class="btn primary" id="cr-ok">${tr('Enregistrer')}</button></div>`);
+    $('[data-close]', m).onclick = B.closeModal;
+    $('#cr-ok', m).onclick = async () => {
+      const name = $('#cr-name', m).value.trim().toLowerCase().replace(/\s+/g, '-');
+      if (!name) return;
+      const { data, error: err } = await B.sb.from('channels').update({ name, description: $('#cr-desc', m).value.trim() || null })
+        .eq('id', current.id).select('id');
+      if (err || !data?.length) return ($('#cr-msg', m).textContent = err ? errText(err) : tr('Seuls le Créateur et les Administrateurs peuvent renommer un salon.'));
+      B.closeModal();
+      B.route();
+    };
+  });
+  $('#ch-delete', el)?.addEventListener('click', async () => {
+    if (!(await B.confirm(tr('Supprimer le salon #{name} et tous ses messages ? C\'est définitif.', { name: current.name }), tr('Supprimer')))) return;
+    try { await B.deleteRow('channels', current.id); } catch (err) { return B.error(err); }
+    location.hash = `#/p/${p.id}/discussion`;
+  });
 
   // Qui est en vocal dans chaque salon, façon Discord (présence du projet, sounds.js) ; clic = ouvrir le salon
   const paintChanVoice = () => $$('[data-ch-voice]', el).forEach((box) => {

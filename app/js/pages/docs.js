@@ -76,7 +76,7 @@ B.pages.docs = async (el, p) => {
         <td class="doc-actions">
           ${(f.version || 1) > 1 ? `<button class="link small" data-versions>${tr('Versions')}</button>` : ''}
           ${folders.length ? `<button class="icon-btn" data-move title="${tr('Ranger dans un dossier')}">${icon('arrow', 16)}</button>` : ''}
-          ${f.uploader_id === B.me.id ? `<button class="icon-btn" data-del title="${tr('Supprimer')}">${icon('trash', 16)}</button>` : ''}</td>
+          ${B.canDelete(f.project_id, f.uploader_id) ? `<button class="icon-btn" data-del title="${tr('Supprimer')}">${icon('trash', 16)}</button>` : ''}</td>
       </tr>`;
     }).join('');
     $('tbody', el).innerHTML = dirRows + fileRows

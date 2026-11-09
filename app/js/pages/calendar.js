@@ -122,7 +122,7 @@ B.openEvent = (ev, after) => {
     ${isNew ? '' : `<p class="muted small">${tr('Ajouté par {who}', { who: esc(B.person(ev.author_id).display_name) })}</p>`}
     <p class="msg" id="ev-msg"></p>
     <div class="actions">
-      ${isNew ? '' : `<button class="btn danger-ghost" id="ev-del">${icon('trash', 15)} ${tr('Supprimer')}</button>`}
+      ${isNew || !B.canDelete(ev.project_id, ev.author_id) ? '' : `<button class="btn danger-ghost" id="ev-del">${icon('trash', 15)} ${tr('Supprimer')}</button>`}
       <span class="spacer"></span>
       <button class="btn" data-close>${tr('Annuler')}</button>
       <button class="btn primary" id="ev-save">${isNew ? tr('Créer') : tr('Enregistrer')}</button>
@@ -146,8 +146,7 @@ B.openEvent = (ev, after) => {
   };
   $('#ev-del', m)?.addEventListener('click', async () => {
     if (!(await B.confirm(tr('Supprimer « {name} » ?', { name: ev.title }), tr('Supprimer')))) return;
-    const { error } = await B.sb.from('events').delete().eq('id', ev.id);
-    if (error) return B.error(error);
+    try { await B.deleteRow('events', ev.id); } catch (err) { return B.error(err); }
     after?.();
   });
 };
@@ -162,7 +161,7 @@ B.openMilestone = (it, after) => {
     <label>${tr('Date')}</label><input id="ms-day" type="date" value="${esc(it.due_date || isoDay())}" />
     ${isNew ? '' : `<label class="check"><input type="checkbox" id="ms-done" ${it.done ? 'checked' : ''} /> ${tr('Atteinte')}</label>`}
     <div class="actions">
-      ${isNew ? '' : `<button class="btn danger-ghost" id="ms-del">${icon('trash', 15)} ${tr('Supprimer')}</button>`}
+      ${isNew || !B.canDelete(it.project_id, it.author_id) ? '' : `<button class="btn danger-ghost" id="ms-del">${icon('trash', 15)} ${tr('Supprimer')}</button>`}
       <span class="spacer"></span>
       <button class="btn" data-close>${tr('Annuler')}</button>
       <button class="btn primary" id="ms-save">${isNew ? tr('Créer') : tr('Enregistrer')}</button>
@@ -181,7 +180,7 @@ B.openMilestone = (it, after) => {
   };
   $('#ms-del', m)?.addEventListener('click', async () => {
     if (!(await B.confirm(tr('Supprimer « {name} » ?', { name: it.title }), tr('Supprimer')))) return;
-    await B.sb.from('items').delete().eq('id', it.id);
+    try { await B.deleteRow('items', it.id); } catch (err) { return B.error(err); }
     after?.();
   });
 };

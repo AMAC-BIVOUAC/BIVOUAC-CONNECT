@@ -24,7 +24,7 @@ B.openTask = (task, after) => {
       <div><label>${tr('Statut')}</label><select id="tk-status">${STATUSES.map(([v, l]) => `<option value="${v}" ${v === (task.status || 'todo') ? 'selected' : ''}>${tr(l)}</option>`).join('')}</select></div>
     </div>
     <div class="actions">
-      ${isNew ? '' : `<button class="btn danger-ghost" id="tk-del">${icon('trash', 15)} ${tr('Supprimer')}</button>`}
+      ${isNew || !B.canDelete(task.project_id, task.created_by) ? '' : `<button class="btn danger-ghost" id="tk-del">${icon('trash', 15)} ${tr('Supprimer')}</button>`}
       <span class="spacer"></span>
       <button class="btn" data-close>${tr('Annuler')}</button><button class="btn primary" id="tk-save">${isNew ? tr('Créer') : tr('Enregistrer')}</button>
     </div>`);
@@ -53,7 +53,7 @@ B.openTask = (task, after) => {
   };
   $('#tk-del', m)?.addEventListener('click', async () => {
     if (!(await B.confirm(tr('Supprimer la tâche « {title} » ?', { title: task.title }), tr('Supprimer')))) return;
-    await B.sb.from('tasks').delete().eq('id', task.id);
+    try { await B.deleteRow('tasks', task.id); } catch (err) { return B.error(err); }
     B.loadProjects();
     after?.();
   });

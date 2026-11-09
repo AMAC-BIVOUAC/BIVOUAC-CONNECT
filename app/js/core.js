@@ -277,9 +277,24 @@ B.restoreFileVersion = async (f, old) => {
 };
 
 B.deleteFile = async (f) => {
+  await B.deleteRow('files', f.id);
   await B.sb.storage.from('project-files').remove([f.path]);
-  const { error } = await B.sb.from('files').delete().eq('id', f.id);
+};
+
+// ---------------------------------------------------------------------
+// Droits (migration 026) : « responsables » = Créateur et Administrateurs.
+// Supprimer : l'auteur ou un responsable ; une décision soumise au vote : le Créateur seul ;
+// le message de quelqu'un d'autre : un responsable (modération, notée dans l'activité).
+// ---------------------------------------------------------------------
+B.isManager = (projectId) => ['owner', 'admin'].includes(B.myRole(projectId));
+B.canDelete = (projectId, authorId, { voted = false } = {}) =>
+  voted ? B.myRole(projectId) === 'owner' : authorId === B.me?.id || B.isManager(projectId);
+
+/** Supprime une ligne ; la base ne dit rien quand une règle l'empêche (0 ligne) : on l'explique clairement */
+B.deleteRow = async (table, id) => {
+  const { data, error } = await B.sb.from(table).delete().eq('id', id).select('id');
   if (error) throw error;
+  if (!data?.length) throw new Error(tr("Vous n'avez pas le droit de supprimer cet élément : seuls son auteur, le Créateur et les Administrateurs du projet le peuvent."));
 };
 
 // ---------------------------------------------------------------------

@@ -40,7 +40,7 @@ B.pages.team = async (el, p) => {
               <span class="team-extra"><code>${a.owner.id === B.me.id ? (a.api ? '@' + PROVIDERS[a.id].word : tr("depuis l'app {ai}", { ai: PROVIDERS[a.id].label })) : '@' + esc(a.owner.handle) + ' ' + PROVIDERS[a.id].label}</code></span>
             </div>`).join('')}
         </div>
-        <p class="muted small">${tr('Créateur : tous les droits, seul à changer les statuts. Administrateur : invite et peut retirer un membre. Membre : participe au projet.')}</p>
+        <p class="muted small">${tr("Créateur : tous les droits, seul à changer les statuts et à supprimer une décision soumise au vote. Administrateur : invite, retire un membre, gère les salons et peut supprimer messages, tâches et documents des autres (modération). Membre : participe, et supprime ce qu'il a lui-même créé.")}</p>
         <p class="muted small">${tr("Chaque IA appartient à un membre et tourne sur sa clé API ou son abonnement. Pour la solliciter dans l'Atelier IA, écrivez la commande indiquée : son propriétaire devra accepter.")}</p>
       </section>
 

@@ -170,7 +170,7 @@ B.chat = async (root, { project, channel, mode }) => {
         <button class="icon-btn" data-react title="${tr('Réagir')}">${icon('smile', 16)}</button>
         ${st.pinsReady ? `<button class="icon-btn ${m.pinned_at ? 'on' : ''}" data-pin title="${m.pinned_at ? tr('Désépingler') : tr('Épingler en haut du salon')}">${icon('pin', 16)}</button>` : ''}
         ${mine && !m.is_ai && !editing ? `<button class="icon-btn" data-edit title="${tr('Modifier')}">${icon('edit', 16)}</button>` : ''}
-        ${mine ? `<button class="icon-btn" data-del title="${tr('Supprimer')}">${icon('trash', 16)}</button>` : ''}
+        ${mine || B.isManager(project.id) ? `<button class="icon-btn" data-del title="${mine ? tr('Supprimer') : tr('Supprimer (modération)')}">${icon('trash', 16)}</button>` : ''}
       </div>
     </div>`;
   }
@@ -237,9 +237,14 @@ B.chat = async (root, { project, channel, mode }) => {
     if (e.target.closest('[data-edit-save]')) return saveEdit();
 
     if (e.target.closest('[data-del]')) {
-      if (!(await B.confirm(tr('Supprimer ce message ?'), tr('Supprimer')))) return;
-      const { error: err } = await B.sb.from('messages').delete().eq('id', id);
-      if (err) return B.error(err);
+      const target = st.messages.find((x) => x.id === id);
+      const other = target && target.author_id !== B.me.id;
+      const question = other
+        ? tr('Supprimer le message de {who} ? En tant que responsable du projet, vous pouvez le faire : ce sera noté dans l\'activité du projet.',
+          { who: target.is_ai ? aiName(target.ai_provider, B.person(target.author_id)) : B.person(target.author_id).display_name })
+        : tr('Supprimer ce message ?');
+      if (!(await B.confirm(question, tr('Supprimer')))) return;
+      try { await B.deleteRow('messages', id); } catch (err) { return B.error(err); }
       st.messages = st.messages.filter((m) => m.id !== id);
       if (st.editing?.id === id) st.editing = null;
       render();
