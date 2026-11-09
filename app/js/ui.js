@@ -142,10 +142,27 @@ B.renderSidebar = () => {
   B.paintUnread(list);
 
   const me = B.me;
-  $('#me-card').innerHTML = `${avatar(me, 34)}<div><strong>${esc(me.display_name)}</strong><span>@${esc(me.handle)}</span></div>`;
+  B.renderMeCard();
   $('#top-avatar').innerHTML = avatar(me, 36);
   B.highlightNav();
 };
+
+/** Ma carte en bas de la colonne : photo + pastille de statut ; clic = changer de statut (sounds.js) */
+B.renderMeCard = () => {
+  const me = B.me;
+  const card = $('#me-card');
+  if (!me || !card) return;
+  const st = B.myStatus();
+  card.title = `@${me.handle} · ${tr('Changer mon statut')}`;
+  card.innerHTML = `<span class="online-av">${avatar(me, 34)}<span class="presence ${st.state === 'free' ? '' : st.state}"></span></span>
+    <div><strong>${esc(me.display_name)}</strong><span>${esc(st.text ? `${B.statusLabel(st.state)} · ${st.text}` : B.statusLabel(st.state))}</span></div>`;
+};
+$('#me-card').addEventListener('click', (e) => {
+  const r = $('#me-card').getBoundingClientRect();
+  e.stopPropagation();
+  B.openStatusMenu(r.left, r.top - 260);
+});
+B.on('status', () => B.renderMeCard());
 
 B.highlightNav = () => {
   const hash = location.hash || '#/home';
@@ -322,7 +339,7 @@ B.showIncomingRequest = (req) => {
   const label = PROVIDERS[req.provider]?.label || req.provider;
   const projectName = B.project(req.project_id)?.name || '';
   B.playSound('notif');
-  window.bivouac.notify(tr('{who} veut utiliser ton {ai}', { who, ai: label }), req.prompt.slice(0, 120), B.soundPrefs().notif);
+  B.pcNotify(tr('{who} veut utiliser ton {ai}', { who, ai: label }), req.prompt.slice(0, 120), B.soundPrefs().notif);
   if (!B.hasProvider(req.provider)) {
     // Pas de clé API pour cette IA : on la traite avec l'abonnement, depuis l'application Claude
     B.toast(

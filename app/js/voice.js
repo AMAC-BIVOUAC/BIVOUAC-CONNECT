@@ -24,6 +24,14 @@ const VIDEO_TIERS = [
   { upTo: 4, maxBitrate: 600000, scale: 1.5, fps: 24 },   // 3-4 : environ 480p
   { upTo: 6, maxBitrate: 350000, scale: 2, fps: 20 }      // 5-6 : environ 360p
 ];
+// Partage d'écran (09/11) : il passe par le MÊME canal vidéo que la caméra (il la remplace le temps du
+// partage, sans renégocier) ; image nette plutôt que fluide. Son de l'écran (case « Partager aussi le
+// son ») : mélangé à mon micro (Web Audio), donc il passe par le canal du son déjà ouvert.
+const SCREEN_FPS = 15;
+/** Ce que j'envoie dans le canal vidéo : mon écran s'il est partagé, sinon ma caméra */
+const sentVideo = (v) => v.screen || v.cam || null;
+/** Une personne occupe une place vidéo si sa caméra est allumée ou si elle partage son écran */
+const hasVideo = (i) => Boolean(i && (i.cam || i.screen));
 B.VOICE_MAX = VOICE_MAX;
 B.VIDEO_MAX = VIDEO_MAX;
 const VOICE_ICE = [{ urls: ['stun:stun.l.google.com:19302', 'stun:stun1.l.google.com:19302'] }];
@@ -137,15 +145,18 @@ function voiceMixer(v) {
 }
 
 /** Nombre de caméras allumées dans le vocal (moi compris) */
-const camCount = (v) => (v.cam ? 1 : 0) + [...v.people.entries()].filter(([uid, i]) => uid !== B.me.id && i.cam).length;
+const camCount = (v) => (sentVideo(v) ? 1 : 0) + [...v.people.entries()].filter(([uid, i]) => uid !== B.me.id && hasVideo(i)).length;
 
 /** Qualité de MA vidéo selon le nombre de caméras : 2 = HD, 3-4 = un peu moins, 5-6 = encore un peu moins */
 function applyVideoQuality(v) {
-  if (!v.cam) return;
+  if (!sentVideo(v)) return;
   const n = Math.max(1, camCount(v));
-  const tier = VIDEO_TIERS.find((t) => n <= t.upTo) || VIDEO_TIERS[VIDEO_TIERS.length - 1];
-  if (v.tier === tier) return;
-  v.tier = tier;
+  let tier = VIDEO_TIERS.find((t) => n <= t.upTo) || VIDEO_TIERS[VIDEO_TIERS.length - 1];
+  // Écran partagé : pleine résolution (le texte reste lisible), moins d'images par seconde
+  if (v.screen) tier = { key: `screen${tier.upTo}`, maxBitrate: Math.max(tier.maxBitrate * 1.5, 900000), scale: 1, fps: SCREEN_FPS };
+  const key = tier.key || `cam${tier.upTo}`;
+  if (v.tier === key) return;
+  v.tier = key;
   for (const p of v.peers.values()) {
     const sender = p.video?.sender;
     if (!sender) continue;
@@ -161,19 +172,20 @@ B.voiceToggleCamera = async () => {
   const v = B.voice;
   if (!v) return;
   if (v.cam) {
-    for (const p of v.peers.values()) p.video?.sender.replaceTrack(null).catch(() => {});
     v.cam.stop();
     v.cam = null;
+    if (!v.screen) for (const p of v.peers.values()) p.video?.sender.replaceTrack(null).catch(() => {});
     v.tier = null;
   } else {
-    const others = [...v.people.entries()].filter(([uid, i]) => uid !== B.me.id && i.cam).length;
-    if (others >= VIDEO_MAX) return B.toast(tr('{n} caméras maximum : attendez qu\'une se coupe.', { n: VIDEO_MAX }), { type: 'error' });
+    const others = [...v.people.entries()].filter(([uid, i]) => uid !== B.me.id && hasVideo(i)).length;
+    if (!v.screen && others >= VIDEO_MAX) return B.toast(tr('{n} caméras maximum : attendez qu\'une se coupe.', { n: VIDEO_MAX }), { type: 'error' });
     const s = await B.openCamera();
     if (!s) return B.toast(tr('Aucune caméra détectée ou caméra refusée. Vérifiez-la dans Paramètres → Vocal et vidéo.'), { type: 'error', timeout: 8000 });
     if (B.voice !== v) { s.getTracks().forEach((t) => t.stop()); return; }
     v.cam = s.getVideoTracks()[0];
     v.cam.addEventListener('ended', () => { if (B.voice === v && v.cam) B.voiceToggleCamera(); }); // caméra débranchée
-    for (const p of v.peers.values()) p.video?.sender.replaceTrack(v.cam).catch(console.error);
+    // pendant un partage d'écran, c'est l'écran qui part : la caméra reprendra à la fin du partage
+    if (!v.screen) for (const p of v.peers.values()) p.video?.sender.replaceTrack(v.cam).catch(console.error);
     v.tier = null;
   }
   v.ch?.track(voiceMyState(v)).catch(() => {});
@@ -190,7 +202,7 @@ B.voiceSwitchCamera = async (id) => {
   if (!s) return B.toast(tr('Cette caméra ne répond pas : on garde la précédente.'), { type: 'error' });
   const old = v.cam;
   v.cam = s.getVideoTracks()[0];
-  for (const p of v.peers.values()) await p.video?.sender.replaceTrack(v.cam).catch(console.error);
+  if (!v.screen) for (const p of v.peers.values()) await p.video?.sender.replaceTrack(v.cam).catch(console.error);
   old.stop();
   v.tier = null;
   applyVideoQuality(v);
@@ -210,15 +222,158 @@ B.voiceSwitchMic = async (id) => {
   }
   const track = fresh.getAudioTracks()[0];
   track.enabled = !(v.muted || v.deafened);
+  // Son de l'écran en cours : on garde le mélange envoyé, on y change seulement le micro
+  if (!v.mix) await replaceAudio(v, track);
+  v.stream.getAudioTracks().forEach((t) => { v.stream.removeTrack(t); t.stop(); });
+  v.stream.addTrack(track);
+  if (v.mix) {
+    v.mix.mic.disconnect();
+    v.mix.mic = v.ctx.createMediaStreamSource(new MediaStream([track]));
+    v.mix.mic.connect(v.mix.dest);
+  }
+  voiceMeter(v, B.me.id, v.stream);
+  B.toast(tr('Micro changé.'), { type: 'success', timeout: 2500 });
+};
+
+// ---------------------------------------------------------------------
+// Partage d'écran (09/11) — prérequis : être dans le vocal.
+// Windows : notre fenêtre de choix (écran entier ou une fenêtre, avec ou sans le son du PC).
+// Navigateur : sa propre fenêtre de choix (écran, fenêtre, onglet, case « son »).
+// Téléphone : impossible (les navigateurs mobiles ne savent pas partager l'écran).
+// ---------------------------------------------------------------------
+
+B.canShareScreen = () => Boolean(navigator.mediaDevices?.getDisplayMedia) && !/Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+
+/** Remplace le son que j'envoie à chacun (micro seul, ou micro + son de l'écran) */
+async function replaceAudio(v, track) {
   for (const p of v.peers.values()) {
     const sender = p.pc.getSenders().find((s) => s.track && s.track.kind === 'audio');
     if (sender) await sender.replaceTrack(track).catch(console.error);
   }
-  v.stream.getAudioTracks().forEach((t) => { v.stream.removeTrack(t); t.stop(); });
-  v.stream.addTrack(track);
-  voiceMeter(v, B.me.id, v.stream);
-  B.toast(tr('Micro changé.'), { type: 'success', timeout: 2500 });
+}
+
+/** Mélange le son de l'écran à mon micro ; false si impossible (pas de micro = pas de canal son en envoi) */
+async function startScreenAudio(v, screenTrack) {
+  if (v.noMic || !v.stream.getAudioTracks().length) return false;
+  try {
+    v.ctx ||= new AudioContext();
+    if (v.ctx.state === 'suspended') await v.ctx.resume().catch(() => {});
+    const dest = v.ctx.createMediaStreamDestination();
+    const mic = v.ctx.createMediaStreamSource(new MediaStream([v.stream.getAudioTracks()[0]]));
+    const scr = v.ctx.createMediaStreamSource(new MediaStream([screenTrack]));
+    mic.connect(dest);
+    scr.connect(dest);
+    v.mix = { dest, mic, scr, track: dest.stream.getAudioTracks()[0] };
+    await replaceAudio(v, v.mix.track);
+    return true;
+  } catch (err) {
+    console.warn('son de l\'écran impossible', err);
+    return false;
+  }
+}
+
+function stopScreenAudio(v) {
+  if (!v.mix) return;
+  const mix = v.mix;
+  v.mix = null;
+  replaceAudio(v, v.stream.getAudioTracks()[0] || null);
+  mix.mic.disconnect();
+  mix.scr.disconnect();
+  mix.track.stop();
+}
+
+/** Fenêtre de choix (Windows) : onglets « Écran entier » / « Une fenêtre », case « Partager aussi le son » */
+function pickScreen(sources, audioOk) {
+  return new Promise((resolve) => {
+    let tab = 'screen';
+    const m = B.modal(`
+      <h2>${icon('screen', 20)} ${tr('Partager votre écran')}</h2>
+      <div class="screen-tabs">
+        <button class="btn small primary" data-tab="screen">${tr('Écran entier')}</button>
+        <button class="btn small" data-tab="window">${tr('Une fenêtre')}</button>
+      </div>
+      <div class="screen-grid"></div>
+      ${audioOk ? `<label class="screen-audio"><input type="checkbox" id="screen-audio" /> ${tr('Partager aussi le son')}</label>
+        <p class="muted small">${tr('Le son de tout le PC est envoyé (vidéo, musique…), y compris les voix du vocal : les autres peuvent s\'entendre en écho. À cocher surtout pour montrer une vidéo.')}</p>` : ''}
+      <div class="actions"><button class="btn" data-cancel>${tr('Annuler')}</button></div>`, { wide: true });
+    const grid = $('.screen-grid', m);
+    const paint = () => {
+      const list = sources.filter((x) => x.screen === (tab === 'screen'));
+      $$('[data-tab]', m).forEach((b) => b.classList.toggle('primary', b.dataset.tab === tab));
+      grid.innerHTML = list.length
+        ? list.map((x, i) => `<button class="screen-tile" data-src="${esc(x.id)}" title="${esc(x.name)}">
+            ${x.thumb ? `<img src="${esc(x.thumb)}" alt="" />` : `<span class="screen-thumb">${icon('screen', 32)}</span>`}
+            <span translate="no">${esc(x.screen && sources.filter((y) => y.screen).length > 1 ? `${tr('Écran')} ${i + 1}` : x.name)}</span></button>`).join('')
+        : `<p class="muted">${tab === 'screen' ? tr('Aucun écran trouvé.') : tr('Aucune fenêtre ouverte à partager.')}</p>`;
+    };
+    paint();
+    m.addEventListener('click', (e) => {
+      const t = e.target.closest('[data-tab]');
+      if (t) { tab = t.dataset.tab; paint(); return; }
+      const src = e.target.closest('[data-src]');
+      if (src) { const audio = Boolean($('#screen-audio', m)?.checked); B.closeModal(); resolve({ id: src.dataset.src, audio }); return; }
+      if (e.target.closest('[data-cancel]')) { B.closeModal(); resolve(null); }
+    });
+  });
+}
+
+/** Partager / arrêter de partager mon écran */
+B.voiceToggleScreen = async () => {
+  const v = B.voice;
+  if (!v) return B.toast(tr('Rejoignez d\'abord le vocal pour partager votre écran.'));
+  if (v.screen) return stopScreen(v);
+  if (!B.canShareScreen()) return B.toast(tr('Le partage d\'écran n\'est pas possible sur cet appareil (téléphone ou navigateur trop ancien).'), { type: 'error', timeout: 7000 });
+  const others = [...v.people.entries()].filter(([uid, i]) => uid !== B.me.id && hasVideo(i)).length;
+  if (!v.cam && others >= VIDEO_MAX) return B.toast(tr('{n} vidéos maximum (caméras et écrans) : attendez qu\'une se coupe.', { n: VIDEO_MAX }), { type: 'error' });
+
+  let audio = true; // navigateur : sa fenêtre de choix propose elle-même le son
+  const sources = await window.bivouac.screenSources?.().catch(() => null);
+  if (Array.isArray(sources)) {
+    const pick = await pickScreen(sources, await window.bivouac.screenAudio().catch(() => false));
+    if (!pick || B.voice !== v) return;
+    audio = pick.audio;
+    await window.bivouac.screenChoose(pick.id, audio);
+  }
+  let s;
+  try {
+    s = await navigator.mediaDevices.getDisplayMedia({
+      video: { frameRate: { ideal: SCREEN_FPS, max: 30 } }, audio,
+      systemAudio: 'include', selfBrowserSurface: 'exclude', surfaceSwitching: 'include'
+    });
+  } catch (err) {
+    if (err?.name === 'NotAllowedError' || err?.name === 'AbortError') return; // choix annulé
+    return B.toast(tr('Partage d\'écran impossible : {err}', { err: esc(err?.message || err) }), { type: 'error', timeout: 8000 });
+  }
+  if (B.voice !== v || v.screen) { s.getTracks().forEach((t) => t.stop()); return; }
+  const track = s.getVideoTracks()[0];
+  if ('contentHint' in track) track.contentHint = 'detail';
+  v.screen = track;
+  v.screenStream = s;
+  // « Arrêter le partage » du navigateur, ou fenêtre partagée fermée
+  track.addEventListener('ended', () => { if (B.voice === v && v.screen === track) stopScreen(v); });
+  for (const p of v.peers.values()) p.video?.sender.replaceTrack(track).catch(console.error);
+  const sound = s.getAudioTracks()[0];
+  if (sound && !(await startScreenAudio(v, sound))) {
+    B.toast(tr('Sans micro, le son de l\'écran ne peut pas être envoyé : seule l\'image est partagée.'), { type: 'error', timeout: 8000 });
+  }
+  v.tier = null;
+  v.ch?.track(voiceMyState(v)).catch(() => {});
+  applyVideoQuality(v);
+  B.emit('voice');
 };
+
+function stopScreen(v) {
+  stopScreenAudio(v);
+  v.screenStream?.getTracks().forEach((t) => t.stop());
+  v.screen = null;
+  v.screenStream = null;
+  // la caméra reprend si elle était allumée
+  for (const p of v.peers.values()) p.video?.sender.replaceTrack(v.cam || null).catch(() => {});
+  v.tier = null;
+  v.ch?.track(voiceMyState(v)).catch(() => {});
+  applyVideoQuality(v);
+  B.emit('voice');
+}
 
 B.voiceTopic = (projectId, channelId) => `voice:${projectId}:${channelId}`;
 
@@ -290,6 +445,9 @@ B.voiceLeave = async () => {
   if (!v.connecting) B.playSound('voiceOut');
   v.cam?.stop();
   v.cam = null;
+  stopScreenAudio(v);
+  v.screenStream?.getTracks().forEach((t) => t.stop());
+  v.screen = null;
   clearInterval(v.timer);
   for (const uid of [...v.peers.keys()]) voiceClosePeer(v, uid);
   v.stream.getTracks().forEach((t) => t.stop());
@@ -321,7 +479,7 @@ B.voiceToggleDeafen = () => {
 };
 
 function voiceMyState(v) {
-  return { name: B.me.display_name, muted: v.muted || v.deafened || v.noMic, deafened: v.deafened, noMic: Boolean(v.noMic), cam: Boolean(v.cam) };
+  return { name: B.me.display_name, muted: v.muted || v.deafened || v.noMic, deafened: v.deafened, noMic: Boolean(v.noMic), cam: Boolean(v.cam), screen: Boolean(v.screen) };
 }
 
 /** Applique micro coupé / son coupé, et prévient les autres */
@@ -371,12 +529,12 @@ function voiceConnect(v, uid, offerer) {
   v.earlyIce.delete(uid);
   v.peers.set(uid, peer);
 
-  if (v.stream.getAudioTracks().length) v.stream.getTracks().forEach((t) => pc.addTrack(t, v.stream));
+  if (v.stream.getAudioTracks().length) pc.addTrack(v.mix?.track || v.stream.getAudioTracks()[0], v.stream);
   else pc.addTransceiver('audio', { direction: 'recvonly' }); // pas de micro : on reçoit seulement
   // Canal vidéo prévu d'avance (celui qui appelle le crée, l'autre l'accepte en envoi + réception)
   if (offerer) {
     peer.video = pc.addTransceiver('video', { direction: 'sendrecv' });
-    if (v.cam) peer.video.sender.replaceTrack(v.cam).catch(() => {});
+    if (sentVideo(v)) peer.video.sender.replaceTrack(sentVideo(v)).catch(() => {});
   }
   pc.onicecandidate = (e) => { if (e.candidate) voiceSend(v, uid, { type: 'ice', candidate: e.candidate.toJSON() }); };
   pc.ontrack = (e) => {
@@ -432,7 +590,7 @@ async function voiceSignal(v, msg) {
     if (tv && !peer.video) {
       tv.direction = 'sendrecv';
       peer.video = tv;
-      if (v.cam) await tv.sender.replaceTrack(v.cam).catch(() => {});
+      if (sentVideo(v)) await tv.sender.replaceTrack(sentVideo(v)).catch(() => {});
       v.tier = null;
       applyVideoQuality(v);
     }
@@ -537,6 +695,7 @@ B.renderVoiceBar = () => {
       <button class="icon-btn ${v.muted || v.deafened ? 'off' : ''}" data-voice="mute" title="${v.muted ? tr('Réactiver le micro') : tr('Couper le micro')} · ${tr('clic droit : choisir le micro')}">${icon(v.muted || v.deafened ? 'micoff' : 'mic', 17)}</button>
       <button class="icon-btn ${v.deafened ? 'off' : ''}" data-voice="deafen" title="${v.deafened ? tr('Réactiver le son') : tr('Couper le son')} · ${tr('clic droit : sortie et volume')}">${icon(v.deafened ? 'headoff' : 'headphones', 17)}</button>
       <button class="icon-btn ${v.cam ? 'on' : ''}" data-voice="camera" title="${v.cam ? tr('Couper la caméra') : tr('Allumer la caméra')} · ${tr('clic droit : choisir la caméra')}">${icon(v.cam ? 'video' : 'videooff', 17)}</button>
+      ${B.canShareScreen() ? `<button class="icon-btn ${v.screen ? 'on' : ''}" data-voice="screen" title="${v.screen ? tr('Arrêter le partage d\'écran') : tr('Partager l\'écran')}">${icon(v.screen ? 'screenoff' : 'screen', 17)}</button>` : ''}
       <button class="icon-btn leave" data-voice="leave" title="${tr('Quitter le vocal')}">${icon('hangup', 17)}</button>
     </div>
     <div class="voice-quota">${quotaHtml(v.people)}</div>`;
@@ -544,9 +703,9 @@ B.renderVoiceBar = () => {
 
 /** « Vocal 3/6 · Caméras 2/6 » */
 function quotaHtml(people) {
-  const cams = [...people.entries()].filter(([uid, i]) => (uid === B.me.id && B.voice ? Boolean(B.voice.cam) : i.cam)).length;
+  const cams = [...people.entries()].filter(([uid, i]) => (uid === B.me.id && B.voice ? Boolean(sentVideo(B.voice)) : hasVideo(i))).length;
   return `<span title="${tr('Personnes dans le vocal')}">${icon('headphones', 12)} ${people.size}/${VOICE_MAX}</span>
-    <span title="${tr('Caméras allumées')}">${icon('video', 12)} ${cams}/${VIDEO_MAX}</span>`;
+    <span title="${tr('Vidéos (caméras et écrans partagés)')}">${icon('video', 12)} ${cams}/${VIDEO_MAX}</span>`;
 }
 B.voiceQuotaHtml = quotaHtml;
 
@@ -559,9 +718,9 @@ function videoEl(uid, stream, mine) {
     el.autoplay = true;
     el.muted = true;      // le son passe par le vocal, pas par la vidéo
     el.playsInline = true;
-    if (mine) el.classList.add('mirror');
     videoEls.set(uid, el);
   }
+  el.classList.toggle('mirror', Boolean(mine)); // ma caméra en miroir, jamais un écran
   if (el.srcObject !== stream) el.srcObject = stream;
   el.play().catch(() => {});
   return el;
@@ -570,27 +729,32 @@ function videoEl(uid, stream, mine) {
 /** Mosaïque des caméras allumées, dans le salon où je suis en vocal */
 function videoStage(v, holder) {
   const tiles = [];
-  if (v.cam) tiles.push({ uid: B.me.id, stream: new MediaStream([v.cam]), mine: true });
+  if (sentVideo(v)) tiles.push({ uid: B.me.id, mine: true, screen: Boolean(v.screen) });
   for (const [uid, info] of v.people) {
     const p = v.peers.get(uid);
-    if (uid !== B.me.id && info.cam && p?.videoStream) tiles.push({ uid, stream: p.videoStream });
+    if (uid !== B.me.id && hasVideo(info) && p?.videoStream) tiles.push({ uid, stream: p.videoStream, screen: Boolean(info.screen) });
   }
   for (const uid of [...videoEls.keys()]) if (!tiles.some((t) => t.uid === uid)) { videoEls.get(uid).srcObject = null; videoEls.delete(uid); }
   if (!tiles.length) { holder.innerHTML = ''; holder.classList.add('hidden'); return; }
   holder.classList.remove('hidden');
   holder.dataset.n = tiles.length;
-  holder.innerHTML = tiles.map((t) => `<div class="video-tile" data-vid="${esc(t.uid)}" data-person="${esc(t.uid)}">
-    <span class="video-name">${esc(t.mine ? tr('Vous') : B.person(t.uid).display_name)}</span></div>`).join('');
+  const label = (t) => (t.screen
+    ? (t.mine ? tr('Votre écran') : tr('Écran de {name}', { name: B.person(t.uid).display_name }))
+    : (t.mine ? tr('Vous') : B.person(t.uid).display_name));
+  holder.innerHTML = tiles.map((t) => `<div class="video-tile ${t.screen ? 'screen' : ''}" data-vid="${esc(t.uid)}" data-person="${esc(t.uid)}"
+    ${t.screen ? `title="${esc(tr('Double-clic : plein écran'))}"` : ''}>
+    <span class="video-name">${t.screen ? icon('screen', 12) : ''} ${esc(label(t))}</span></div>`).join('');
   for (const t of tiles) {
     const tile = $(`.video-tile[data-vid="${CSS.escape(t.uid)}"]`, holder);
     // mon image : je la garde (aperçu) ; celle des autres
-    const el = t.mine ? videoEl(t.uid, mineStream(v), true) : videoEl(t.uid, t.stream);
+    const el = t.mine ? videoEl(t.uid, mineStream(v), !t.screen) : videoEl(t.uid, t.stream);
     tile.prepend(el);
   }
 }
 /** Flux de mon aperçu, gardé tant que la caméra est la même */
 function mineStream(v) {
-  if (v.previewFor !== v.cam) { v.preview = new MediaStream([v.cam]); v.previewFor = v.cam; }
+  const track = sentVideo(v);
+  if (v.previewFor !== track) { v.preview = new MediaStream([track]); v.previewFor = track; }
   return v.preview;
 }
 
@@ -601,9 +765,18 @@ document.addEventListener('click', (e) => {
   if (action === 'mute') B.voiceToggleMute();
   if (action === 'deafen') B.voiceToggleDeafen();
   if (action === 'camera') B.voiceToggleCamera().catch(B.error);
+  if (action === 'screen') B.voiceToggleScreen().catch(B.error);
   if (action === 'leave') B.voiceLeave();
 });
 B.on('voice', () => B.renderVoiceBar());
+
+// Double-clic sur un écran partagé : plein écran (Échap pour sortir)
+document.addEventListener('dblclick', (e) => {
+  const tile = e.target.closest('.video-tile.screen');
+  if (!tile) return;
+  if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
+  else tile.requestFullscreen?.().catch(() => {});
+});
 
 // ---------------------------------------------------------------------
 // Clic droit : micro / casque (choix de l'appareil, volume) et volume d'une personne
@@ -706,6 +879,7 @@ B.voiceStrip = (el, project, channel) => {
       ${people.size ? `<span class="voice-quota light">${quotaHtml(people)}</span>` : ''}
       ${inRoom()
         ? `<button class="btn small ${B.voice.cam ? 'primary' : ''}" data-voice="camera" title="${tr('clic droit : choisir la caméra')}">${icon(B.voice.cam ? 'video' : 'videooff', 15)} ${B.voice.cam ? tr('Couper la caméra') : tr('Caméra')}</button>
+           ${B.canShareScreen() ? `<button class="btn small ${B.voice.screen ? 'primary' : ''}" data-voice="screen">${icon(B.voice.screen ? 'screenoff' : 'screen', 15)} ${B.voice.screen ? tr('Arrêter le partage') : tr('Partager l\'écran')}</button>` : ''}
            <button class="btn small danger-ghost" data-voice="leave">${icon('hangup', 15)} ${tr('Quitter le vocal')}</button>`
         : `<button class="btn small primary" id="voice-join" ${full || busy ? 'disabled' : ''}>${icon('mic', 15)} ${busy ? tr('Connexion…') : tr('Rejoindre le vocal')}</button>`}
       <div class="video-stage hidden"></div>`;

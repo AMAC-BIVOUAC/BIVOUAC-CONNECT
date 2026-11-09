@@ -110,6 +110,11 @@
     installUpdate: () => location.reload(),
     onUpdate: () => {},
 
+    // Partage d'écran : le navigateur a sa propre fenêtre de choix (écran, fenêtre, onglet, son)
+    screenSources: async () => null,
+    screenChoose: async () => true,
+    screenAudio: async () => true,
+
     // Invitations
     takeInvite: async () => { const c = pendingInvite; pendingInvite = null; return c; },
     onInvite: (fn) => window.addEventListener('hashchange', () => {

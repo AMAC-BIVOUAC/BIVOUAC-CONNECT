@@ -161,7 +161,7 @@ async function renderDiscussion(el, p, channelId) {
       return `<a class="ch-voice-person" href="#/p/${p.id}/discussion/${box.dataset.chVoice}" title="${esc(person.display_name)}">
         <span class="voice-ring ${B.voice && B.voiceSpeaking(x.id) ? 'speaking' : ''}" data-voice-uid="${esc(x.id)}">${avatar(person, 20)}</span>
         <span class="ch-voice-name" translate="no">${esc(person.display_name)}</span>
-        ${x.cam ? `<span class="ch-voice-state">${icon('video', 12)}</span>` : ''}${state ? `<span class="ch-voice-state">${state}</span>` : ''}</a>`;
+        ${x.screen ? `<span class="ch-voice-state" title="${esc(tr('Partage son écran'))}">${icon('screen', 12)}</span>` : ''}${x.cam ? `<span class="ch-voice-state">${icon('video', 12)}</span>` : ''}${state ? `<span class="ch-voice-state">${state}</span>` : ''}</a>`;
     }).join('');
     box.classList.toggle('hidden', !people.length);
     paintIcons(box);

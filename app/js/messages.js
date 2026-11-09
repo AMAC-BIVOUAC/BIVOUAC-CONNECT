@@ -33,7 +33,7 @@ B.paintDmBadges = paintDmBadges;
 
 /** La photo d'une personne avec, posée dessus, la pastille de ses messages privés non lus (et sa présence) */
 B.dmAvatar = (person, size = 26, { presence = true } = {}) =>
-  `<span class="online-av">${avatar(person, size)}${presence ? `<span class="presence ${B.isOnline(person.id) ? '' : 'off'}" data-online="${person.id}"></span>` : ''}<span class="av-badge hidden" data-dm-unread="${person.id}" title="${esc(tr('Messages privés non lus'))}"></span></span>`;
+  `<span class="online-av">${avatar(person, size)}${presence ? `<span class="presence ${B.presenceClass(person.id)}" data-online="${person.id}" title="${esc(B.statusText(person.id))}"></span>` : ''}<span class="av-badge hidden" data-dm-unread="${person.id}" title="${esc(tr('Messages privés non lus'))}"></span></span>`;
 
 /** Les non-lus ont changé : pastilles, et l'encart (une personne hors ligne qui m'a écrit y apparaît) */
 function dmChanged() { B.renderOnline(); }
@@ -62,7 +62,8 @@ B.renderOnline = () => {
   const row = (m, offline) => `<a class="online-person ${offline ? 'offline' : ''}" href="#/messages/${m.id}" title="${esc(B.dmUnread.get(m.id)
       ? tr('{name} vous a écrit en privé', { name: m.display_name }) : tr('Écrire à {name}', { name: m.display_name }))}">
         ${B.dmAvatar(m, 26)}
-        <span class="space-name" translate="no">${esc(m.display_name)}</span>
+        <span class="online-who"><span class="space-name" translate="no">${esc(m.display_name)}</span>${!offline && (B.statusOf(m.id)?.state !== 'free' || B.statusOf(m.id)?.text)
+          ? `<small class="online-status">${esc(B.statusText(m.id))}</small>` : ''}</span>
         ${B.voiceWhere?.(m.id, project ? pid : null) ? `<span class="online-voice" title="${esc(tr('En vocal'))}">${icon('headphones', 13)}</span>` : ''}</a>`;
   box.innerHTML = (on.length
     ? on.map((m) => row(m, false)).join('')
@@ -86,7 +87,7 @@ B.startDmLive = () => {
       dmChanged();
       B.playSound('notif');
       const who = B.person(msg.sender_id).display_name;
-      window.bivouac.notify('Bivouac-Tech', tr('Message privé de {name}', { name: who }), B.soundPrefs().notif);
+      B.pcNotify('Bivouac-Tech', tr('Message privé de {name}', { name: who }), B.soundPrefs().notif);
       if (msg.sender_id !== B.dmOpen) {
         B.toast(`${tr('Message privé de {name}', { name: `<span translate="no">${esc(who)}</span>` })} <a href="#/messages/${msg.sender_id}">${tr('Ouvrir')}</a>`);
       }
@@ -145,7 +146,7 @@ B.pages.messages = async (view, [otherId]) => {
     paintDmBadges();
   };
   await renderList();
-  B.onLeave(B.on('dm-presence', () => $$('[data-online]', view).forEach((d) => d.classList.toggle('off', !B.isOnline(d.dataset.online)))));
+  B.onLeave(B.on('dm-presence', () => B.paintPresence(view)));
 
   if (!other) {
     B.onLeave(B.on('dm', debounce(renderList, 300)));
@@ -160,7 +161,7 @@ B.pages.messages = async (view, [otherId]) => {
     <div class="dm-msgs"><div class="loading">${tr('Chargement…')}</div></div>
     <form class="dm-compose"><textarea rows="2" maxlength="4000" placeholder="${esc(tr('Écrire à {name}…', { name: other.display_name }))}"></textarea>
       <button class="btn primary" type="submit" title="${tr('Envoyer')}">${icon('send', 16)}</button></form>`;
-  const status = () => { $('.dm-status', conv).textContent = B.isOnline(other.id) ? tr('En ligne') : tr('Hors ligne'); };
+  const status = () => { $('.dm-status', conv).textContent = B.statusText(other.id); };
   status();
   B.onLeave(B.on('dm-presence', status));
 

@@ -32,6 +32,8 @@ B.playSound = (name, { force = false } = {}) => {
   if (!s) return;
   const prefs = B.soundPrefs();
   if (!force && !prefs[s.cat]) return;
+  // Statut « Occupé » : ni son de notification, ni son de connexion (le vocal garde les siens)
+  if (!force && s.cat !== 'voice' && B.myStatus?.().state === 'busy') return;
   const vol = Math.max(0, Math.min(1, Number(prefs.volume)));
   if (!vol) return;
   const now = Date.now();
@@ -120,6 +122,79 @@ window.addEventListener('beforeunload', () => B.leaveOnline());
 B.isOnline = (uid) => uid === B.me?.id || B.online.has(uid);
 
 // ---------------------------------------------------------------------
+// Mon statut (09/11) : Disponible / Occupé / Absent + un message libre facultatif (« En réunion jusqu'à 15 h »).
+// Réglage de CE poste (store 'status'), publié dans la présence de mes projets : rien en base.
+// Occupé = ne pas déranger : pas de son de notification ni de notification Windows (les bandeaux restent).
+// ---------------------------------------------------------------------
+
+const STATUS_STATES = ['free', 'busy', 'away'];
+B.statusLabel = (state) => ({ free: tr('Disponible'), busy: tr('Occupé'), away: tr('Absent') }[state] || tr('Disponible'));
+B.myStatus = () => {
+  const s = store.get('status') || {};
+  return { state: STATUS_STATES.includes(s.state) ? s.state : 'free', text: String(s.text || '').slice(0, 80) };
+};
+B.setMyStatus = (patch) => {
+  store.set('status', { ...B.myStatus(), ...patch });
+  for (const [pid, ch] of onlineChannels) ch.track(onlineState(pid)).catch(() => {});
+  B.emit('status');
+};
+
+/** Le statut d'une personne connectée ({ state, text }), null si hors ligne */
+B.statusOf = (uid) => {
+  if (uid === B.me?.id) return B.myStatus();
+  if (!B.online.has(uid)) return null;
+  for (const ch of onlineChannels.values()) {
+    const st = (ch.presenceState()[uid] || []).map((m) => m.status).find(Boolean);
+    if (st) return { state: STATUS_STATES.includes(st.state) ? st.state : 'free', text: String(st.text || '').slice(0, 80) };
+  }
+  return { state: 'free', text: '' };
+};
+/** Classe de la pastille : '' (disponible), 'busy', 'away' ou 'off' (hors ligne) */
+B.presenceClass = (uid) => {
+  const st = B.statusOf(uid);
+  return !st ? 'off' : st.state === 'free' ? '' : st.state;
+};
+/** « Occupé · En réunion jusqu'à 15 h » ; « Hors ligne » */
+B.statusText = (uid) => {
+  const st = B.statusOf(uid);
+  if (!st) return tr('Hors ligne');
+  return st.text ? `${B.statusLabel(st.state)} · ${st.text}` : B.statusLabel(st.state);
+};
+/** Met à jour toutes les pastilles [data-online] d'une zone */
+B.paintPresence = (root = document) => $$('[data-online]', root).forEach((d) => {
+  d.className = `presence ${B.presenceClass(d.dataset.online)}`;
+  d.title = B.statusText(d.dataset.online);
+});
+
+/** Notification Windows / navigateur, sauf en statut « Occupé » */
+B.pcNotify = (title, body, silent) => (B.myStatus().state === 'busy' ? Promise.resolve() : window.bivouac.notify(title, body, silent));
+
+/** Menu du statut (clic sur ma carte en bas de la colonne) */
+B.openStatusMenu = (x, y) => {
+  const cur = B.myStatus();
+  const item = (state) => `<button class="pop-item ${state === cur.state ? 'on' : ''}" data-status="${state}">
+    <span class="presence ${state === 'free' ? '' : state}"></span> <span>${B.statusLabel(state)}</span>
+    ${state === 'busy' ? `<small class="pop-hint">${tr('sans son ni notification')}</small>` : ''}</button>`;
+  const menu = B.popMenu(x, y, `
+    <div class="pop-title">${tr('Mon statut')}</div>
+    ${STATUS_STATES.map(item).join('')}
+    <label class="pop-label">${tr('Message (facultatif)')}</label>
+    <form class="pop-status-text"><input maxlength="80" placeholder="${esc(tr('Ex. : En réunion jusqu\'à 15 h'))}" value="${esc(cur.text)}" />
+      <button class="btn small primary" type="submit">${tr('OK')}</button></form>
+    ${cur.text ? `<button class="pop-item" data-status-clear>${icon('x', 14)} <span>${tr('Effacer le message')}</span></button>` : ''}`);
+  menu.addEventListener('click', (e) => {
+    const b = e.target.closest('[data-status]');
+    if (b) { B.setMyStatus({ state: b.dataset.status, text: $('input', menu).value.trim() }); B.closePopMenu(); }
+    if (e.target.closest('[data-status-clear]')) { B.setMyStatus({ text: '' }); B.closePopMenu(); }
+  });
+  $('form', menu).addEventListener('submit', (e) => {
+    e.preventDefault();
+    B.setMyStatus({ text: $('input', menu).value.trim() });
+    B.closePopMenu();
+  });
+};
+
+// ---------------------------------------------------------------------
 // Qui est en vocal, façon Discord (09/11) : ma présence dans le projet dit aussi dans quel salon vocal
 // je suis (et micro coupé / son coupé / caméra). Tout membre connecté le voit, sans rejoindre le vocal.
 // Rien en base : c'est la même présence privée online:<projet> (migration 014).
@@ -131,7 +206,8 @@ function onlineState(pid) {
   const inVoice = v && v.project.id === pid && !v.connecting;
   return {
     at: new Date().toISOString(),
-    voice: inVoice ? { channel: v.channel.id, muted: Boolean(v.muted || v.deafened || v.noMic), deafened: Boolean(v.deafened), cam: Boolean(v.cam) } : null
+    status: B.myStatus(),
+    voice: inVoice ? { channel: v.channel.id, muted: Boolean(v.muted || v.deafened || v.noMic), deafened: Boolean(v.deafened), cam: Boolean(v.cam), screen: Boolean(v.screen) } : null
   };
 }
 
@@ -139,7 +215,7 @@ function onlineState(pid) {
 let lastVoiceKey = '';
 B.on('voice', debounce(() => {
   const v = B.voice;
-  const key = v && !v.connecting ? `${v.project.id}|${v.channel.id}|${v.muted}|${v.deafened}|${v.noMic}|${Boolean(v.cam)}` : '';
+  const key = v && !v.connecting ? `${v.project.id}|${v.channel.id}|${v.muted}|${v.deafened}|${v.noMic}|${Boolean(v.cam)}|${Boolean(v.screen)}` : '';
   if (key === lastVoiceKey) return;
   lastVoiceKey = key;
   for (const [pid, ch] of onlineChannels) ch.track(onlineState(pid)).catch(() => {});
