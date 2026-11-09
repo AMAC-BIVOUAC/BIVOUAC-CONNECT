@@ -198,7 +198,9 @@ B.pages.messages = async (view, [otherId]) => {
     if (active) readConversation();
   };
   B.onLeave(() => { active = false; B.dmAtBottom = null; });
-  const receipt = (d) => d.sender_id === B.me.id ? ` · <span class="dm-receipt" title="${d.read_at ? esc(fmtDate(d.read_at) + ' ' + fmtTime(d.read_at)) : ''}">${d.read_at ? tr('Vu') : tr('Envoyé')}</span>` : '';
+  const indicator = (d) => B.readIndicator({ seen: Boolean(d.read_at), label: d.read_at
+    ? `${tr('Vu par {names}', { names: other.display_name })} · ${fmtDate(d.read_at)} ${fmtTime(d.read_at)}` : tr('Envoyé') });
+  const receipt = (d) => d.sender_id === B.me.id ? ` <span class="dm-receipt">${indicator(d)}</span>` : '';
   const bubble = (d) => `<div class="dm-msg ${d.sender_id === B.me.id ? 'mine' : ''}" data-dm-id="${esc(d.id)}">
     ${d.content ? `<div class="dm-bubble" translate="no">${md(d.content)}</div>` : ''}
     ${(d.attachments || []).map((f, i) => `<button type="button" class="file-card dm-file" data-dm-file="${i}" title="${tr('Ouvrir')}">
@@ -213,6 +215,8 @@ B.pages.messages = async (view, [otherId]) => {
     if (follow) box.scrollTop = box.scrollHeight;
   };
   box.addEventListener('click', (e) => {
+    const read = e.target.closest('.read-indicator');
+    if (read) return B.showReadDetails(read);
     const btn = e.target.closest('[data-dm-file]');
     if (!btn) return;
     const d = shown.get(btn.closest('[data-dm-id]').dataset.dmId);
@@ -230,7 +234,10 @@ B.pages.messages = async (view, [otherId]) => {
     if (!old || !d.read_at) return;
     old.read_at = d.read_at;
     const el = box.querySelector(`[data-dm-id="${d.id}"] .dm-receipt`);
-    if (el) { el.textContent = tr('Vu'); el.title = fmtDate(d.read_at) + ' ' + fmtTime(d.read_at); }
+    if (el) {
+      const next = h(indicator(old));
+      if (el.firstElementChild?.getAttribute('aria-label') !== next.getAttribute('aria-label')) el.replaceChildren(next);
+    }
   };
   B.onLeave(B.on('dm-read', updateReceipt));
   const refreshReceipts = async () => {

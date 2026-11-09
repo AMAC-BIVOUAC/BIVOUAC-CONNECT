@@ -14,6 +14,7 @@ B.lang = store.get('lang', 'fr') === 'en' ? 'en' : 'fr';
 window.bivouac?.setUiLang?.(B.lang); // menu du clic droit (correcteur) dans la même langue
 
 const EN = {
+  'Lecture du message': 'Message read status',
   'Pièce jointe': 'Attachment',
   '10 fichiers maximum · 50 Mo par fichier': 'Up to 10 files · 50 MB per file',
   '10 fichiers maximum par message.': 'Up to 10 files per message.',

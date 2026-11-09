@@ -96,12 +96,16 @@ B.chat = async (root, { project, channel, mode }) => {
     st.reads.get(r.message_id).add(r.user_id);
     paintReads();
   }, 'INSERT');
-  function readersText(id) {
+  function readersIndicator(id) {
     const names = [...(st.reads.get(id) || [])].filter(uid => uid !== B.me.id).map(uid => B.person(uid).display_name);
-    return names.length ? tr('Vu par {names}', { names: names.join(', ') }) : tr('Envoyé');
+    return B.readIndicator({ seen: names.length > 0, count: names.length,
+      label: names.length ? tr('Vu par {names}', { names: names.join(', ') }) : tr('Envoyé') });
   }
   function paintReads() {
-    $$('.msg-read', list).forEach(el => { el.textContent = readersText(el.closest('.msg').dataset.id); });
+    $$('.msg-read', list).forEach(el => {
+      const next = h(readersIndicator(el.closest('.msg').dataset.id));
+      if (el.firstElementChild?.getAttribute('aria-label') !== next.getAttribute('aria-label')) el.replaceChildren(next);
+    });
   }
 
   // ---------------- Chargement ----------------
@@ -222,7 +226,7 @@ B.chat = async (root, { project, channel, mode }) => {
         ${editing ? editorHtml() : `<div class="msg-text" translate="no">${md(m.content)}</div>`}
         ${files.length ? `<div class="msg-files">${files.map(fileCard).join('')}</div>` : ''}
         ${reactionsHtml(m.id)}
-        ${mine && !m.is_ai ? `<small class="msg-read muted">${esc(readersText(m.id))}</small>` : ''}
+        ${mine && !m.is_ai ? `<small class="msg-read muted">${readersIndicator(m.id)}</small>` : ''}
       </div>
       <div class="msg-tools">
         <button class="icon-btn" data-react title="${tr('Réagir')}">${icon('smile', 16)}</button>
@@ -262,6 +266,8 @@ B.chat = async (root, { project, channel, mode }) => {
   // ---------------- Interactions sur les messages ----------------
 
   list.addEventListener('click', async (e) => {
+    const read = e.target.closest('.read-indicator');
+    if (read) return B.showReadDetails(read);
     const olderBtn = e.target.closest('[data-older]');
     if (olderBtn) return loadOlder(olderBtn);
     const msgEl = e.target.closest('.msg');

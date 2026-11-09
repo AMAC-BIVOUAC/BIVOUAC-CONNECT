@@ -95,6 +95,16 @@ document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape' && !$('#modal-backdrop').classList.contains('hidden')) B.closeModal();
 });
 
+/** Indicateur discret : coche grise à l'envoi, double coche pétrole après lecture. */
+B.readIndicator = ({ seen, label, count = null }) => `<button type="button" class="read-indicator ${seen ? 'is-seen' : ''}"
+  title="${esc(label)}" aria-label="${esc(label)}">${icon(seen ? 'doublecheck' : 'check', 17)}${count ? `<span aria-hidden="true">${count}</span>` : ''}</button>`;
+B.showReadDetails = (button) => {
+  const m = B.modal(`<h2>${tr('Lecture du message')}</h2><p class="read-details">${esc(button.getAttribute('aria-label'))}</p>
+    <div class="modal-actions"><button class="btn primary" data-close-read>${tr('Fermer')}</button></div>`);
+  $('[data-close-read]', m).onclick = B.closeModal;
+  $('[data-close-read]', m).focus();
+};
+
 /** Petite fenêtre de confirmation qui renvoie true/false */
 B.confirm = (text, okLabel = tr('Confirmer'), danger = true) => new Promise((resolve) => {
   const m = B.modal(`

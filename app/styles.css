@@ -1207,3 +1207,13 @@ video.mirror { transform: scaleX(-1); }
 .dm-file { max-width: 100%; margin-top: 4px; text-align: left; }
 .dm-file > span { min-width: 0; }
 .dm-file strong { display: block; overflow-wrap: anywhere; white-space: normal; }
+
+/* Lectures : petit repère visuel, détails au clavier, au clic et au survol. */
+.read-indicator { display: inline-flex; align-items: center; justify-content: center; gap: 3px;
+  min-width: 28px; min-height: 28px; padding: 3px 5px; border: 0; border-radius: 6px;
+  background: transparent; color: var(--muted); font: inherit; font-size: 11px; vertical-align: middle; cursor: pointer; }
+.read-indicator.is-seen { color: var(--teal); }
+.read-indicator:hover { background: #12809A12; }
+.read-indicator:focus-visible { outline: 2px solid var(--teal); outline-offset: 2px; }
+.msg-read { display: block; margin-top: 2px; }
+.read-details { overflow-wrap: anywhere; }

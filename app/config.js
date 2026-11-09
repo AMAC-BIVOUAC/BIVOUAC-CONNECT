@@ -11,4 +11,4 @@ window.BIVOUAC_CONFIG = {
   SUPABASE_ANON_KEY: 'sb_publishable_K2lAX9kunDhk8bkxC9Yw6g_yRojn3CO'
 };
 
-window.BIVOUAC_CONFIG.VERSION = "0.8.17";
+window.BIVOUAC_CONFIG.VERSION = "0.8.18";
