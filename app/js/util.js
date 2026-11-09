@@ -142,7 +142,7 @@ function aiName(provider, owner, { nick = true } = {}) {
 }
 // Numéro de la liste d'outils du connecteur : même valeur que TOOLS_VERSION (supabase/functions/bivouac-mcp/tools.js).
 // Une IA qui a chargé une liste plus ancienne (profiles.connector_tools, migration 023) doit actualiser le connecteur.
-const CONNECTOR_TOOLS_VERSION = 3;
+const CONNECTOR_TOOLS_VERSION = 4;
 const CONNECTOR_URL = () => `${(window.BIVOUAC_CONFIG || {}).SUPABASE_URL}/functions/v1/bivouac-mcp`;
 
 /** Statuts dans l'équipe d'un projet */

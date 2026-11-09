@@ -963,6 +963,7 @@ const EN = {
   "{n} voix sur {m} membres": "{n} vote(s) out of {m} members",
   "vous pouvez changer d'avis jusqu'à la clôture": "you can change your mind until it closes",
   "Soumettre une décision au vote": "Put a decision to a vote",
+  "Soumettre au vote": "Put to a vote",
   "La question": "The question",
   "Ex. : On part sur quelle date pour le lancement ?": "E.g. Which launch date do we pick?",
   "Les choix (2 à 6)": "Options (2 to 6)",

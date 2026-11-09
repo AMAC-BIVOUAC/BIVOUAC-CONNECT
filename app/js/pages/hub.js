@@ -154,14 +154,15 @@ B.pages.hub = async (el, p) => {
 
   // Soumettre une décision au vote
   $('[data-new-vote]', el)?.addEventListener('click', () => newVote());
-  function newVote() {
+  /** Lance un vote : nouvelle décision, ou décision existante sans vote (`item`) */
+  function newVote(item = null) {
     // Clôture proposée : aujourd'hui, dans une heure (arrondie à la minute) ; modifiable
     const d = new Date(Date.now() + 36e5);
     d.setSeconds(0, 0);
     const local = new Date(d - d.getTimezoneOffset() * 6e4).toISOString().slice(0, 16);
     const m = B.modal(`
       <h2>${tr('Soumettre une décision au vote')}</h2>
-      <label>${tr('La question')}</label><input id="vt-title" maxlength="200" placeholder="${tr('Ex. : On part sur quelle date pour le lancement ?')}" />
+      <label>${tr('La question')}</label><input id="vt-title" maxlength="200" value="${item ? esc(item.title) : ''}" placeholder="${tr('Ex. : On part sur quelle date pour le lancement ?')}" />
       <label>${tr('Les choix (2 à 6)')}</label>
       <div class="vote-inputs">${[1, 2, 3, 4, 5, 6].map((n) => `<input class="vt-opt" maxlength="80" placeholder="${tr('Choix {n}', { n })}" ${n > 3 ? 'hidden' : ''} />`).join('')}
         <button class="link small" id="vt-more">${icon('plus', 13)} ${tr('Ajouter un choix')}</button></div>
@@ -185,7 +186,10 @@ B.pages.hub = async (el, p) => {
       if (options.length < 2) return (msg.textContent = tr('Il faut au moins deux choix.'));
       if (new Set(options.map((o) => o.toLowerCase())).size !== options.length) return (msg.textContent = tr('Deux choix sont identiques.'));
       if (!until || until <= new Date()) return (msg.textContent = tr('La clôture doit être dans le futur.'));
-      const { data, error } = await B.sb.from('items').insert({ project_id: p.id, type: 'decision', title, vote_options: options, vote_until: until.toISOString(), ...($('#vt-multi', m).checked ? { vote_multi: true } : {}) }).select().single();
+      const vote = { title, vote_options: options, vote_until: until.toISOString(), ...($('#vt-multi', m).checked ? { vote_multi: true } : {}) };
+      const { data, error } = item
+        ? await B.sb.from('items').update(vote).eq('id', item.id).select().single()
+        : await B.sb.from('items').insert({ project_id: p.id, type: 'decision', ...vote }).select().single();
       if (error) return (msg.textContent = /vote_multi/.test(error.message || '') ? tr('Le choix multiple n\'est pas encore installé sur le serveur (migration 019).') : /vote_options|vote_until/.test(error.message || '') ? tr('Le vote n\'est pas encore installé sur le serveur (migration 016).') : errText(error));
       B.closeModal();
       for (const mem of B.projectMembers(p.id)) {
@@ -327,6 +331,7 @@ B.pages.hub = async (el, p) => {
       <p class="muted small">${tr('Ajouté par {who}', { who: esc(B.person(item.author_id).display_name) })} · ${timeAgo(item.created_at)}</p>
       <div class="actions">
         <button class="btn danger-ghost" id="it-del">${icon('trash', 15)} ${tr('Supprimer')}</button>
+        ${item.type === 'decision' && !item.vote_options ? `<button class="btn" id="it-vote">${icon('users', 14)} ${tr('Soumettre au vote')}</button>` : ''}
         ${item.type === 'decision' && !(item.vote_options && new Date(item.vote_until) > new Date()) ? `<button class="btn" id="it-follow">${icon('arrow', 14)} ${tr('Donner suite')}</button>` : ''}
         <span class="spacer"></span>
         <button class="btn" data-close>${tr('Annuler')}</button><button class="btn primary" id="it-save">${tr('Enregistrer')}</button>
@@ -343,6 +348,7 @@ B.pages.hub = async (el, p) => {
       load();
     };
     $('#it-follow', m)?.addEventListener('click', () => followUp(item));
+    $('#it-vote', m)?.addEventListener('click', () => newVote(item));
     $('#it-del', m).onclick = async () => {
       if (!(await B.confirm(tr('Supprimer « {name} » ?', { name: item.title }), tr('Supprimer')))) return;
       await B.sb.from('items').delete().eq('id', item.id);
