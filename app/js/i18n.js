@@ -14,6 +14,12 @@ B.lang = store.get('lang', 'fr') === 'en' ? 'en' : 'fr';
 window.bivouac?.setUiLang?.(B.lang); // menu du clic droit (correcteur) dans la même langue
 
 const EN = {
+  'Pièce jointe': 'Attachment',
+  '10 fichiers maximum · 50 Mo par fichier': 'Up to 10 files · 50 MB per file',
+  '10 fichiers maximum par message.': 'Up to 10 files per message.',
+  'Envoyé': 'Sent',
+  'Vu': 'Seen',
+  'Vu par {names}': 'Seen by {names}',
   // ---------- Connexion ----------
   'Le camp de base de vos projets,': 'The base camp for your projects,',
   'où humains et IA construisent ensemble.': 'where humans and AI build together.',

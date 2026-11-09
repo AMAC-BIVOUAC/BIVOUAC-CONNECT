@@ -72,7 +72,9 @@
       if (!('Notification' in window) || !document.hidden) return;
       if (Notification.permission === 'default') await Notification.requestPermission().catch(() => {});
       if (Notification.permission !== 'granted') return;
-      const n = new Notification(title, { body, icon: 'assets/icon-192.png', silent: true });
+      let n;
+      try { n = new Notification(title, { body, icon: 'assets/icon-192.png', silent: true }); }
+      catch { return; } // Certains navigateurs mobiles exposent Notification sans permettre ce constructeur.
       n.onclick = () => { window.focus(); n.close(); };
     },
 

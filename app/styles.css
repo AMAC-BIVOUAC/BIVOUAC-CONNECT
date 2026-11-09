@@ -1186,7 +1186,7 @@ video.mirror { transform: scaleX(-1); }
 .dm-msg.mine .dm-bubble { background: var(--teal); color: #fff; border-radius: 14px 14px 4px 14px; }
 .dm-msg.mine .dm-bubble a { color: #fff; }
 .dm-msg small { color: var(--muted); font-size: 11px; margin-top: 2px; }
-.dm-compose { display: flex; gap: 8px; align-items: flex-end; padding: 10px 12px; border-top: 1px solid #EEF1F4; }
+.dm-compose { display: flex; flex-direction: column; gap: 8px; padding: 10px 12px; border-top: 1px solid #EEF1F4; }
 .dm-compose textarea { flex: 1; resize: none; min-width: 0; }
 .dm-pad { padding: 12px; }
 .dm-note { display: flex; align-items: center; gap: 6px; margin-top: 10px; }
@@ -1197,3 +1197,13 @@ video.mirror { transform: scaleX(-1); }
   .dm-back { display: inline-flex; }
   .dm-page.has-conv .page-head { display: none; }
 }
+
+/* Documents des messages privés, y compris les noms longs sur téléphone. */
+.dm-compose-row { display: flex; align-items: flex-end; gap: 8px; width: 100%; }
+.dm-pending { display: flex; flex-wrap: wrap; gap: 6px; max-width: 100%; }
+.dm-pending:empty { display: none; }
+.dm-pending .attach-chip { max-width: 100%; overflow-wrap: anywhere; }
+.dm-msg { min-width: 0; }
+.dm-file { max-width: 100%; margin-top: 4px; text-align: left; }
+.dm-file > span { min-width: 0; }
+.dm-file strong { display: block; overflow-wrap: anywhere; white-space: normal; }

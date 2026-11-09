@@ -82,7 +82,7 @@ B.startDmLive = () => {
     .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'direct_messages', filter: `recipient_id=eq.${B.me.id}` }, (p) => {
       const msg = p.new;
       B.emit('dm', msg);
-      if (msg.sender_id === B.dmOpen && document.hasFocus()) { B.sb.rpc('mark_dm_read', { p_other: msg.sender_id }); return; }
+      if (msg.sender_id === B.dmOpen && !document.hidden && document.hasFocus() && B.dmAtBottom?.()) return;
       B.dmUnread.set(msg.sender_id, (B.dmUnread.get(msg.sender_id) || 0) + 1);
       dmChanged();
       B.playSound('notif');
@@ -92,16 +92,26 @@ B.startDmLive = () => {
         B.toast(`${tr('Message privé de {name}', { name: `<span translate="no">${esc(who)}</span>` })} <a href="#/messages/${msg.sender_id}">${tr('Ouvrir')}</a>`);
       }
     })
+    .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'direct_messages', filter: `sender_id=eq.${B.me.id}` }, (p) => B.emit('dm-read', p.new))
     .subscribe();
-  window.addEventListener('focus', () => { if (B.dmOpen && B.dmUnread.get(B.dmOpen)) readConversation(B.dmOpen); });
 };
 
-async function readConversation(other) {
-  if (!B.dmUnread.get(other)) return;
-  B.dmUnread.delete(other);
-  dmChanged();
-  await B.sb.rpc('mark_dm_read', { p_other: other });
-}
+/** Documents privés : bucket séparé, jamais ajoutés aux documents du projet. */
+B.uploadDmFile = async (other, file) => {
+  const path = `${B.me.id}/${other}/${crypto.randomUUID()}-${file.name.replace(/[^\w.\-]+/g, '_').slice(-80)}`;
+  const { error } = await B.sb.storage.from('dm-files').upload(path, file, { contentType: file.type || undefined });
+  if (error) throw error;
+  return { path, name: file.name, size: file.size, mime: file.type || 'application/octet-stream' };
+};
+
+B.openDmFile = async (file, messageId, index) => {
+  const { data, error } = await B.sb.storage.from('dm-files').createSignedUrl(file.path, 300);
+  if (error) throw error;
+  // Copie locale seulement : aucune surveillance ni modification d'un document de projet.
+  if (window.bivouac.openFile) await window.bivouac.openFile({ url: data.signedUrl, name: file.name,
+    id: `dm-${messageId}-${index}`, version: 1, readonly: true });
+  else await window.bivouac.openExternal(data.signedUrl);
+};
 
 // ---------- Page « Messages » ----------
 
@@ -124,7 +134,7 @@ B.pages.messages = async (view, [otherId]) => {
 
   // Liste des conversations : dernier message avec chaque coéquipier
   const renderList = async () => {
-    const { data, error } = await B.sb.from('direct_messages').select('sender_id, recipient_id, content, created_at')
+    const { data, error } = await B.sb.from('direct_messages').select('sender_id, recipient_id, content, attachments, created_at')
       .order('created_at', { ascending: false }).limit(400);
     if (error) {
       $('.dm-list', view).innerHTML = `<p class="muted small dm-pad">${/direct_messages/.test(error.message || '')
@@ -141,7 +151,7 @@ B.pages.messages = async (view, [otherId]) => {
       return `<a class="dm-person ${m.id === other?.id ? 'on' : ''} ${unread ? 'unread' : ''}" href="#/messages/${m.id}">
         ${B.dmAvatar(m, 34)}
         <span class="dm-person-text"><strong translate="no">${esc(m.display_name)}</strong>
-          <small translate="no">${l ? `${l.sender_id === B.me.id ? tr('Vous :') + ' ' : ''}${esc(l.content.replace(/[*`#]/g, '').replace(/\s+/g, ' ').slice(0, 60))}` : `<em>${tr('Aucun message')}</em>`}</small></span></a>`;
+          <small translate="no">${l ? `${l.sender_id === B.me.id ? tr('Vous :') + ' ' : ''}${esc((l.content || (l.attachments?.length ? tr('Pièce jointe') : '')).replace(/[*`#]/g, '').replace(/\s+/g, ' ').slice(0, 60))}` : `<em>${tr('Aucun message')}</em>`}</small></span></a>`;
     }).join('') || `<p class="muted small dm-pad">${tr('Personne pour l\'instant.')}</p>`;
     paintDmBadges();
   };
@@ -159,50 +169,148 @@ B.pages.messages = async (view, [otherId]) => {
     <header class="dm-head"><a class="icon-btn dm-back" href="#/messages" title="${tr('Retour')}">${icon('arrow', 16)}</a>
       ${avatar(other, 32)}<div><strong translate="no">${esc(other.display_name)}</strong><small class="dm-status"></small></div></header>
     <div class="dm-msgs"><div class="loading">${tr('Chargement…')}</div></div>
-    <form class="dm-compose"><textarea rows="2" maxlength="4000" placeholder="${esc(tr('Écrire à {name}…', { name: other.display_name }))}"></textarea>
-      <button class="btn primary" type="submit" title="${tr('Envoyer')}">${icon('send', 16)}</button></form>`;
+    <form class="dm-compose"><div class="dm-pending"></div><div class="dm-compose-row">
+      <button type="button" class="icon-btn dm-attach" title="${tr('Joindre un fichier')}">${icon('plus', 20)}</button>
+      <input type="file" class="dm-file-input hidden" multiple />
+      <textarea rows="2" maxlength="4000" placeholder="${esc(tr('Écrire à {name}…', { name: other.display_name }))}"></textarea>
+      <button class="btn primary" type="submit" title="${tr('Envoyer')}">${icon('send', 16)}</button></div><small class="muted">${tr('10 fichiers maximum · 50 Mo par fichier')}</small></form>`;
   const status = () => { $('.dm-status', conv).textContent = B.statusText(other.id); };
   status();
   B.onLeave(B.on('dm-presence', status));
 
   const box = $('.dm-msgs', conv);
-  const shown = new Set();
-  const bubble = (d) => `<div class="dm-msg ${d.sender_id === B.me.id ? 'mine' : ''}"><div class="dm-bubble" translate="no">${md(d.content)}</div><small>${fmtTime(d.created_at)}</small></div>`;
+  const shown = new Map();
+  let active = true, loading = true, reading = false, sending = false;
+  const atBottom = () => box.scrollHeight - box.scrollTop - box.clientHeight < 32;
+  B.dmAtBottom = atBottom;
+  const readConversation = async () => {
+    if (!active || loading || reading || document.hidden || !document.hasFocus() || !atBottom()) return;
+    const received = [...shown.values()].filter((d) => d.recipient_id === B.me.id && !d.read_at);
+    if (!received.length) return;
+    const until = received.reduce((latest, d) => d.created_at > latest ? d.created_at : latest, '');
+    reading = true;
+    const { error } = await B.sb.rpc('mark_dm_read_until', { p_other: other.id, p_until: until });
+    reading = false;
+    if (error) { console.warn('Lecture des messages privés', error.message); return; }
+    received.forEach((d) => { d.read_at = new Date().toISOString(); });
+    // Recharger plutôt que supprimer le compteur : un message peut arriver pendant l'appel.
+    await B.loadDmUnread();
+    if (active) readConversation();
+  };
+  B.onLeave(() => { active = false; B.dmAtBottom = null; });
+  const receipt = (d) => d.sender_id === B.me.id ? ` · <span class="dm-receipt" title="${d.read_at ? esc(fmtDate(d.read_at) + ' ' + fmtTime(d.read_at)) : ''}">${d.read_at ? tr('Vu') : tr('Envoyé')}</span>` : '';
+  const bubble = (d) => `<div class="dm-msg ${d.sender_id === B.me.id ? 'mine' : ''}" data-dm-id="${esc(d.id)}">
+    ${d.content ? `<div class="dm-bubble" translate="no">${md(d.content)}</div>` : ''}
+    ${(d.attachments || []).map((f, i) => `<button type="button" class="file-card dm-file" data-dm-file="${i}" title="${tr('Ouvrir')}">
+      ${icon('file', 20)}<span><strong translate="no">${esc(f.name)}</strong><small>${fmtSize(f.size)}</small></span></button>`).join('')}
+    <small>${fmtTime(d.created_at)}${receipt(d)}</small></div>`;
   const add = (d) => {
     if (shown.has(d.id)) return;
-    shown.add(d.id);
+    const follow = atBottom();
+    shown.set(d.id, d);
     box.querySelector('.empty-dm')?.remove();
     box.insertAdjacentHTML('beforeend', bubble(d));
-    box.scrollTop = box.scrollHeight;
+    if (follow) box.scrollTop = box.scrollHeight;
   };
+  box.addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-dm-file]');
+    if (!btn) return;
+    const d = shown.get(btn.closest('[data-dm-id]').dataset.dmId);
+    const i = Number(btn.dataset.dmFile);
+    B.openDmFile(d.attachments[i], d.id, i).catch(B.error);
+  });
+  // S'abonner avant le chargement : aucun message perdu entre la requête et l'écoute.
+  B.onLeave(B.on('dm', (d) => {
+    if (!active) return;
+    if (d.sender_id === other.id) { add(d); readConversation(); }
+    renderList();
+  }));
+  const updateReceipt = (d) => {
+    const old = shown.get(d.id);
+    if (!old || !d.read_at) return;
+    old.read_at = d.read_at;
+    const el = box.querySelector(`[data-dm-id="${d.id}"] .dm-receipt`);
+    if (el) { el.textContent = tr('Vu'); el.title = fmtDate(d.read_at) + ' ' + fmtTime(d.read_at); }
+  };
+  B.onLeave(B.on('dm-read', updateReceipt));
+  const refreshReceipts = async () => {
+    if (!active || document.hidden) return;
+    const { data } = await B.sb.from('direct_messages').select('id, read_at')
+      .eq('sender_id', B.me.id).eq('recipient_id', other.id).order('created_at', { ascending: false }).limit(200);
+    if (active) (data || []).forEach(updateReceipt);
+  };
+  const onFocus = () => { readConversation(); refreshReceipts(); };
+  window.addEventListener('focus', onFocus);
+  document.addEventListener('visibilitychange', onFocus);
+  box.addEventListener('scroll', readConversation);
+  // Repli après une reconnexion temps réel, uniquement tant que la conversation est ouverte.
+  const timer = setInterval(onFocus, 15000);
+  B.onLeave(() => { clearInterval(timer); window.removeEventListener('focus', onFocus); document.removeEventListener('visibilitychange', onFocus); });
+
   const { data: msgs, error } = await B.sb.from('direct_messages').select('*')
     .or(`and(sender_id.eq.${B.me.id},recipient_id.eq.${other.id}),and(sender_id.eq.${other.id},recipient_id.eq.${B.me.id})`)
     .order('created_at', { ascending: false }).limit(200);
+  if (!active) return;
+  // Fusionner avec les messages arrivés pendant le chargement, puis ranger dans l'ordre.
+  const all = new Map((msgs || []).map((d) => [d.id, d]));
+  shown.forEach((d, id) => all.set(id, d));
+  shown.clear();
   box.innerHTML = '';
   if (error) box.innerHTML = `<p class="muted small dm-pad">${esc(errText(error))}</p>`;
-  else if (!msgs.length) box.innerHTML = `<p class="muted small empty-dm dm-pad">${tr('Aucun message pour l\'instant. Dites bonjour !')}</p>`;
-  (msgs || []).reverse().forEach(add);
-  readConversation(other.id);
+  else if (!all.size) box.innerHTML = `<p class="muted small empty-dm dm-pad">${tr('Aucun message pour l\'instant. Dites bonjour !')}</p>`;
+  [...all.values()].sort((a, b) => a.created_at.localeCompare(b.created_at)).forEach(add);
+  box.scrollTop = box.scrollHeight;
+  loading = false;
+  refreshReceipts();
 
-  B.onLeave(B.on('dm', (d) => {
-    if (d.sender_id === other.id) add(d);
-    renderList();
-  }));
-
-  const form = $('.dm-compose', conv), ta = $('textarea', form);
+  const form = $('.dm-compose', conv), ta = $('textarea', form), input = $('.dm-file-input', form);
+  let pending = [];
+  const paintPending = () => {
+    $('.dm-pending', form).innerHTML = pending.map((f, i) => `<span class="attach-chip"><span translate="no">${esc(f.name)}</span> (${fmtSize(f.size)})
+      <button type="button" data-remove-file="${i}" title="${tr('Retirer')}">×</button></span>`).join('');
+  };
+  $('.dm-attach', form).onclick = () => input.click();
+  input.onchange = () => {
+    const accepted = B.acceptFiles(input.files);
+    if (pending.length + accepted.length > 10) B.toast(tr('10 fichiers maximum par message.'), { type: 'error' });
+    pending.push(...accepted.slice(0, Math.max(0, 10 - pending.length)));
+    input.value = '';
+    paintPending();
+  };
+  $('.dm-pending', form).onclick = (e) => {
+    const b = e.target.closest('[data-remove-file]');
+    if (b && !sending) { pending.splice(Number(b.dataset.removeFile), 1); paintPending(); }
+  };
   ta.focus();
+  readConversation();
   ta.addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) { e.preventDefault(); form.requestSubmit(); } });
   form.onsubmit = async (e) => {
     e.preventDefault();
     const content = ta.value.trim();
-    if (!content) return;
-    ta.disabled = true;
-    const { data, error: err } = await B.sb.from('direct_messages').insert({ sender_id: B.me.id, recipient_id: other.id, content }).select().single();
-    ta.disabled = false;
-    if (err) return B.error(new Error(/row-level security/.test(err.message || '') ? tr('Vous ne partagez plus de projet avec cette personne.') : errText(err)));
-    ta.value = '';
-    ta.focus();
-    add(data);
-    renderList();
+    if (sending || (!content && !pending.length)) return;
+    sending = true;
+    $$('button, textarea, input', form).forEach((el) => { el.disabled = true; });
+    const uploaded = [];
+    let committed = false;
+    try {
+      for (const f of pending) uploaded.push(await B.uploadDmFile(other.id, f));
+      const payload = { sender_id: B.me.id, recipient_id: other.id, content };
+      if (uploaded.length) payload.attachments = uploaded;
+      const { data, error: err } = await B.sb.from('direct_messages').insert(payload).select().single();
+      if (err) throw new Error(/row-level security/.test(err.message || '') ? tr('Vous ne partagez plus de projet avec cette personne.') : errText(err));
+      committed = true;
+      ta.value = '';
+      pending = [];
+      paintPending();
+      if (active) { add(data); box.scrollTop = box.scrollHeight; renderList(); }
+    } catch (err) {
+      // Ne supprimer que les fichiers provisoires : la base protège ceux déjà envoyés.
+      if (!committed && uploaded.length) await B.sb.storage.from('dm-files').remove(uploaded.map((f) => f.path));
+      B.error(err);
+    } finally {
+      sending = false;
+      $$('button, textarea, input', form).forEach((el) => { el.disabled = false; });
+      if (active) ta.focus();
+    }
   };
 };

@@ -11,6 +11,7 @@ B.chat = async (root, { project, channel, mode }) => {
   const st = {
     messages: [],
     reactions: new Map(), // messageId -> [{ user_id, emoji }]
+    reads: new Map(),     // messageId -> identifiants des personnes ayant vu le message
     files: new Map(),     // messageId -> [file]
     filter: 'all',
     pendingFiles: [],
@@ -52,6 +53,56 @@ B.chat = async (root, { project, channel, mode }) => {
   const list = $('.messages', root);
   const ta = $('textarea', root);
   const acBox = $('.ac', root);
+  let active = true, markingReads = false;
+  B.onLeave(() => { active = false; });
+  const visibleReads = debounce(async () => {
+    if (!active || markingReads || document.hidden || !document.hasFocus()) return;
+    const bounds = list.getBoundingClientRect();
+    const ids = $$('.msg', list).filter(el => {
+      const m = st.messages.find(m => m.id === el.dataset.id);
+      const head = $('.msg-head', el)?.getBoundingClientRect();
+      return m && m.author_id !== B.me.id && !st.reads.get(m.id)?.has(B.me.id)
+        && head && head.top >= bounds.top && head.bottom <= bounds.bottom;
+    }).map(el => el.dataset.id).slice(0, 100);
+    if (!ids.length) return;
+    markingReads = true;
+    const { error } = await B.sb.from('message_reads').upsert(ids.map(message_id => ({ message_id, user_id: B.me.id })),
+      { onConflict: 'message_id,user_id', ignoreDuplicates: true });
+    markingReads = false;
+    if (!error) ids.forEach(id => { if (!st.reads.has(id)) st.reads.set(id, new Set()); st.reads.get(id).add(B.me.id); });
+  }, 250);
+  const refreshReads = async () => {
+    if (!active || document.hidden) return;
+    const ids = st.messages.map(m => m.id);
+    if (!ids.length) return;
+    const { data } = await B.sb.from('message_reads').select('*').in('message_id', ids);
+    if (!active) return;
+    (data || []).forEach(r => {
+      if (!st.reads.has(r.message_id)) st.reads.set(r.message_id, new Set());
+      st.reads.get(r.message_id).add(r.user_id);
+    });
+    paintReads();
+  };
+  const onFocusReads = () => { visibleReads(); refreshReads(); };
+  list.addEventListener('scroll', visibleReads);
+  window.addEventListener('focus', onFocusReads);
+  document.addEventListener('visibilitychange', onFocusReads);
+  const readsTimer = setInterval(onFocusReads, 15000);
+  B.onLeave(() => { clearInterval(readsTimer); window.removeEventListener('focus', onFocusReads); document.removeEventListener('visibilitychange', onFocusReads); });
+  B.live('reads', 'message_reads', null, p => {
+    const r = p.new;
+    if (!r || !st.messages.some(m => m.id === r.message_id)) return;
+    if (!st.reads.has(r.message_id)) st.reads.set(r.message_id, new Set());
+    st.reads.get(r.message_id).add(r.user_id);
+    paintReads();
+  }, 'INSERT');
+  function readersText(id) {
+    const names = [...(st.reads.get(id) || [])].filter(uid => uid !== B.me.id).map(uid => B.person(uid).display_name);
+    return names.length ? tr('Vu par {names}', { names: names.join(', ') }) : tr('Envoyé');
+  }
+  function paintReads() {
+    $$('.msg-read', list).forEach(el => { el.textContent = readersText(el.closest('.msg').dataset.id); });
+  }
 
   // ---------------- Chargement ----------------
 
@@ -71,10 +122,15 @@ B.chat = async (root, { project, channel, mode }) => {
 
   async function loadExtras(ids) {
     if (!ids.length) return;
-    const [r, f] = await Promise.all([
+    const [r, f, reads] = await Promise.all([
       B.sb.from('reactions').select('*').in('message_id', ids),
-      B.sb.from('files').select('*').in('message_id', ids)
+      B.sb.from('files').select('*').in('message_id', ids),
+      B.sb.from('message_reads').select('*').in('message_id', ids)
     ]);
+    (reads.data || []).forEach(r => {
+      if (!st.reads.has(r.message_id)) st.reads.set(r.message_id, new Set());
+      st.reads.get(r.message_id).add(r.user_id);
+    });
     ids.forEach((id) => { st.reactions.set(id, []); });
     (r.data || []).forEach((x) => st.reactions.get(x.message_id)?.push(x));
     (f.data || []).forEach((x) => {
@@ -112,6 +168,7 @@ B.chat = async (root, { project, channel, mode }) => {
       list.scrollTop = list.scrollHeight - keepScroll.fromBottom;
       keepScroll = null;
     } else scrollDown();
+    visibleReads();
   }
 
   /** Charge les 100 messages précédents, sans faire sauter la lecture */
@@ -165,6 +222,7 @@ B.chat = async (root, { project, channel, mode }) => {
         ${editing ? editorHtml() : `<div class="msg-text" translate="no">${md(m.content)}</div>`}
         ${files.length ? `<div class="msg-files">${files.map(fileCard).join('')}</div>` : ''}
         ${reactionsHtml(m.id)}
+        ${mine && !m.is_ai ? `<small class="msg-read muted">${esc(readersText(m.id))}</small>` : ''}
       </div>
       <div class="msg-tools">
         <button class="icon-btn" data-react title="${tr('Réagir')}">${icon('smile', 16)}</button>
@@ -199,7 +257,7 @@ B.chat = async (root, { project, channel, mode }) => {
     if (st.editing?.id === id) focusEditor();
   }
 
-  function scrollDown() { list.scrollTop = list.scrollHeight; }
+  function scrollDown() { list.scrollTop = list.scrollHeight; visibleReads(); }
 
   // ---------------- Interactions sur les messages ----------------
 
