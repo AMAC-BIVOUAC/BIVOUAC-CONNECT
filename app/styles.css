@@ -554,6 +554,28 @@ details.advanced[open] summary { margin-bottom: 10px; }
 .cw-choice > span:not(.avatar) { flex: 1; display: flex; flex-direction: column; gap: 3px; }
 .cw-choice strong { color: var(--navy); font-size: 14px; }
 .cw-shot { border: 1px solid var(--line); border-radius: 12px; overflow: hidden; margin: 14px 0; background: var(--bg); }
+/* Vraies captures de Claude / ChatGPT dans l'assistant : cadre sable, zones à cliquer encadrées en orange */
+.cw-real { margin: 14px 0; padding: 12px 14px 10px; border-radius: var(--radius);
+  background: linear-gradient(160deg, #FFF8EE 0%, var(--sand) 100%); border: 1px solid rgba(242, 140, 40, .22); }
+.cw-real-head { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; font-size: 12px; font-weight: 700;
+  letter-spacing: .02em; color: var(--navy); }
+.cw-real-frame { position: relative; display: block; margin: 0 auto; padding: 0; border: 0; border-radius: 10px;
+  background: #fff; cursor: zoom-in; transition: width .25s ease;
+  box-shadow: 0 0 0 1px rgba(14, 42, 59, .08), 0 12px 28px -8px rgba(14, 42, 59, .28); }
+.cw-real-frame img { display: block; width: 100%; height: auto; border-radius: 10px; }
+.cw-real-frame:focus-visible { outline: 3px solid var(--teal); outline-offset: 3px; }
+.cw-real.big .cw-real-frame { width: 100% !important; cursor: zoom-out; }
+.cw-mark { position: absolute; border: 2.5px solid var(--orange); border-radius: 8px; pointer-events: none;
+  background: rgba(242, 140, 40, .08); animation: cw-glow 1.8s ease-in-out infinite;
+  animation-delay: calc(var(--i) * .3s); }
+.cw-mark b { position: absolute; left: -8px; top: -8px; width: 16px; height: 16px; border-radius: 50%;
+  background: var(--orange); color: #fff; border: 1.5px solid #fff; font: 700 9px/13px 'Montserrat', sans-serif;
+  text-align: center; box-shadow: 0 3px 8px rgba(14, 42, 59, .35); }
+@keyframes cw-glow {
+  0%, 100% { box-shadow: 0 0 0 2px rgba(242, 140, 40, .25), 0 0 10px 2px rgba(242, 140, 40, .25); }
+  50% { box-shadow: 0 0 0 5px rgba(242, 140, 40, .18), 0 0 18px 6px rgba(242, 140, 40, .35); } }
+@media (prefers-reduced-motion: reduce) { .cw-mark { animation: none; box-shadow: 0 0 0 3px rgba(242, 140, 40, .25); } }
+.cw-real-foot { margin: 9px 0 0; font-size: 11.5px; text-align: center; color: #8A6A44; }
 .cw-shot-bar { display: flex; align-items: center; gap: 5px; padding: 7px 10px; background: #fff; border-bottom: 1px solid var(--line); font-size: 11.5px; color: var(--muted); }
 .cw-shot-bar i { width: 8px; height: 8px; border-radius: 50%; background: var(--line); }
 .cw-shot-bar span { margin-left: 8px; }

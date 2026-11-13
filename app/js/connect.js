@@ -36,6 +36,35 @@ B.connectWizard = ({ step = 0, ai: aiStart = null, onDone = null } = {}) => {
       <div class="cw-shot-bar"><i></i><i></i><i></i><span>${title}</span></div>
       <div class="cw-shot-body">${body}</div></div>`;
 
+  // Vraies captures de Claude / ChatGPT (src/assets/tuto/, interface en français, novembre 2026),
+  // recadrées sans rien de personnel. Chaque zone [x, y, largeur, hauteur] (en % de l'image) = là où agir :
+  // encadré orange lumineux + pastille numérotée, dans l'ordre du texte. Clic sur l'image = agrandir.
+  // En anglais : le schéma dessiné ci-dessus (les menus n'ont pas les mêmes mots).
+  // Si Claude ou ChatGPT changent leurs menus : remplacer l'image et recaler les zones.
+  const TUTO = {
+    'claude-1': { file: 'claude-1-connecteurs.webp', w: 1025, h: 430,
+      marks: [[87.8, 14.4, 10.2, 6.5], [71.8, 22.3, 27.3, 9.3]] },
+    'claude-2': { file: 'claude-2-connecteur-perso.webp', w: 551, h: 470,
+      marks: [[4, 22.1, 91.7, 6], [4, 36.8, 91.7, 6.2], [80.2, 88.7, 15.4, 6]] },
+    'chatgpt-1': { file: 'chatgpt-1-plugins.webp', w: 705, h: 235,
+      marks: [[0.6, 69.4, 44.8, 15.3], [86, 0.8, 13.3, 14.9], [59.1, 53.2, 38.7, 13.6]] },
+    'chatgpt-2': { file: 'chatgpt-2-serveur-mcp.webp', w: 626, h: 771,
+      marks: [[5.3, 14.3, 87.9, 4.7], [5.3, 35.8, 87.9, 4.7], [5.3, 73.8, 87.9, 15.6], [63.1, 91.1, 30, 4.7]] }
+  };
+  const real = (key, alt) => {
+    if (B.lang !== 'fr') return null;
+    const t = TUTO[key];
+    const width = Math.round(380 * t.w / t.h); // une capture haute ne dépasse pas 380 px de haut
+    return `<figure class="cw-real">
+      <figcaption class="cw-real-head">${aiAvatar(ai, 20)}<span>${tr('Dans {ai}', { ai: label() })}</span></figcaption>
+      <button type="button" class="cw-real-frame" style="width: min(100%, ${width}px)" aria-label="${esc(tr('Agrandir la capture'))}">
+        <img src="assets/tuto/${t.file}" width="${t.w}" height="${t.h}" alt="${esc(alt)}" />
+        ${t.marks.map(([x, y, w, h], i) => `<span class="cw-mark" style="left:${x}%;top:${y}%;width:${w}%;height:${h}%;--i:${i}" aria-hidden="true"><b>${i + 1}</b></span>`).join('')}
+      </button>
+      <p class="cw-real-foot">${tr('Suivez les numéros dans l\'ordre · cliquez sur l\'image pour l\'agrandir')}</p>
+    </figure>`;
+  };
+
   const copyField = (label, value, id) => `<div class="cw-copy"><label>${label}</label>
       <div class="row"><code id="${id}">${esc(value)}</code>
       <button class="btn small" data-copy="${id}">${icon('copy', 14)} ${tr('Copier')}</button></div></div>`;
@@ -65,7 +94,7 @@ ${window.BIVOUAC_WEB ? '' : `        <button class="cw-choice" data-advanced>${a
     1: () => gpt() ? `${dots()}
       <h2>${tr('Ouvrez les plugins de ChatGPT')}</h2>
       <p>${tr('Le bouton ci-dessous ouvre ChatGPT. Connectez-vous si on vous le demande. Dans le menu de gauche, cliquez sur <strong>Plugins</strong>, puis sur <strong>Ajouter</strong> en haut à droite, et choisissez <strong>Ajouter un serveur MCP personnalisé</strong>.')}</p>
-      ${shot('chatgpt.com', `
+      ${real('chatgpt-1', tr('Page Plugins de ChatGPT, menu Ajouter ouvert')) || shot('chatgpt.com', `
         <div class="cw-shot-side"><span>${tr('Nouvelle conversation')}</span><span class="on">${tr('Plugins')}</span></div>
         <div class="cw-shot-main"><b>${tr('Plugins')}</b><span class="cw-line"></span>
           <span class="cw-shot-btn pulse">+ ${tr('Ajouter')} → ${tr('Ajouter un serveur MCP personnalisé')}</span></div>`)}
@@ -74,11 +103,11 @@ ${window.BIVOUAC_WEB ? '' : `        <button class="cw-choice" data-advanced>${a
         <button class="btn" id="cw-open">${icon('arrow', 14)} ${tr('Ouvrir ChatGPT')}</button>
         <button class="btn primary" data-go="2">${tr('Suivant')}</button></div>` : `${dots()}
       <h2>${tr('Ouvrez les connecteurs de Claude')}</h2>
-      <p>${tr('Le bouton ci-dessous ouvre la bonne page de Claude. Connectez-vous à votre compte Claude si on vous le demande, puis cliquez sur <strong>Ajouter un connecteur personnalisé</strong>.')}</p>
-      ${shot('claude.ai', `
+      <p>${tr('Le bouton ci-dessous ouvre la page Connecteurs de Claude. Connectez-vous à votre compte Claude si on vous le demande, puis cliquez sur <strong>Ajouter</strong> en haut à droite et choisissez <strong>Ajouter un connecteur personnalisé</strong>.')}</p>
+      ${real('claude-1', tr('Page Connecteurs de Claude, menu Ajouter ouvert')) || shot('claude.ai', `
         <div class="cw-shot-side"><span>${tr('Paramètres')}</span><span class="on">${tr('Connecteurs')}</span></div>
         <div class="cw-shot-main"><b>${tr('Connecteurs')}</b><span class="cw-line"></span><span class="cw-line short"></span>
-          <span class="cw-shot-btn pulse">+ ${tr('Ajouter un connecteur personnalisé')}</span></div>`)}
+          <span class="cw-shot-btn pulse">+ ${tr('Ajouter')} → ${tr('Ajouter un connecteur personnalisé')}</span></div>`)}
       <p class="muted small">${tr('Vous préférez l\'application de bureau Claude ? Même chemin : Paramètres → Connecteurs. Le connecteur s\'ajoute une fois et marche partout (ordinateur, site, téléphone).')}</p>
       <div class="actions"><button class="btn" data-go="0">${tr('Retour')}</button><span class="spacer"></span>
         <button class="btn" id="cw-open">${icon('arrow', 14)} ${tr('Ouvrir Claude')}</button>
@@ -87,22 +116,22 @@ ${window.BIVOUAC_WEB ? '' : `        <button class="cw-choice" data-advanced>${a
     // 2. Nom + adresse à copier
     2: () => gpt() ? `${dots()}
       <h2>${tr('Ajoutez le serveur BIVOUAC-TECH')}</h2>
-      <p>${tr('Dans la fenêtre « Ajouter un serveur MCP personnalisé », collez le nom et l\'adresse. Si ChatGPT demande une authentification, choisissez <strong>OAuth</strong>. Puis validez.')}</p>
+      <p>${tr('Dans la fenêtre « Ajouter un serveur MCP personnalisé », collez le nom dans <strong>Nom</strong> et l\'adresse dans <strong>Connexion</strong> (onglet « URL du serveur »). Laissez <strong>OAuth</strong> en authentification, cochez <strong>Je comprends et souhaite continuer</strong>, puis cliquez sur <strong>Créer en tant que plugin</strong>.')}</p>
       ${copyField(tr('Nom'), 'BIVOUAC-TECH', 'cw-name')}
       ${copyField(tr('Adresse du serveur MCP (URL)'), CONNECTOR_URL(), 'cw-url')}
-      ${shot(tr('Ajouter un serveur MCP personnalisé'), `
+      ${real('chatgpt-2', tr('Fenêtre « Ajouter un serveur MCP personnalisé » de ChatGPT')) || shot(tr('Ajouter un serveur MCP personnalisé'), `
         <div class="cw-shot-main"><span class="cw-field">BIVOUAC-TECH</span><span class="cw-field">${esc(CONNECTOR_URL().replace(/^https:\/\//, ''))}</span>
           <span class="cw-field">${tr('Authentification')} : OAuth</span>
-          <span class="cw-shot-btn pulse">${tr('Valider')}</span></div>`)}
+          <span class="cw-shot-btn pulse">${tr('Créer en tant que plugin')}</span></div>`)}
       <div class="actions"><button class="btn" data-go="1">${tr('Retour')}</button><span class="spacer"></span>
         <button class="btn primary" data-go="3">${tr('Suivant')}</button></div>` : `${dots()}
       <h2>${tr('Collez le nom et l\'adresse')}</h2>
-      <p>${tr('Dans la fenêtre « Ajouter un connecteur personnalisé » de Claude, remplissez les deux cases, puis cliquez sur <strong>Ajouter</strong>.')}</p>
+      <p>${tr('Dans la fenêtre « Ajouter un connecteur personnalisé » de Claude, remplissez les deux cases, puis cliquez sur <strong>Continuer</strong>.')}</p>
       ${copyField(tr('Nom'), 'BIVOUAC-TECH', 'cw-name')}
       ${copyField(tr('Adresse (URL)'), CONNECTOR_URL(), 'cw-url')}
-      ${shot(tr('Ajouter un connecteur personnalisé'), `
+      ${real('claude-2', tr('Fenêtre « Ajouter un connecteur personnalisé » de Claude, remplie')) || shot(tr('Ajouter un connecteur personnalisé'), `
         <div class="cw-shot-main"><span class="cw-field">BIVOUAC-TECH</span><span class="cw-field">${esc(CONNECTOR_URL().replace(/^https:\/\//, ''))}</span>
-          <span class="cw-shot-btn pulse">${tr('Ajouter')}</span></div>`)}
+          <span class="cw-shot-btn pulse">${tr('Continuer')}</span></div>`)}
       <div class="actions"><button class="btn" data-go="1">${tr('Retour')}</button><span class="spacer"></span>
         <button class="btn primary" data-go="3">${tr('Suivant')}</button></div>`,
 
@@ -168,6 +197,7 @@ ${window.BIVOUAC_WEB ? '' : `        <button class="cw-choice" data-advanced>${a
     const m = B.modal(`<div id="cw">${steps[n]()}${n === 4 ? '<i id="cw-wait-mark" hidden></i>' : ''}</div>`, { wide: true });
     $$('[data-go]', m).forEach((b) => (b.onclick = () => show(Number(b.dataset.go))));
     $$('[data-close]', m).forEach((b) => (b.onclick = close));
+    $$('.cw-real-frame', m).forEach((b) => (b.onclick = () => b.closest('.cw-real').classList.toggle('big')));
     $$('[data-copy]', m).forEach((b) => (b.onclick = async () => {
       const code = $(`#${b.dataset.copy}`, m);
       try {

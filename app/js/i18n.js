@@ -396,7 +396,7 @@ const EN = {
   'Ajouter un serveur MCP personnalisé': 'Add a custom MCP server',
   'Vous ne voyez pas « Plugins » ? Vérifiez que vous êtes connecté à votre compte ChatGPT : selon l\'offre ou le compte (entreprise), la fonction peut ne pas être proposée.': 'Can\'t see “Plugins”? Check that you are signed in to your ChatGPT account: depending on the plan or account (company), the feature may not be offered.',
   'Ajoutez le serveur BIVOUAC-TECH': 'Add the BIVOUAC-TECH server',
-  'Dans la fenêtre « Ajouter un serveur MCP personnalisé », collez le nom et l\'adresse. Si ChatGPT demande une authentification, choisissez <strong>OAuth</strong>. Puis validez.': 'In the “Add a custom MCP server” window, paste the name and the address. If ChatGPT asks for authentication, choose <strong>OAuth</strong>. Then confirm.',
+  'Dans la fenêtre « Ajouter un serveur MCP personnalisé », collez le nom dans <strong>Nom</strong> et l\'adresse dans <strong>Connexion</strong> (onglet « URL du serveur »). Laissez <strong>OAuth</strong> en authentification, cochez <strong>Je comprends et souhaite continuer</strong>, puis cliquez sur <strong>Créer en tant que plugin</strong>.': 'In the “Add a custom MCP server” window, paste the name in <strong>Name</strong> and the address in <strong>Connection</strong> (“Server URL” tab). Keep <strong>OAuth</strong> for authentication, tick <strong>I understand and want to continue</strong>, then click <strong>Create as plugin</strong>.',
   'Valider': 'Confirm',
   'ChatGPT ouvre une page BIVOUAC-TECH (sinon, cliquez sur <strong>Se connecter</strong> sur le plugin BIVOUAC-TECH). Entrez <strong>le même e-mail et le même mot de passe qu\'ici</strong>, puis cliquez sur <strong>Autoriser</strong>.': 'ChatGPT opens a BIVOUAC-TECH page (if not, click <strong>Connect</strong> on the BIVOUAC-TECH plugin). Enter <strong>the same email and password as here</strong>, then click <strong>Allow</strong>.',
   'Dans ChatGPT, vérifiez que les outils de BIVOUAC-TECH sont accessibles (plugin activé). S\'il n\'est pas proposé dans la conversation, ajoutez-le avec le bouton <strong>+</strong> avant d\'écrire.': 'In ChatGPT, check that the BIVOUAC-TECH tools are available (plugin turned on). If it isn\'t offered in the conversation, add it with the <strong>+</strong> button before typing.',
@@ -525,8 +525,16 @@ const EN = {
   'Une autre IA (ChatGPT, Mistral, Gemini…)': 'Another AI (ChatGPT, Mistral, Gemini…)',
   "Avec une clé API, payée à l'usage chez le fournisseur. Pour les habitués.": 'With an API key, paid per use to the provider. For experienced users.',
   'Ouvrez les connecteurs de Claude': 'Open Claude’s connectors',
-  'Le bouton ci-dessous ouvre la bonne page de Claude. Connectez-vous à votre compte Claude si on vous le demande, puis cliquez sur <strong>Ajouter un connecteur personnalisé</strong>.':
-    'The button below opens the right Claude page. Sign in to your Claude account if asked, then click <strong>Add custom connector</strong>.',
+  'Le bouton ci-dessous ouvre la page Connecteurs de Claude. Connectez-vous à votre compte Claude si on vous le demande, puis cliquez sur <strong>Ajouter</strong> en haut à droite et choisissez <strong>Ajouter un connecteur personnalisé</strong>.':
+    'The button below opens Claude’s Connectors page. Sign in to your Claude account if asked, then click <strong>Add</strong> at the top right and choose <strong>Add custom connector</strong>.',
+  'Page Connecteurs de Claude, menu Ajouter ouvert': 'Claude’s Connectors page, Add menu open',
+  'Fenêtre « Ajouter un connecteur personnalisé » de Claude, remplie': 'Claude’s “Add custom connector” window, filled in',
+  'Page Plugins de ChatGPT, menu Ajouter ouvert': 'ChatGPT’s Plugins page, Add menu open',
+  'Fenêtre « Ajouter un serveur MCP personnalisé » de ChatGPT': 'ChatGPT’s “Add a custom MCP server” window',
+  'Créer en tant que plugin': 'Create as plugin',
+  'Dans {ai}': 'In {ai}',
+  'Agrandir la capture': 'Enlarge the screenshot',
+  "Suivez les numéros dans l'ordre · cliquez sur l'image pour l'agrandir": 'Follow the numbers in order · click the image to enlarge it',
   'Connecteurs': 'Connectors',
   'Ajouter un connecteur personnalisé': 'Add custom connector',
   "Vous préférez l'application de bureau Claude ? Même chemin : Paramètres → Connecteurs. Le connecteur s'ajoute une fois et marche partout (ordinateur, site, téléphone).":
@@ -534,8 +542,8 @@ const EN = {
   'Retour': 'Back',
   'Ouvrir Claude': 'Open Claude',
   "Collez le nom et l'adresse": 'Paste the name and the address',
-  'Dans la fenêtre « Ajouter un connecteur personnalisé » de Claude, remplissez les deux cases, puis cliquez sur <strong>Ajouter</strong>.':
-    'In Claude’s “Add custom connector” window, fill in both fields, then click <strong>Add</strong>.',
+  'Dans la fenêtre « Ajouter un connecteur personnalisé » de Claude, remplissez les deux cases, puis cliquez sur <strong>Continuer</strong>.':
+    'In Claude’s “Add custom connector” window, fill in both fields, then click <strong>Continue</strong>.',
   'Adresse (URL)': 'Address (URL)',
   'Faites Ctrl+C': 'Press Ctrl+C',
   '« {s} »': '“{s}”',
