@@ -42,12 +42,14 @@ B.connectWizard = ({ step = 0, ai: aiStart = null, onDone = null } = {}) => {
   // encadré orange lumineux + pastille numérotée, dans l'ordre du texte. Clic sur l'image = agrandir.
   // En anglais : le schéma dessiné ci-dessus (les menus n'ont pas les mêmes mots).
   // Si Claude ou ChatGPT changent leurs menus : remplacer l'image et recaler les zones.
+  // Image modifiée = NOUVEAU nom de fichier (-v2, -v3…) : sinon le navigateur garde l'ancienne jusqu'à 10 min
+  // (cache de GitHub Pages) et les zones ne tombent plus au bon endroit.
   const TUTO = {
     'claude-1': { file: 'claude-1-connecteurs.webp', w: 1025, h: 430,
       marks: [[87.8, 14.4, 10.2, 6.5], [71.8, 22.3, 27.3, 9.3]] },
     'claude-2': { file: 'claude-2-connecteur-perso.webp', w: 551, h: 470,
       marks: [[4, 22.1, 91.7, 6], [4, 36.8, 91.7, 6.2], [80.2, 88.7, 15.4, 6]] },
-    'chatgpt-1': { file: 'chatgpt-1-plugins.webp', w: 713, h: 250,
+    'chatgpt-1': { file: 'chatgpt-1-plugins-v2.webp', w: 713, h: 250,
       marks: [[0.6, 71.2, 44.3, 14.4], [84.85, 6, 13.32, 14.4, 'pill'], [58.5, 56, 38.3, 12.8]] },
     'chatgpt-2': { file: 'chatgpt-2-serveur-mcp.webp', w: 626, h: 771,
       marks: [[5.3, 14.3, 87.9, 4.7], [5.3, 35.8, 87.9, 4.7], [5.3, 73.8, 87.9, 15.6], [62.9, 91.05, 30.2, 4.67, 'pill']] }
