@@ -182,6 +182,21 @@ function errText(err) {
   };
   const key = Object.keys(team).find((k) => m.includes(k));
   if (key) return tr(team[key]);
+  // Protections anti-abus (migration 030, seuils dans ANTI-ABUS.md) : « limite:<type> — explication »
+  const limits = {
+    'limite:messages': 'Trop de messages en peu de temps. Patientez une minute avant de réécrire.',
+    'limite:notifications': 'Trop de notifications envoyées en peu de temps. Patientez quelques minutes.',
+    'limite:demandes_ia': "Trop de demandes aux IA de l'équipe (30 par heure). Patientez un peu.",
+    'limite:contenu': "Trop d'ajouts en peu de temps (200 par heure). Patientez un peu.",
+    'limite:projets': 'Limite de projets atteinte (10 nouveaux par jour, 50 au total).',
+    'limite:salons': 'Ce projet a déjà 50 salons. Supprimez-en un avant d\'en créer un autre.',
+    'limite:invitations': "Trop d'invitations créées aujourd'hui (50 par jour). Réessayez demain.",
+    'limite:fichiers': "Limite d'envoi de fichiers atteinte (100 par heure, 300 Mo par jour). Réessayez plus tard.",
+    'limite:inscriptions': 'Trop d\'inscriptions en ce moment. Réessayez dans une heure.'
+  };
+  const lim = Object.keys(limits).find((k) => m.includes(k));
+  if (lim) return tr(limits[lim]);
+  if (/database error saving new user/i.test(m)) return tr('Impossible de créer le compte pour le moment. Réessayez dans une heure.');
   if (/expired|invalid.*(otp|token)/i.test(m)) return tr('Code invalide ou expiré. Redemandez un code.');
   if (/Failed to fetch|NetworkError/i.test(m)) return tr('Pas de connexion au serveur. Vérifiez internet et src/config.js.');
   if (/duplicate key.*handle/i.test(m)) return tr('Ce pseudo est déjà pris.');
