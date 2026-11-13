@@ -88,7 +88,7 @@ $('#email-form').addEventListener('submit', async (e) => {
     if (bad) { e.submitter.disabled = false; return loginMsg(bad, true); }
   }
   const { data, error } = signupMode
-    ? await B.sb.auth.signUp({ email, password, options: { data: personal } })
+    ? await B.sb.auth.signUp({ email, password, options: { data: personal, emailRedirectTo: CONFIRM_PAGE } })
     : await B.sb.auth.signInWithPassword({ email, password });
   e.submitter.disabled = false;
   if (error) return loginMsg(errText(error), true);
@@ -108,6 +108,19 @@ $('#email-form').addEventListener('submit', async (e) => {
 
 B.pendingInvite = null;
 
+/**
+ * Garde l'invitation sur ce poste jusqu'à son utilisation (15 jours max) : elle survit à la confirmation
+ * de l'adresse e-mail (lien ouvert dans un autre onglet, app fermée puis rouverte).
+ */
+function keepInvite(code) {
+  B.pendingInvite = code || null;
+  store.set('pending-invite', code ? { code, until: Date.now() + 15 * 864e5 } : null);
+}
+function storedInvite() {
+  const v = store.get('pending-invite');
+  return v && v.code && v.until > Date.now() ? v.code : null;
+}
+
 function showInviteBanner() {
   const el = $('#login-invite');
   el.textContent = B.pendingInvite
@@ -121,7 +134,7 @@ function showInviteBanner() {
 async function useInvite() {
   const code = B.pendingInvite;
   if (!code || !B.me) return null;
-  B.pendingInvite = null;
+  keepInvite(null);
   try {
     const id = await B.joinProject(code);
     const p = B.project(id);
@@ -137,7 +150,7 @@ async function useInvite() {
 async function takeInvite() {
   const code = await window.bivouac.takeInvite?.();
   if (!code) return;
-  B.pendingInvite = code;
+  keepInvite(code);
   if (!B.me) return showInviteBanner();
   const id = await useInvite();
   if (id) { B.renderSidebar(); location.hash = `#/p/${id}`; }
@@ -214,7 +227,9 @@ B.on('ai_request', (req) => B.showIncomingRequest(req));
     loginMsg(tr('Configuration manquante : remplissez src/config.js avec votre projet Supabase (voir README).'), true);
     return;
   }
-  B.pendingInvite = (await window.bivouac.takeInvite?.()) || null; // app ouverte par un lien d'invitation
+  // App ouverte par un lien d'invitation, sinon invitation gardée sur ce poste (compte en attente de confirmation)
+  const fresh = (await window.bivouac.takeInvite?.()) || null;
+  if (fresh) keepInvite(fresh); else B.pendingInvite = storedInvite();
   B.sb.auth.onAuthStateChange((_event, session) => setTimeout(() => onSession(session), 0));
   const { data } = await B.sb.auth.getSession();
   await onSession(data.session);

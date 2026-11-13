@@ -152,6 +152,8 @@ const ROLE_LABEL = () => ({ owner: tr('Créateur'), admin: tr('Administrateur'),
 const INVITE_PAGE = 'https://amac-bivouac.github.io/BIVOUAC-CONNECT/rejoindre/';
 /** Page publique « Nouveau mot de passe » (lien de l'e-mail « mot de passe oublié ») */
 const RESET_PAGE = 'https://amac-bivouac.github.io/BIVOUAC-CONNECT/mot-de-passe/';
+/** Page publique « Adresse confirmée » (lien de l'e-mail de confirmation, quand « Confirm email » est activé) */
+const CONFIRM_PAGE = 'https://amac-bivouac.github.io/BIVOUAC-CONNECT/confirmation/';
 
 /** Retrouve un code d'invitation (K7QM-4TPX) dans un code tapé à la main ou un lien collé */
 function inviteCodeFrom(text) {

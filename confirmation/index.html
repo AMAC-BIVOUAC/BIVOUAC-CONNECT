@@ -1,0 +1,92 @@
+<!doctype html>
+<!--
+  Page publique « Adresse confirmée » — https://amac-bivouac.github.io/BIVOUAC-CONNECT/confirmation/
+  Source : dépôt BIVOUAC-TECH, dossier pages-publiques/ (tâche P0-01, 13/11/2026). AUCUN secret ici.
+  L'e-mail de confirmation de Supabase (« Confirm email » activé) renvoie ici APRÈS avoir confirmé l'adresse :
+  la page dit simplement que c'est fait, ou que le lien est expiré. Le jeton éventuel après le # est effacé
+  aussitôt de la barre d'adresse, jamais gardé ni envoyé.
+-->
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="robots" content="noindex" />
+  <meta name="referrer" content="no-referrer" />
+  <meta http-equiv="Content-Security-Policy"
+        content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; img-src data:" />
+  <title>Adresse confirmée · BIVOUAC-TECH</title>
+  <style>
+    :root { --night: #0E2A3B; --teal: #12809A; --mint: #5ECDB5; --orange: #F28C28; --muted: #5B6B78; }
+    * { box-sizing: border-box; }
+    body { margin: 0; min-height: 100vh; font-family: Montserrat, "Segoe UI", system-ui, -apple-system, Arial, sans-serif;
+           background: linear-gradient(180deg, var(--night) 0%, #1E4A63 55%, #2D6A7A 100%); color: var(--night);
+           display: flex; align-items: center; justify-content: center; padding: 24px 16px; }
+    .card { width: 100%; max-width: 460px; background: #fff; border-radius: 18px; padding: 32px 28px; box-shadow: 0 20px 60px rgba(0,0,0,.25); }
+    .brand { display: flex; align-items: center; gap: 12px; margin-bottom: 22px; }
+    .brand svg { width: 46px; height: 46px; background: var(--night); border-radius: 12px; padding: 6px; }
+    .word { font-weight: 800; letter-spacing: 1px; font-size: 20px; }
+    .word small { display: block; color: var(--orange); font-size: 11px; letter-spacing: 4px; font-weight: 600; }
+    h1 { font-size: 22px; margin: 0 0 8px; }
+    p { line-height: 1.55; margin: 0 0 12px; color: #33475A; }
+    label { display: block; font-weight: 700; font-size: 13px; margin: 14px 0 6px; }
+    input { width: 100%; font: inherit; font-size: 15px; padding: 12px 14px; border: 1.5px solid #D5DEE6; border-radius: 10px; }
+    input:focus { outline: none; border-color: var(--teal); }
+    .btn { display: flex; align-items: center; justify-content: center; width: 100%; padding: 14px 18px; border-radius: 12px; margin-top: 18px;
+           font: inherit; font-weight: 700; font-size: 15px; cursor: pointer; border: 0; background: var(--orange); color: #fff; text-decoration: none; }
+    .btn:disabled { opacity: .6; cursor: default; }
+    .msg { margin-top: 12px; font-weight: 600; font-size: 14px; color: #A33733; min-height: 1em; }
+    .ok { background: #E3F6F1; color: #1F6B58; border-radius: 10px; padding: 12px 14px; font-weight: 600; }
+    .err { background: #FDEBD8; color: #8A4A10; border-radius: 10px; padding: 12px 14px; font-weight: 600; }
+    .btn.alt { background: #fff; color: var(--night); border: 1.5px solid #D5DEE6; margin-top: 10px; }
+    .hidden { display: none !important; }
+  </style>
+</head>
+<body>
+  <main class="card">
+    <div class="brand">
+      <svg viewBox="0 0 120 120" aria-hidden="true">
+        <path d="M27 56 A33 33 0 0 1 93 56" fill="none" stroke="#F28C28" stroke-width="9" stroke-linecap="round"/>
+        <path d="M12 94 L45 54 L60 70 L77 47 L108 94" fill="none" stroke="#FFFFFF" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      <div class="word">BIVOUAC<small>— TECH —</small></div>
+    </div>
+
+    <section id="done" class="hidden">
+      <h1 data-t="doneTitle">Adresse confirmée</h1>
+      <p class="ok" data-t="done">C'est fait ! Votre compte est prêt. Connectez-vous avec votre e-mail et votre mot de passe.</p>
+      <p data-t="invite">Si vous aviez reçu une invitation, ouvrez BIVOUAC-TECH sur le même appareil : vous arriverez directement dans le projet.</p>
+      <a class="btn" href="../app/" data-t="web">Ouvrir la version web</a>
+      <a class="btn alt" href="bivouac://" data-t="open">Ouvrir l'app Windows</a>
+    </section>
+
+    <section id="bad" class="hidden">
+      <h1 data-t="badTitle">Lien expiré ou déjà utilisé</h1>
+      <p class="err" data-t="bad">Ce lien n'est plus valable. Si votre adresse est déjà confirmée, connectez-vous simplement. Sinon, recréez le compte avec la même adresse pour recevoir un nouveau lien.</p>
+      <a class="btn" href="../app/" data-t="web">Ouvrir la version web</a>
+    </section>
+  </main>
+
+  <script>
+    (function () {
+      var en = !/^fr/i.test(navigator.language || 'fr');
+      var EN = {
+        doneTitle: 'Email address confirmed', done: 'Done! Your account is ready. Sign in with your email and password.',
+        invite: 'If you received an invitation, open BIVOUAC-TECH on the same device: you will go straight to the project.',
+        web: 'Open the web version', open: 'Open the Windows app',
+        badTitle: 'Link expired or already used',
+        bad: 'This link is no longer valid. If your address is already confirmed, just sign in. Otherwise, sign up again with the same address to get a new link.'
+      };
+      if (en) {
+        document.documentElement.lang = 'en';
+        document.querySelectorAll('[data-t]').forEach(function (el) { if (EN[el.dataset.t]) el.textContent = EN[el.dataset.t]; });
+        document.title = 'Email confirmed · BIVOUAC-TECH';
+      }
+      // Supabase ajoute après le # soit un jeton (adresse confirmée), soit une erreur (lien expiré) : on efface tout de suite
+      var h = new URLSearchParams((location.hash || '').replace(/^#/, '') + '&' + (location.search || '').replace(/^\?/, ''));
+      history.replaceState(null, '', location.pathname);
+      var bad = h.get('error') || h.get('error_code') || h.get('error_description');
+      document.getElementById(bad ? 'bad' : 'done').classList.remove('hidden');
+    })();
+  </script>
+</body>
+</html>
