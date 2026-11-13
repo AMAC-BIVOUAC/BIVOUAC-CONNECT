@@ -1,0 +1,108 @@
+<!doctype html>
+<!--
+  Page publique « Politique de confidentialité » — https://amac-bivouac.github.io/BIVOUAC-CONNECT/confidentialite/
+  Source : dépôt BIVOUAC-TECH, dossier pages-publiques/ (tâche Bivouac P0-03, 13/11/2026).
+  Texte de la BÊTA PRIVÉE, rédigé avec Claude : à faire relire par une personne compétente avant tout
+  lancement public. Toute évolution du produit qui touche aux données = mettre cette page à jour.
+-->
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="referrer" content="no-referrer" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; img-src data:" />
+  <title>Confidentialité · BIVOUAC-TECH</title>
+  <style>
+    :root { --night: #0E2A3B; --teal: #12809A; --orange: #F28C28; --sand: #F7E1C0; --muted: #5B6B78; }
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: Montserrat, "Segoe UI", system-ui, -apple-system, Arial, sans-serif; color: var(--night);
+           background: linear-gradient(180deg, var(--night) 0, #1E4A63 340px, #F4F7F9 340px); padding: 32px 16px 48px; }
+    main { max-width: 760px; margin: 0 auto; background: #fff; border-radius: 18px; padding: 32px 28px; box-shadow: 0 20px 60px rgba(0,0,0,.18); }
+    .word { font-weight: 800; letter-spacing: 1px; font-size: 18px; }
+    .word small { color: var(--orange); font-size: 11px; letter-spacing: 4px; font-weight: 600; margin-left: 6px; }
+    h1 { font-size: 26px; margin: 18px 0 6px; }
+    h2 { font-size: 18px; margin: 30px 0 8px; color: var(--teal); }
+    p, li { line-height: 1.6; color: #33475A; font-size: 15px; }
+    ul { padding-left: 20px; }
+    .note { background: var(--sand); border-radius: 12px; padding: 12px 14px; font-size: 14px; }
+    table { width: 100%; border-collapse: collapse; font-size: 14px; margin: 8px 0; }
+    th, td { text-align: left; vertical-align: top; padding: 8px; border-bottom: 1px solid #E3E9EE; }
+    th { color: var(--muted); font-weight: 700; }
+    .table-wrap { overflow-x: auto; }
+    a { color: var(--teal); }
+    .muted { color: var(--muted); font-size: 13px; }
+  </style>
+</head>
+<body>
+<main>
+  <div class="word">BIVOUAC <small>— tech —</small></div>
+  <h1>Politique de confidentialité</h1>
+  <p class="muted">Version bêta privée · mise à jour le 13 novembre 2026</p>
+  <p class="note">BIVOUAC-TECH est en <strong>bêta privée</strong> : seules des personnes invitées l'utilisent. Cette page dit
+    simplement quelles données nous gardons, pourquoi, qui les voit et comment les supprimer.</p>
+
+  <h2>Qui est responsable ?</h2>
+  <p>BIVOUAC-TECH est édité par <strong>AMAC</strong> (Apollonius MANDON et Amaury CHARRIER).
+    Pour toute question ou demande sur vos données : <strong>[adresse de contact à compléter]</strong>.</p>
+
+  <h2>Les données que nous gardons</h2>
+  <div class="table-wrap"><table>
+    <tr><th>Donnée</th><th>Pourquoi</th><th>Qui la voit</th></tr>
+    <tr><td>Adresse e-mail et mot de passe (chiffré)</td><td>Vous connecter, récupérer votre compte</td><td>Vous seul</td></tr>
+    <tr><td>Prénom, nom, date de naissance ; téléphone et adresse si vous les donnez</td><td>Compte personnel</td>
+      <td>Vous seul (ni les autres membres, ni les IA)</td></tr>
+    <tr><td>Nom affiché, pseudo, photo, rôle, statut (disponible, occupé…)</td><td>Vous reconnaître dans l'équipe</td><td>Les membres de vos projets</td></tr>
+    <tr><td>Contenu des projets : messages, tâches, idées, décisions, votes, événements, documents</td><td>Le service lui-même</td>
+      <td>Les membres du projet concerné, et leurs IA quand ils le leur demandent</td></tr>
+    <tr><td>Messages privés et leurs pièces jointes</td><td>Échanger à deux</td><td>Vous et votre correspondant (et vos IA à votre demande)</td></tr>
+    <tr><td>Noms des IA que vous avez branchées (jamais vos clés API)</td><td>Afficher « Claude de… »</td><td>Les membres de vos projets</td></tr>
+  </table></div>
+  <p>Nous ne demandons <strong>pas</strong> votre sexe. Nous ne vendons aucune donnée, n'affichons aucune publicité et
+    n'utilisons aucun traceur publicitaire.</p>
+
+  <h2>Les IA</h2>
+  <ul>
+    <li><strong>Connecteur (abonnement Claude, ChatGPT…)</strong> : quand <em>vous</em> le demandez à votre IA, elle lit les
+      projets dont vous êtes membre et peut y écrire dans l'Atelier IA. Ces échanges passent par le fournisseur de votre IA
+      (Anthropic, OpenAI…), selon <em>votre</em> contrat avec lui. Une IA ne lit jamais vos informations personnelles privées.</li>
+    <li><strong>Clé API (app Windows)</strong> : votre clé reste sur votre ordinateur. Les messages que vous adressez à votre IA
+      partent de votre ordinateur vers son fournisseur.</li>
+    <li>Une IA ne peut lire vos messages privés que si <em>vous</em> le lui demandez.</li>
+  </ul>
+
+  <h2>Nos prestataires</h2>
+  <ul>
+    <li><strong>Supabase</strong> (société américaine) : héberge la base de données, les fichiers et la connexion.</li>
+    <li><strong>GitHub</strong> (Microsoft) : héberge la version web et les pages publiques comme celle-ci.</li>
+    <li><strong>LanguageTool</strong> (Allemagne) : reçoit le texte que vous tapez <em>si</em> le correcteur est activé
+      (désactivable dans Paramètres → Correcteur).</li>
+    <li><strong>Wikimedia Commons</strong> : reçoit vos recherches de GIF et de mèmes, seulement quand vous en faites une.</li>
+    <li><strong>Google</strong> (serveur STUN) : aide deux ordinateurs à se trouver pour le vocal. Le son et la vidéo
+      passent directement entre les participants, jamais par nos serveurs.</li>
+  </ul>
+  <p>Certains de ces prestataires sont hors de l'Union européenne ; ils s'engagent à protéger les données selon les règles
+    prévues par le RGPD (clauses contractuelles types de la Commission européenne).</p>
+
+  <h2>Combien de temps ?</h2>
+  <ul>
+    <li>Tant que votre compte existe. Quand vous le supprimez, tout est effacé tout de suite de la base.</li>
+    <li>Les sauvegardes de sécurité gardent une copie au plus <strong>30 jours</strong>, puis elles sont détruites.</li>
+  </ul>
+
+  <h2>Vos droits</h2>
+  <ul>
+    <li><strong>Voir et télécharger vos données</strong> : Paramètres → Mes données → « Télécharger mes données ».</li>
+    <li><strong>Corriger</strong> : Paramètres → Mon profil et Mes informations personnelles.</li>
+    <li><strong>Supprimer votre compte</strong> : Paramètres → Mes données → « Supprimer mon compte ». Vos projets partagés
+      sont confiés à un autre membre ; ce que vous avez écrit ou envoyé est effacé.</li>
+    <li>Pour toute autre demande (opposition, limitation…), écrivez-nous à l'adresse ci-dessus : réponse sous un mois.</li>
+    <li>Vous pouvez aussi vous adresser à la <a href="https://www.cnil.fr/fr/plaintes" rel="noopener">CNIL</a>.</li>
+  </ul>
+
+  <h2>Sécurité</h2>
+  <p>Connexion chiffrée (HTTPS), règles d'accès vérifiées par la base de données (personne ne voit un projet dont il
+    n'est pas membre), limites contre les abus, sauvegardes régulières. Aucun système n'est parfait : en cas d'incident
+    touchant vos données, nous vous préviendrons.</p>
+</main>
+</body>
+</html>

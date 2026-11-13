@@ -46,17 +46,13 @@
               <div><label for="su-first">Prénom</label><input id="su-first" maxlength="60" autocomplete="given-name" /></div>
               <div><label for="su-last">Nom</label><input id="su-last" maxlength="60" autocomplete="family-name" /></div>
             </div>
-            <div class="form-row">
-              <div><label for="su-gender">Sexe</label><select id="su-gender">
-                <option value="">Choisir…</option><option value="f">Femme</option><option value="m">Homme</option>
-                <option value="x">Autre</option><option value="n">Je préfère ne pas répondre</option></select></div>
-              <div><label for="su-birth">Date de naissance</label><input id="su-birth" type="date" autocomplete="bday" /></div>
-            </div>
+            <label for="su-birth">Date de naissance</label><input id="su-birth" type="date" autocomplete="bday" />
             <label for="su-phone">Téléphone <span class="muted">(facultatif)</span></label>
             <input id="su-phone" type="tel" maxlength="30" autocomplete="tel" />
             <label for="su-address">Adresse <span class="muted">(facultatif)</span></label>
             <input id="su-address" maxlength="300" autocomplete="street-address" />
             <p class="muted small">Ces informations restent privées : vous seul y avez accès. Les autres membres voient seulement votre prénom, votre nom et votre photo.</p>
+            <p class="muted small">En créant un compte, vous acceptez la <a href="https://amac-bivouac.github.io/BIVOUAC-CONNECT/confidentialite/" target="_blank" rel="noopener">politique de confidentialité</a>.</p>
           </div>
           <button type="submit" class="btn primary" id="auth-submit">Se connecter</button>
           <button type="button" id="auth-toggle" class="btn link">Pas encore de compte ? Créer un compte</button>

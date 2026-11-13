@@ -58,7 +58,7 @@ $('#auth-toggle').addEventListener('click', () => {
   // Inscription : informations personnelles obligatoires (sauf téléphone et adresse)
   $('#signup-fields').classList.toggle('hidden', !signupMode);
   $('#forgot').classList.toggle('hidden', signupMode);
-  ['#pass2-input', '#su-first', '#su-last', '#su-gender', '#su-birth'].forEach((s) => ($(s).required = signupMode));
+  ['#pass2-input', '#su-first', '#su-last', '#su-birth'].forEach((s) => ($(s).required = signupMode));
   $('#su-birth').max = new Date().toISOString().slice(0, 10);
   loginMsg('');
 });
@@ -166,7 +166,7 @@ async function onSession(session) {
 
   try {
     await B.loadMe(uid);
-    await B.ensurePersonal(); // anciens comptes : prénom, nom, sexe, date de naissance à compléter
+    await B.ensurePersonal(); // anciens comptes : prénom, nom, date de naissance à compléter
     if (sessionUser !== uid) return;
     showScreen('app');
     await Promise.all([B.loadProjects(), B.loadMyProviders()]);

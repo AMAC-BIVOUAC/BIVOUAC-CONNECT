@@ -194,6 +194,7 @@ function errText(err) {
     'limite:fichiers': "Limite d'envoi de fichiers atteinte (100 par heure, 300 Mo par jour). Réessayez plus tard.",
     'limite:inscriptions': 'Trop d\'inscriptions en ce moment. Réessayez dans une heure.'
   };
+  if (m.includes('compte:confirmation')) return tr('Écrivez SUPPRIMER pour confirmer.');
   const lim = Object.keys(limits).find((k) => m.includes(k));
   if (lim) return tr(limits[lim]);
   if (/database error saving new user/i.test(m)) return tr('Impossible de créer le compte pour le moment. Réessayez dans une heure.');

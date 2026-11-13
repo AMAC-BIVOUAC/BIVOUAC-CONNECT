@@ -52,6 +52,17 @@ B.pages.settings = async (view) => {
         </form>
       </section>
 
+      <section class="card" id="mydata-card">
+        <div class="card-head"><h2>${tr('Mes données')}</h2></div>
+        <p class="muted small">${tr('Ce que Bivouac garde sur vous, à qui c\'est montré et combien de temps :')}
+          <a href="${B.PRIVACY_PAGE}" target="_blank" rel="noopener">${tr('politique de confidentialité')}</a>.</p>
+        <div class="actions"><span class="msg" id="md-msg"></span><span class="spacer"></span>
+          <button class="btn" id="md-export">${icon('download', 15)} ${tr('Télécharger mes données')}</button></div>
+        <hr />
+        <p class="muted small">${tr('Supprimer votre compte efface votre profil, vos informations personnelles, vos messages, vos tâches, vos idées et les documents que vous avez envoyés, y compris dans les projets partagés. Vos projets partagés sont confiés à un autre membre. C\'est définitif.')}</p>
+        <div class="actions"><span class="spacer"></span><button class="btn danger-ghost" id="md-delete">${icon('trash', 15)} ${tr('Supprimer mon compte')}</button></div>
+      </section>
+
       <section class="card">
         <div class="card-head"><h2>${tr('Langue')}</h2></div>
         <div class="levels">
@@ -253,6 +264,43 @@ B.pages.settings = async (view) => {
       msg.textContent = tr('Mot de passe changé.');
     } catch (err) { msg.classList.add('error'); msg.textContent = errText(err); }
     e.submitter.disabled = false;
+  };
+
+  // Mes données : télécharger, supprimer mon compte (RGPD, migration 031)
+  $('#md-export', view).onclick = async (e) => {
+    const msg = $('#md-msg', view);
+    e.currentTarget.disabled = true;
+    msg.classList.remove('error');
+    msg.textContent = tr('Préparation…');
+    try { await B.exportMyData(); msg.textContent = tr('Fichier téléchargé.'); } catch (err) { msg.classList.add('error'); msg.textContent = errText(err); }
+    e.currentTarget.disabled = false;
+  };
+  $('#md-delete', view).onclick = async () => {
+    const { data: plan, error } = await B.sb.rpc('my_account_deletion_plan');
+    if (error) return B.error(new Error(/my_account_deletion_plan|schema cache/i.test(error.message || '')
+      ? tr('Pas encore disponible sur le serveur (migration 031).') : errText(error)));
+    const lines = B.accountDeletionSummary(plan);
+    const m = B.modal(`<h2>${tr('Supprimer mon compte')}</h2>
+      <p>${tr('Votre compte et tout ce que vous avez écrit ou envoyé seront effacés. C\'est définitif.')}</p>
+      ${lines.length ? `<ul>${lines.map((l) => `<li>${esc(l)}</li>`).join('')}</ul>` : ''}
+      <p class="muted small">${tr('Pensez à télécharger vos données avant.')}</p>
+      <label for="md-word">${tr('Pour confirmer, écrivez SUPPRIMER')}</label>
+      <input id="md-word" autocomplete="off" spellcheck="false" />
+      <p class="msg error" id="md-dmsg"></p>
+      <div class="actions"><button class="btn" data-no>${tr('Annuler')}</button>
+        <button class="btn danger" data-yes disabled>${tr('Supprimer définitivement')}</button></div>`);
+    const word = $('#md-word', m), yes = $('[data-yes]', m), dmsg = $('#md-dmsg', m);
+    word.focus();
+    word.oninput = () => { yes.disabled = word.value.trim() !== 'SUPPRIMER'; };
+    $('[data-no]', m).onclick = B.closeModal;
+    yes.onclick = async () => {
+      yes.disabled = true; word.disabled = true; dmsg.classList.remove('error');
+      try {
+        await B.deleteMyAccount(word.value.trim(), (step) => { dmsg.textContent = step; });
+        B.closeModal();
+        B.toast(tr('Votre compte a été supprimé.'), { type: 'success' });
+      } catch (err) { dmsg.classList.add('error'); dmsg.textContent = errText(err); yes.disabled = false; word.disabled = false; }
+    };
   };
 
   // Profil
