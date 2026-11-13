@@ -37,7 +37,8 @@ B.connectWizard = ({ step = 0, ai: aiStart = null, onDone = null } = {}) => {
       <div class="cw-shot-body">${body}</div></div>`;
 
   // Vraies captures de Claude / ChatGPT (src/assets/tuto/, interface en français, novembre 2026),
-  // recadrées sans rien de personnel. Chaque zone [x, y, largeur, hauteur] (en % de l'image) = là où agir :
+  // recadrées sans rien de personnel. Chaque zone [x, y, largeur, hauteur, 'pill'?] (en % de l'image) = là où agir,
+  // au contour exact du bouton ('pill' = bouton tout arrondi) :
   // encadré orange lumineux + pastille numérotée, dans l'ordre du texte. Clic sur l'image = agrandir.
   // En anglais : le schéma dessiné ci-dessus (les menus n'ont pas les mêmes mots).
   // Si Claude ou ChatGPT changent leurs menus : remplacer l'image et recaler les zones.
@@ -46,10 +47,10 @@ B.connectWizard = ({ step = 0, ai: aiStart = null, onDone = null } = {}) => {
       marks: [[87.8, 14.4, 10.2, 6.5], [71.8, 22.3, 27.3, 9.3]] },
     'claude-2': { file: 'claude-2-connecteur-perso.webp', w: 551, h: 470,
       marks: [[4, 22.1, 91.7, 6], [4, 36.8, 91.7, 6.2], [80.2, 88.7, 15.4, 6]] },
-    'chatgpt-1': { file: 'chatgpt-1-plugins.webp', w: 705, h: 235,
-      marks: [[0.6, 69.4, 44.8, 15.3], [86, 0.8, 13.3, 14.9], [59.1, 53.2, 38.7, 13.6]] },
+    'chatgpt-1': { file: 'chatgpt-1-plugins.webp', w: 713, h: 250,
+      marks: [[0.6, 71.2, 44.3, 14.4], [84.85, 6, 13.32, 14.4, 'pill'], [58.5, 56, 38.3, 12.8]] },
     'chatgpt-2': { file: 'chatgpt-2-serveur-mcp.webp', w: 626, h: 771,
-      marks: [[5.3, 14.3, 87.9, 4.7], [5.3, 35.8, 87.9, 4.7], [5.3, 73.8, 87.9, 15.6], [63.1, 91.1, 30, 4.7]] }
+      marks: [[5.3, 14.3, 87.9, 4.7], [5.3, 35.8, 87.9, 4.7], [5.3, 73.8, 87.9, 15.6], [62.9, 91.05, 30.2, 4.67, 'pill']] }
   };
   const real = (key, alt) => {
     if (B.lang !== 'fr') return null;
@@ -59,7 +60,7 @@ B.connectWizard = ({ step = 0, ai: aiStart = null, onDone = null } = {}) => {
       <figcaption class="cw-real-head">${aiAvatar(ai, 20)}<span>${tr('Dans {ai}', { ai: label() })}</span></figcaption>
       <button type="button" class="cw-real-frame" style="width: min(100%, ${width}px)" aria-label="${esc(tr('Agrandir la capture'))}">
         <img src="assets/tuto/${t.file}" width="${t.w}" height="${t.h}" alt="${esc(alt)}" />
-        ${t.marks.map(([x, y, w, h], i) => `<span class="cw-mark" style="left:${x}%;top:${y}%;width:${w}%;height:${h}%;--i:${i}" aria-hidden="true"><b>${i + 1}</b></span>`).join('')}
+        ${t.marks.map(([x, y, w, h, shape], i) => `<span class="cw-mark${shape === 'pill' ? ' pill' : ''}" style="left:${x}%;top:${y}%;width:${w}%;height:${h}%;--i:${i}" aria-hidden="true"><b>${i + 1}</b></span>`).join('')}
       </button>
       <p class="cw-real-foot">${tr('Suivez les numéros dans l\'ordre · cliquez sur l\'image pour l\'agrandir')}</p>
     </figure>`;
