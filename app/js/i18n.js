@@ -1359,7 +1359,10 @@ const EN = {
   "Les salons sont entre humains. Les IA travaillent dans l'Atelier.": "Channels are between humans. AIs work in the Workshop.",
   "Humains et IA travaillent ensemble ici.": "Humans and AIs work together here.",
   "Tableau": "Board",
-  "Écrire… (@claude pour votre IA)": "Write… (@claude for your AI)",
+  "Écrire…": "Write…",
+  "Réduire": "Show less",
+  "Afficher le message complet": "Show the full message",
+  "Voir le chemin": "See the path",
   "Écrire dans #{channel}…": "Write in #{channel}…",
 
   // ---------- Refonte téléphone (16/11) ----------

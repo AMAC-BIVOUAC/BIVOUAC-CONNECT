@@ -48,7 +48,7 @@ function myTaskRow(t, group) {
     ? `<span class="due ${group === 'late' ? 'late' : ''}">${icon('calendar', 12)} ${group === 'today' ? tr("aujourd'hui") : fmtDate(t.due_date)}</span>` : '';
   return `<div class="mytask" data-id="${t.id}">
     <label class="tick" title="${tr('Marquer comme terminée')}"><input type="checkbox" aria-label="${tr('Marquer comme terminée')}" />${icon('check', 12)}</label>
-    <button class="mytask-title" translate="no">${esc(t.title)}</button>
+    <button class="mytask-title">${B.taskCodeHtml(t.title)}<span translate="no">${esc(B.taskTitleText(t.title))}</span></button>
     ${t.status === 'doing' ? `<span class="status s-doing">${tr('En cours')}</span>` : ''}
     ${due}
     <span class="mytask-proj" title="${esc(p?.name || '')}"><i style="background:${esc(p?.color || '#12809A')}"></i><span translate="no">${esc(p?.name || '')}</span></span>

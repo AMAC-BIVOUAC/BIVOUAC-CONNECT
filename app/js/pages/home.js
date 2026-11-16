@@ -112,9 +112,9 @@ B.pages.home = async (view) => {
       <section class="card main-card" id="today-todo">
         <div class="card-label mine"><span class="label-ico">${icon('route', 15)}</span>${tr('Votre prochain pas')}</div>
         ${first ? `<div class="big-task todo-row" data-id="${first.id}">
-            <label class="tick big" title="${tr("C'est fait")}"><input type="checkbox" aria-label="${tr("C'est fait")} : ${esc(first.title)}" />${icon('check', 14)}</label>
             <div class="big-text">
-              <button class="big-title todo-title" translate="no">${esc(first.title)}</button>
+              ${B.taskCodeHtml(first.title)}
+              <button class="big-title todo-title" translate="no">${esc(B.taskTitleText(first.title))}</button>
               <span class="meta">${projDot(B.project(first.project_id))}</span>
               <div class="big-actions"><button class="btn teal" data-done>${tr("C'est fait")}</button><button class="btn" data-snooze>${tr('Reporter')}</button>${B.dueHtml(first.due_date)}</div>
             </div>

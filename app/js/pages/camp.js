@@ -118,9 +118,9 @@ const subHead = (p, title) => `<header class="sub-head">
 
 /** Une porte : icône, titre, une ligne. `tint` = celle qui demande d'agir (une seule par écran) */
 const door = (href, ic, title, line, { tint = false, badge = 0 } = {}) => `<a class="door ${tint ? 'tint' : ''}" href="${href}">
-  <span class="door-ico">${icon(ic, 22)}</span>
+  <span class="door-ico">${icon(ic, 20)}</span>
   <span class="door-text"><b>${title}</b><span>${line}</span></span>
-  ${badge ? `<span class="n" aria-hidden="true">${badge}</span>` : ''}</a>`;
+  ${badge ? `<span class="n" aria-hidden="true">${badge}</span>` : ''}<span class="door-go" aria-hidden="true">${icon('chevron', 16)}</span></a>`;
 
 /** Ligne d'une liste qui s'ouvre au toucher */
 const tapRow = (attrs, lead, title, line = '', side = '') => `<button type="button" class="tap-row" ${attrs}>
@@ -182,7 +182,7 @@ async function renderCampHome(el, p) {
     <section class="card landcard" id="camp-land"></section>
     <div class="camp-grid">
       <section class="card main-card" id="camp-todo"></section>
-      <nav class="doors" id="camp-doors" aria-label="${tr('Dans ce projet')}"></nav>
+      <nav class="doors door-rows" id="camp-doors" aria-label="${tr('Dans ce projet')}"></nav>
     </div>
   </div>`;
 
@@ -224,23 +224,34 @@ async function renderCampHome(el, p) {
     const say = path.total
       ? tr('Chemin du projet : {n} étapes franchies sur {m}.', { n: path.done, m: path.total }) + (path.next ? ` ${tr('Prochaine étape')} : ${path.next.title}.` : '')
       : tr('Chemin du projet : aucune étape pour le moment.');
-    const W = Math.max(280, Math.round(box.clientWidth)), H = W < 560 ? 240 : 300;
+    const W = Math.max(280, Math.round(box.clientWidth));
+    // Téléphone : le titre au-dessus du dessin (deux espaces distincts, jamais de collision avec « Vous êtes ici »)
+    const stacked = W < 560;
+    const H = stacked ? 190 : 300;
     lastW = W;
-    box.innerHTML = `
-      <div class="land ${drawn ? '' : 'draw'}" role="img" aria-label="${esc(say)}" style="height:${H}px">${landscape(path, W, H)}
-        <div class="land-head">
+    const head = `<div class="land-head">
           <div class="eyebrow">${reached ? tr('Sommet atteint') : tr('Le sommet')}${summitDay ? ` · ${esc(B.longDate(summitDay))}` : ''}</div>
           ${goal ? `<h2 class="land-title" translate="no" title="${esc(goal.title)}">${esc(goal.title)}</h2>`
             : `<h2 class="land-title">${tr('Quel sommet visez-vous ?')}</h2><button class="btn small" data-add="objective">${icon('plus', 14)} ${tr("Fixer l'objectif")}</button>`}
-        </div>
+        </div>`;
+    const next = path.next;
+    box.innerHTML = `
+      <div class="land ${stacked ? 'stacked' : ''} ${drawn ? '' : 'draw'}" role="img" aria-label="${esc(say)}">
+        ${stacked ? head : ''}
+        <div class="land-art" style="height:${H}px">${landscape(path, W, H)}</div>
+        ${stacked ? '' : head}
+      </div>
+      <div class="land-progress">
+        <span class="wdot me" aria-hidden="true"></span>
+        <b>${path.total ? tr(path.done > 1 ? '{n} étapes sur {m} franchies' : '{n} étape sur {m} franchie', { n: path.done, m: path.total }) : tr("Pas encore d'étape sur le chemin")}</b>
       </div>
       <a class="where-link" href="${campHref(p, 'chemin')}">
-        <span class="wdot me" aria-hidden="true"></span>
-        <span class="where-text">${path.total
-          ? `<b>${tr(path.done > 1 ? '{n} étapes sur {m} franchies' : '{n} étape sur {m} franchie', { n: path.done, m: path.total })}</b>
-             <span>${path.next ? `${tr('Prochaine')} : <span translate="no">${esc(path.next.title)}</span>${path.next.due_date ? ` · ${esc(B.daysUntil(path.next.due_date) < 0 ? B.plannedText(path.next.due_date) : B.daysText(path.next.due_date))}` : ''}` : tr('Le sommet est en vue.')}</span>`
-          : `<b>${tr("Pas encore d'étape sur le chemin")}</b><span>${tr('Posez 3 ou 4 grandes étapes, avec une date.')}</span>`}</span>
-        <span class="where-go">${tr('Le chemin')}${icon('chevron', 16)}</span>
+        <span class="where-text">${next
+          ? `<span class="eyebrow">${tr('Prochaine étape')}</span>
+             <span class="ns-title" translate="no">${esc(next.title)}</span>
+             ${next.due_date ? `<span class="ns-when">${esc(B.daysUntil(next.due_date) < 0 ? B.plannedText(next.due_date) : B.daysText(next.due_date))}</span>` : ''}`
+          : `<span class="ns-when">${path.total ? tr('Le sommet est en vue.') : tr('Posez 3 ou 4 grandes étapes, avec une date.')}</span>`}</span>
+        <span class="where-go">${tr('Voir le chemin')}${icon('chevron', 16)}</span>
       </a>`;
     drawn = true;
   };
@@ -250,16 +261,13 @@ async function renderCampHome(el, p) {
     const box = $('#camp-todo', el);
     if (!box) return;
     const [first, ...rest] = tasks;
-    const next = B.pathOf(items).next;
-    // « Prépare … » : seulement si la tâche est prévue au plus tard le jour de la prochaine étape
-    const prepares = first && next && next.due_date && (!first.due_date || first.due_date <= next.due_date);
+    // (plus de « Prépare … » : rien ne relie une tâche à une étape, une date proche ne suffit pas)
     box.innerHTML = `
       <div class="card-label mine"><span class="label-ico">${icon('checksq', 15)}</span>${tr('Votre prochain pas')}</div>
       ${first ? `<div class="big-task" data-id="${first.id}">
-          <label class="tick big" title="${tr("C'est fait")}"><input type="checkbox" data-done aria-label="${tr("C'est fait")} : ${esc(first.title)}" />${icon('check', 14)}</label>
           <div class="big-text">
-            <button class="big-title" translate="no">${esc(first.title)}</button>
-            ${prepares ? `<div class="prep">${icon('flag', 13)}<span>${tr('Prépare « {step} »', { step: `<span translate="no">${esc(next.title)}</span>` })}</span></div>` : ''}
+            ${B.taskCodeHtml(first.title)}
+            <button class="big-title" translate="no">${esc(B.taskTitleText(first.title))}</button>
             <div class="big-actions"><button class="btn teal" data-done>${tr("C'est fait")}</button><button class="btn" data-snooze>${tr('Reporter')}</button>${B.dueHtml(first.due_date)}</div>
           </div>
         </div>

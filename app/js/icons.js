@@ -44,6 +44,7 @@ const ICONS = {
   back: '<path d="M15 5l-7 7 7 7"/>',
   filter: '<path d="M4 6h16M7 12h10M10 18h4"/>',
   down: '<path d="M6 9l6 6 6-6"/>',
+  up: '<path d="M6 15l6-6 6 6"/>',
   more: '<circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/>',
   copy: '<rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V5a1 1 0 00-1-1H5a1 1 0 00-1 1v10a1 1 0 001 1h3"/>',
   hash: '<path d="M9 4L7 20M17 4l-2 16M4 9h16M3 15h16"/>',

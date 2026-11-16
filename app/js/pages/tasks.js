@@ -168,7 +168,7 @@ B.pages.tasks = async (el, p, sub) => {
     const late = t.due_date && t.status !== 'done' && t.due_date < new Date().toISOString().slice(0, 10);
     return `<div class="task-card ${t.status}" draggable="true" data-id="${t.id}">
       <label class="tick"><input type="checkbox" aria-label="${tr('Marquer comme terminée')}" ${t.status === 'done' ? 'checked' : ''} />${icon('check', 12)}</label>
-      <span class="task-title">${esc(t.title)}</span>
+      <span class="task-title">${B.taskCodeHtml(t.title)}<span translate="no">${esc(B.taskTitleText(t.title))}</span></span>
       <span class="task-meta">
         ${t.due_date ? `<span class="due ${late ? 'late' : ''}">${icon('calendar', 12)} ${fmtDate(t.due_date)}</span>` : ''}
         ${who ? avatar(who, 22) : ''}
@@ -202,7 +202,7 @@ B.pages.tasks = async (el, p, sub) => {
           const who = t.assignee_id ? B.person(t.assignee_id) : null;
           return `<tr data-id="${t.id}" class="${t.status}">
             <td><label class="tick"><input type="checkbox" aria-label="${tr('Marquer comme terminée')}" ${t.status === 'done' ? 'checked' : ''} />${icon('check', 12)}</label></td>
-            <td class="task-title">${esc(t.title)}</td>
+            <td class="task-title">${B.taskCodeHtml(t.title)}<span translate="no">${esc(B.taskTitleText(t.title))}</span></td>
             <td><span class="status s-${t.status}">${tr(STATUSES.find((x) => x[0] === t.status)[1])}</span></td>
             <td>${who ? `${avatar(who, 22)} ${esc(who.display_name)}` : '<span class="muted">—</span>'}</td>
             <td>${t.due_date ? fmtDate(t.due_date) : '<span class="muted">—</span>'}</td></tr>`;
@@ -215,13 +215,10 @@ B.pages.tasks = async (el, p, sub) => {
    *  Une ligne par tâche : rond à cocher, titre (code « P0-05 » mis en petite étiquette), date si besoin, responsable. */
   function phoneList(list) {
     const row = (t) => {
-      const m = t.title.match(/^\[([^\]]{2,24})\]\s*(.*)$/);
-      const code = m ? m[1].split('·')[0].trim() : '';
-      const title = m ? m[2] : t.title;
       const whoP = t.assignee_id && t.assignee_id !== B.me.id ? B.person(t.assignee_id) : null;
       return `<div class="t-row ${t.status}" data-id="${t.id}">
         <label class="tick"><input type="checkbox" aria-label="${tr('Marquer comme terminée')}" ${t.status === 'done' ? 'checked' : ''} />${icon('check', 12)}</label>
-        <button class="t-title task-title">${code ? `<span class="t-code" translate="no">${esc(code)}</span>` : ''}<span translate="no">${esc(title)}</span></button>
+        <button class="t-title task-title">${B.taskCodeHtml(t.title)}<span translate="no">${esc(B.taskTitleText(t.title))}</span></button>
         ${t.due_date && t.status !== 'done' ? B.dueHtml(t.due_date) : ''}${whoP ? avatar(whoP, 24) : ''}</div>`;
     };
     const mine = list.filter((t) => t.assignee_id === B.me.id && t.status !== 'done');
@@ -293,7 +290,7 @@ B.pages.tasks = async (el, p, sub) => {
         </header>
         ${open.length ? `<ul>${open.map((t) => `<li data-id="${t.id}" class="${t.status}">
             <label class="tick"><input type="checkbox" aria-label="${tr('Marquer comme terminée')}" />${icon('check', 12)}</label>
-            <span class="task-title">${esc(t.title)}</span>
+            <span class="task-title">${B.taskCodeHtml(t.title)}<span translate="no">${esc(B.taskTitleText(t.title))}</span></span>
             ${t.status === 'doing' ? `<span class="status s-doing">${tr('En cours')}</span>` : ''}
             ${t.due_date ? `<span class="due ${isLate(t) ? 'late' : ''}">${icon('calendar', 12)} ${fmtDate(t.due_date)}</span>` : ''}
           </li>`).join('')}</ul>`

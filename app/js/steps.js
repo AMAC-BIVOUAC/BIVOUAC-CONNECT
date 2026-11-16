@@ -32,6 +32,19 @@ B.plannedText = (day) => {
 };
 
 /** La date d'une tâche : pastille ambre si elle est passée, sinon texte simple */
+/**
+ * Titre d'une tâche : « [P0-02 · Avant bêta] Activer les sauvegardes » → étiquette + titre.
+ * L'étiquette est écrite par l'équipe entre crochets au début du titre ; rien n'est deviné ni raccourci.
+ */
+B.taskLabel = (title = '') => {
+  const m = String(title).match(/^\[([^\]]{2,24})\]\s*(.+)$/);
+  return m ? { code: m[1], title: m[2] } : { code: '', title: String(title) };
+};
+/** Étiquette en pastille (vide s'il n'y en a pas) */
+B.taskCodeHtml = (title) => { const { code } = B.taskLabel(title); return code ? `<span class="t-code" translate="no">${esc(code)}</span>` : ''; };
+/** Titre seul, sans l'étiquette */
+B.taskTitleText = (title) => B.taskLabel(title).title;
+
 B.dueHtml = (day) => {
   if (!day) return '';
   if (B.daysUntil(day) < 0) return `<span class="chip-late">${esc(B.plannedText(day))}</span>`;

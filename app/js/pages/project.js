@@ -105,7 +105,7 @@ async function renderDiscussion(el, p, channelId, { atelier = false } = {}) {
     const mine = [...keys, ...subs];
     return `<header class="channel-head atelier-head">
       <a class="icon-btn conv-back" href="#/p/${p.id}/discussion" aria-label="${tr('Retour aux salons')}">${icon('back', 20)}</a>
-      <h2>${icon('spark', 18)} ${tr('Atelier IA')}</h2>
+      <h2>${icon('spark', 18)} <span class="conv-name">${tr('Atelier IA')}<small class="conv-sub" translate="no">${esc(p.name)}</small></span></h2>
       <p>${tr('Humains et IA travaillent ensemble ici.')} ${mine.length
         ? `<span class="my-ais-line">${tr('Vos IA')} : ${mine.map((id) => `<span class="my-ai">${aiAvatar(id, 20, B.me)}<span>${esc(PROVIDERS[id].label)}</span></span>`).join('')}</span>`
         : `${tr('Aucune IA branchée.')} <a href="#/settings">${tr('Ajouter une IA')}</a>`}</p>
@@ -128,7 +128,7 @@ async function renderDiscussion(el, p, channelId, { atelier = false } = {}) {
         ${atelier ? atelierHead() : ''}
         ${current ? `<header class="channel-head">
           <a class="icon-btn conv-back" href="#/p/${p.id}/discussion" aria-label="${tr('Retour aux salons')}">${icon('back', 20)}</a>
-          <h2># ${esc(current.name)}</h2><p>${esc(current.description || '')}</p>
+          <h2><span class="conv-name"># ${esc(current.name)}<small class="conv-sub" translate="no">${esc(p.name)}</small></span></h2><p>${esc(current.description || '')}</p>
           <button class="btn small voice-toggle" id="voice-toggle" aria-expanded="false">${icon('headphones', 16)} ${tr('Vocal')}</button>
           ${B.isManager(p.id) ? `<span class="channel-tools">
             <button class="icon-btn" id="ch-rename" title="${tr('Renommer le salon')}">${icon('edit', 15)}</button>

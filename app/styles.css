@@ -436,6 +436,13 @@ textarea { resize: vertical; }
 .msg-head .name { font-weight: var(--fw-title); color: var(--navy); }
 .msg-head .owner { font-weight: var(--fw-text); color: var(--muted); }
 .msg-head .time { font-size: var(--fs-label); color: var(--muted); }
+/* Longs messages : le début exact, puis « Afficher le message complet » / « Réduire » (jamais de résumé) */
+.msg-text.folded { max-height: 15em; overflow: hidden; -webkit-mask-image: linear-gradient(to bottom, black 70%, transparent); mask-image: linear-gradient(to bottom, black 70%, transparent); }
+.msg-more { display: inline-flex; align-items: center; gap: 4px; min-height: var(--touch); margin-top: var(--s-1); padding: 0; border: 0; background: none;
+  font: inherit; font-size: var(--fs-small); font-weight: var(--fw-strong); color: var(--link); cursor: pointer; }
+/* Nom du projet sous le titre d'une conversation (plein écran sur téléphone seulement) */
+.conv-name { display: inline-flex; flex-direction: column; min-width: 0; }
+.conv-sub { display: none; font-size: var(--fs-label); font-weight: var(--fw-text); color: var(--muted); }
 .msg-head .edited { font-size: var(--fs-label); color: var(--muted); font-style: italic; cursor: default; }
 .msg-edit { margin-top: 4px; }
 .msg-edit textarea { width: 100%; box-sizing: border-box; font: inherit; line-height: 1.55; resize: none; padding: 8px 10px; border: 1px solid var(--teal); border-radius: var(--r-md); background: var(--card); color: var(--text); }
@@ -1391,6 +1398,8 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--teal); }
 .card-label .n.soft { background: var(--column); color: var(--tag-neutral); }
 .card-label .see-all { margin-left: auto; text-transform: none; letter-spacing: 0; font-size: var(--fs-small); }
 .main-card { border: 1.5px solid var(--title-mine); box-shadow: none; }
+.main-card .card-label { border-bottom: 0; padding-bottom: 0; } /* le titre et le bouton suffisent : moins de traits */
+.main-card .more-link { border-top: 0; padding-top: 0; }
 .calm { margin: var(--s-2) 0 var(--s-3); line-height: 1.5; }
 .meta { color: var(--muted); font-size: var(--fs-small); display: flex; flex-wrap: wrap; align-items: center; gap: 2px 6px; }
 .meta .dot { width: 9px; height: 9px; border-radius: var(--r-sm); display: inline-block; flex: none; }
@@ -1637,9 +1646,29 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--teal); }
 /* Camp de base : le lien vers le chemin sous le paysage, puis le prochain pas et les portes */
 .where-link { display: flex; align-items: center; gap: var(--s-3); padding: var(--s-3) var(--s-5); border-top: 1px solid var(--line); color: var(--text); min-height: 60px; }
 .where-link:hover { background: var(--column); }
-.where-text { flex: 1; min-width: 0; display: flex; flex-direction: column; }
-.where-text b { color: var(--title-info); font-weight: var(--fw-strong); }
-.where-text > span { color: var(--muted); font-size: var(--fs-small); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.where-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.where-text .eyebrow { color: var(--title-info); }
+.ns-title { font-weight: var(--fw-strong); color: var(--text); overflow-wrap: anywhere; } /* la prochaine étape en entier */
+.ns-when { color: var(--muted); font-size: var(--fs-small); }
+/* Avancement de l'équipe (sous le dessin), distinct de « Votre prochain pas » */
+.land-progress { display: flex; align-items: center; gap: var(--s-3); padding: var(--s-3) var(--s-5) 0; color: var(--title-info); }
+.land-progress b { font-weight: var(--fw-strong); }
+/* Le dessin : derrière le titre sur ordinateur, sous le titre sur téléphone (.stacked) */
+.land-art { position: absolute; inset: 0; }
+.land:not(.stacked) { height: 300px; }
+.land.stacked .land-art { position: relative; inset: auto; }
+.land.stacked .land-head { max-width: none; background: var(--land-sky-1); padding: var(--s-4) var(--s-5) var(--s-2); }
+.land.stacked .land-title { -webkit-line-clamp: unset; display: block; }
+/* Portes en lignes (Camp de base) : icône, titre, une ligne, chevron */
+.doors.door-rows { display: flex; flex-direction: column; gap: 0; background: var(--card); border: 1px solid var(--line); border-radius: var(--r-lg); overflow: hidden; }
+.door-rows .door { flex-direction: row; align-items: center; justify-content: flex-start; min-height: 60px; padding: var(--s-2) var(--s-4);
+  border: 0; border-radius: 0; gap: var(--s-3); }
+.door-rows .door + .door { border-top: 1px solid var(--line); }
+.door-rows .door-ico { width: 36px; height: 36px; }
+.door-rows .door-text { flex: 1; }
+.door-rows .door .n { position: static; }
+.door-go { color: var(--muted); display: inline-flex; flex: none; }
+.doors:not(.door-rows) .door-go { display: none; }
 .where-go { display: inline-flex; align-items: center; gap: 2px; color: var(--link); font-weight: var(--fw-strong); font-size: var(--fs-small); white-space: nowrap; }
 .camp-grid .doors { align-content: start; }
 
@@ -1717,6 +1746,8 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--teal); }
 .t-title { flex: 1; min-width: 0; min-height: var(--touch); border: 0; background: none; font: inherit; color: var(--text); text-align: left; cursor: pointer; padding: 0; line-height: 1.4; }
 .t-row.done .t-title { color: var(--muted); }
 .t-code { display: inline-block; margin-right: var(--s-2); padding: 0 7px; border-radius: var(--r-sm); background: var(--column); color: var(--title-info); font-size: var(--fs-label); font-weight: var(--fw-title); }
+/* L'étiquette (« P0-02 · Avant bêta ») sur sa propre ligne, au-dessus du titre : priorité et action ne se mélangent plus */
+.task-title .t-code, .t-title .t-code, .mytask-title .t-code, .big-text > .t-code { display: block; width: max-content; max-width: 100%; margin: 0 0 3px; }
 .pill-select { height: 40px; border-radius: var(--r-round); padding: 0 var(--s-4); background: var(--card); border: 1px solid var(--line); font-weight: var(--fw-strong); color: var(--text); width: auto; }
 .btn.pill { border-radius: var(--r-round); height: 40px; }
 
@@ -1729,7 +1760,7 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--teal); }
 .voice-pill .icon-btn { color: var(--on-navy); }
 .voice-pill .icon-btn.leave { color: var(--on-navy-danger); }
 
-@media (min-width: 1101px) { .camp-grid .doors { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (min-width: 1101px) { .camp-grid .doors:not(.door-rows) { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 
 /* ---------- Téléphone ---------- */
 @media (max-width: 760px) {
@@ -1776,7 +1807,6 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--teal); }
   .camp { padding: 0 0 var(--s-5); }
   .camp .landcard { border-radius: 0; border-left: 0; border-right: 0; margin: 0; }
   .camp-grid { padding: var(--s-4) var(--s-5) 0; gap: var(--s-4); }
-  .camp .door { min-height: 84px; padding: var(--s-3); gap: var(--s-2); }
   .subpage, .absence { padding: var(--s-3) var(--s-5) var(--s-6); }
   .tab-projet { padding: 0; }
   .subpage.wide { padding: var(--s-3) var(--s-4) var(--s-6); }
@@ -1792,6 +1822,12 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--teal); }
   .channel-head h2 { flex: 1; min-width: 0; font-size: var(--fs-strong); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: flex; align-items: center; gap: var(--s-2); }
   .channel-head > p, .atelier-head > p { display: none; }
   .conv-back, .voice-toggle { display: inline-flex; flex: none; }
+  .where-link { flex-wrap: wrap; align-items: flex-end; }
+  .where-link .where-text { flex-basis: 100%; }
+  .where-link .where-go { margin-left: auto; min-height: var(--touch); }
+  .conv-sub { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .conv-name { overflow: hidden; }
+  .conv-name, .conv-name > small { line-height: 1.25; }
   .channel-tools { position: static; display: flex; }
   .voice-strip:not(.in-room):not(.open) { display: none; }
   .msg-read { display: inline-flex; margin-left: var(--s-2); }
@@ -1805,4 +1841,5 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--teal); }
     height: 52px; padding: 0 var(--s-5) 0 var(--s-4); border: 0; border-radius: var(--r-round); background: var(--action); color: var(--card);
     font: inherit; font-weight: var(--fw-title); box-shadow: var(--shadow-pop); cursor: pointer; z-index: 5; }
   .tasks-body.in-calendar ~ .fab { display: none; }
+  .tasks-body:not(.in-calendar) { padding-bottom: 76px; } /* le « + Tâche » flottant ne cache jamais la dernière ligne */
 }

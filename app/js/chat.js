@@ -17,8 +17,11 @@ B.chat = async (root, { project, channel, mode }) => {
     editing: null,        // { id, draft } : message en cours de modification
     pins: [],             // messages épinglés du salon (du plus récent au plus ancien)
     pinsReady: true,      // false si la migration 013 n'est pas encore appliquée
-    ac: null              // menu d'autocomplétion ouvert
+    ac: null,             // menu d'autocomplétion ouvert
+    unfolded: new Set()   // longs messages dépliés par moi (le reste montre le début, puis « Afficher le message complet »)
   };
+  // Un message est « long » au-delà de 14 lignes ou 900 caractères : on montre son début exact, jamais un résumé
+  const isLong = (m) => (m.content || '').length > 900 || (m.content || '').split('\n').length > 14;
 
   root.innerHTML = `
     <div class="chat ${isAi ? 'is-ai' : ''}">
@@ -36,7 +39,7 @@ B.chat = async (root, { project, channel, mode }) => {
           <button type="button" class="icon-btn attach" title="${tr('Joindre un fichier')}">${icon('plus', 20)}</button>
           <input type="file" class="file-input hidden" multiple />
           <textarea rows="1" placeholder="${B.isPhone?.()
-            ? (isAi ? tr('Écrire… (@claude pour votre IA)') : tr('Écrire dans #{channel}…', { channel: esc(channel.name) }))
+            ? (isAi ? tr('Écrire…') : tr('Écrire dans #{channel}…', { channel: esc(channel.name) }))
             : isAi
             ? tr("Écrire… « @claude … » pour votre IA, « @pseudo Claude … » pour l'IA d'un membre")
             : tr('Écrire dans #{channel}… (@pseudo pour mentionner)', { channel: esc(channel.name) })}"></textarea>
@@ -225,7 +228,9 @@ B.chat = async (root, { project, channel, mode }) => {
       ${m.is_ai ? aiAvatar(m.ai_provider, 38, author) : avatar(author, 38)}
       <div class="msg-body">
         <div class="msg-head">${head}${m.pinned_at ? `<span class="pin-tag">${icon('pin', 12)} ${tr('Épinglé')}</span>` : ''}</div>
-        ${editing ? editorHtml() : `<div class="msg-text" translate="no">${md(m.content)}</div>`}
+        ${editing ? editorHtml() : isLong(m) ? `<div class="msg-text ${st.unfolded.has(m.id) ? '' : 'folded'}" id="mt-${m.id}" translate="no">${md(m.content)}</div>
+          <button type="button" class="msg-more" data-more aria-controls="mt-${m.id}" aria-expanded="${st.unfolded.has(m.id)}">${st.unfolded.has(m.id) ? tr('Réduire') : tr('Afficher le message complet')}${icon(st.unfolded.has(m.id) ? 'up' : 'down', 14)}</button>`
+          : `<div class="msg-text" translate="no">${md(m.content)}</div>`}
         ${files.length ? `<div class="msg-files">${files.map(fileCard).join('')}</div>` : ''}
         ${reactionsHtml(m.id)}
         ${mine && !m.is_ai ? `<small class="msg-read muted">${readersIndicator(m.id)}</small>` : ''}
@@ -285,6 +290,17 @@ B.chat = async (root, { project, channel, mode }) => {
     const rb = e.target.closest('.reaction');
     if (rb) return toggleReaction(id, rb.dataset.emoji);
 
+    if (e.target.closest('[data-more]')) {
+      const open = !st.unfolded.has(id);
+      if (open) st.unfolded.add(id); else st.unfolded.delete(id);
+      const text = $('.msg-text', msgEl), btn = $('[data-more]', msgEl);
+      text.classList.toggle('folded', !open);
+      btn.setAttribute('aria-expanded', String(open));
+      btn.innerHTML = `${open ? tr('Réduire') : tr('Afficher le message complet')}${icon(open ? 'up' : 'down', 14)}`;
+      // En réduisant, on garde le message sous les yeux (sans perdre sa place dans le fil)
+      if (!open && msgEl.getBoundingClientRect().top < list.getBoundingClientRect().top) msgEl.scrollIntoView({ block: 'start' });
+      return;
+    }
     if (e.target.closest('[data-msg-menu]')) {
       const menu = $('.msg-actions', msgEl), button = $('[data-msg-menu]', msgEl);
       const open = menu.hidden;
