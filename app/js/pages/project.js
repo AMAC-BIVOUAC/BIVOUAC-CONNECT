@@ -1,14 +1,14 @@
 // =====================================================================
-// Projet — en-tête + onglets :
-//   Discussion (équipe, humains) · Atelier IA · Notre projet · Tâches · Documents · Équipe
+// Projet — en-tête + 5 onglets (refonte, livraison 3) :
+//   Camp de base · Discussion · Tâches · Documents · Équipe
+// L'Atelier IA est une rubrique de Discussion (« Avec les IA »), le Calendrier une vue de Tâches.
+// Les anciennes adresses …/atelier et …/calendrier restent valables (liens des notifications, du connecteur).
 // =====================================================================
 
 const TABS = [
+  ['projet', 'compass', 'Camp de base'],
   ['discussion', 'chat', 'Discussion'],
-  ['atelier', 'spark', 'Atelier IA'],
-  ['projet', 'compass', 'Notre projet'],
   ['taches', 'checksq', 'Tâches'],
-  ['calendrier', 'calendar', 'Calendrier'],
   ['documents', 'file', 'Documents'],
   ['equipe', 'users', 'Équipe']
 ];
@@ -29,7 +29,10 @@ B.projectCounts = async (pid) => {
   return { messages, ideas, objectives, decisions, milestones, tasks, done, files };
 };
 
-B.pages.project = async (view, [pid, tab = 'discussion', sub]) => {
+B.pages.project = async (view, [pid, tab = 'projet', sub]) => {
+  // Onglet à souligner : l'Atelier est dans Discussion, le Calendrier dans Tâches
+  if (tab === 'calendrier') { tab = 'taches'; sub = 'calendrier'; }
+  const shownTab = tab === 'atelier' ? 'discussion' : tab;
   const p = B.project(pid);
   if (!p) {
     view.innerHTML = `<div class="page"><div class="empty">${icon('compass', 30)}<p>${tr("Ce projet n'existe pas ou vous n'en faites plus partie.")}</p><a class="btn" href="#/home">${tr("Retour à l'accueil")}</a></div></div>`;
@@ -48,12 +51,11 @@ B.pages.project = async (view, [pid, tab = 'discussion', sub]) => {
         ${B.canInvite(pid) ? `<button class="btn small" id="invite">${icon('userplus', 15)} ${tr('Inviter')}</button>` : ''}
       </header>
       <nav class="tabs" data-tour="tabs">
-        ${TABS.map(([id, ic, label]) => `<a href="#/p/${pid}/${id}" class="${id === tab ? 'on' : ''}">${icon(ic, 16)}${tr(label)}${
-           id === 'discussion' ? `<span class="unread-badge hidden" data-unread="tab:${pid}:team"></span>`
-             : id === 'atelier' ? `<span class="unread-badge hidden" data-unread="tab:${pid}:ai"></span>` : ''}</a>`).join('')}
+        ${TABS.map(([id, ic, label]) => `<a href="#/p/${pid}/${id}" class="${id === shownTab ? 'on' : ''}" ${id === shownTab ? 'aria-current="page"' : ''}>${icon(ic, 16)}${tr(label)}${
+           id === 'discussion' ? `<span class="unread-badge hidden" data-unread="tab:${pid}"></span>` : ''}</a>`).join('')}
       </nav>
       <div id="guide-slot"></div>
-      <div id="tab" class="tab tab-${tab}"></div>
+      <div id="tab" class="tab tab-${shownTab}"></div>
     </div>`;
   // Petit écran : les onglets défilent ; on montre l'onglet ouvert (sinon « Tâches », « Documents »… restent cachés à droite)
   const tabsNav = $('.tabs', view), onTab = $('.tabs a.on', view);
@@ -73,32 +75,50 @@ B.pages.project = async (view, [pid, tab = 'discussion', sub]) => {
 
   const el = $('#tab', view);
   if (tab === 'discussion') return renderDiscussion(el, p, sub);
-  if (tab === 'atelier') return renderAtelier(el, p);
-  if (tab === 'projet') return B.pages.hub(el, p);
+  if (tab === 'atelier') return renderDiscussion(el, p, null, { atelier: true });
+  if (tab === 'projet') return B.pages.camp(el, p);
   if (tab === 'taches') return B.pages.tasks(el, p, sub);
-  if (tab === 'calendrier') return B.pages.calendar(el, p);
   if (tab === 'documents') return B.pages.docs(el, p);
   if (tab === 'equipe') return B.pages.team(el, p);
 };
 
 // ---------- Discussion d'équipe : salons façon Discord, humains uniquement ----------
 
-async function renderDiscussion(el, p, channelId) {
-  const { data: channels, error } = await B.sb.from('channels').select('*')
-    .eq('project_id', p.id).eq('kind', 'team').order('created_at');
+async function renderDiscussion(el, p, channelId, { atelier = false } = {}) {
+  const { data: all, error } = await B.sb.from('channels').select('*')
+    .eq('project_id', p.id).order('created_at');
   if (error) return B.error(error);
-  const current = channels.find((c) => c.id === channelId) || channels[0];
+  const channels = all.filter((c) => c.kind === 'team');
+  const ai = all.find((c) => c.kind === 'ai') || null;
+  const current = atelier ? null : (channels.find((c) => c.id === channelId) || channels[0]);
+
+  // En-tête de l'Atelier : à quoi il sert, et mes IA dans ce projet
+  const atelierHead = () => {
+    const keys = B.myProviders.filter((x) => x.hasKey).map((x) => x.id);
+    const subs = (B.me.connector_providers || []).filter((id) => !keys.includes(id));
+    const mine = [...keys, ...subs];
+    return `<header class="channel-head atelier-head">
+      <h2>${icon('spark', 18)} ${tr('Atelier IA')}</h2>
+      <p>${tr('Humains et IA travaillent ensemble ici.')} ${mine.length
+        ? `<span class="my-ais-line">${tr('Vos IA')} : ${mine.map((id) => `<span class="my-ai">${aiAvatar(id, 20, B.me)}<span>${esc(PROVIDERS[id].label)}</span></span>`).join('')}</span>`
+        : `${tr('Aucune IA branchée.')} <a href="#/settings">${tr('Ajouter une IA')}</a>`}</p>
+      ${subs.length ? `<p>${tr("Avec l'abonnement, parlez à votre IA depuis son application : « Dans Bivouac, projet {project}, … ».", { project: esc(p.name) })}</p>` : ''}
+    </header>`;
+  };
 
   el.innerHTML = `
     <div class="discussion">
       <aside class="channels">
-        <div class="channels-title">${tr('Salons')}</div>
-        ${channels.map((c) => `<a href="#/p/${p.id}/discussion/${c.id}" class="${c.id === current?.id ? 'on' : ''}">${icon('hash', 15)}<span class="channel-name">${esc(c.name)}</span><span class="unread-badge hidden" data-unread="channel:${c.id}"></span></a>
+        <div class="channels-title">${tr('Entre humains')}</div>
+        ${channels.map((c) => `<a href="#/p/${p.id}/discussion/${c.id}" class="${c.id === current?.id ? 'on' : ''}" ${c.id === current?.id ? 'aria-current="page"' : ''}>${icon('hash', 15)}<span class="channel-name">${esc(c.name)}</span><span class="unread-badge hidden" data-unread="channel:${c.id}"></span></a>
           <div class="ch-voice" data-ch-voice="${c.id}"></div>`).join('')}
         <button class="add-channel">${icon('plus', 15)} ${tr('Ajouter un salon')}</button>
-        <p class="channels-note">${icon('users', 13)} ${tr("Ici, uniquement entre humains. Les IA travaillent dans l'Atelier.")}</p>
+        ${ai ? `<div class="channels-title with-ai">${tr('Avec les IA')}</div>
+        <a href="#/p/${p.id}/atelier" class="chan-ai ${atelier ? 'on' : ''}" ${atelier ? 'aria-current="page"' : ''}>${icon('spark', 15)}<span class="channel-name">${tr('Atelier IA')}</span><span class="unread-badge hidden" data-unread="channel:${ai.id}"></span></a>` : ''}
+        <p class="channels-note">${icon('users', 13)} ${tr("Les salons sont entre humains. Les IA travaillent dans l'Atelier.")}</p>
       </aside>
-      <section class="channel-main">
+      <section class="channel-main ${atelier ? 'is-atelier' : ''}">
+        ${atelier ? atelierHead() : ''}
         ${current ? `<header class="channel-head"><h2># ${esc(current.name)}</h2><p>${esc(current.description || '')}</p>
           ${B.isManager(p.id) ? `<span class="channel-tools">
             <button class="icon-btn" id="ch-rename" title="${tr('Renommer le salon')}">${icon('edit', 15)}</button>
@@ -171,53 +191,12 @@ async function renderDiscussion(el, p, channelId) {
   B.onLeave(B.on('voice', debounce(paintChanVoice, 400)));
 
   B.live('chans', 'channels', `project_id=eq.${p.id}`, debounce(() => {
-    if (location.hash.startsWith(`#/p/${p.id}/discussion`)) B.route();
+    if (location.hash.startsWith(`#/p/${p.id}/discussion`) || location.hash.startsWith(`#/p/${p.id}/atelier`)) B.route();
   }, 300), 'INSERT');
 
+  if (atelier && ai) return B.chat($('.chat-slot', el), { project: p, channel: ai, mode: 'ai' });
   if (current) {
     B.voiceStrip($('.voice-strip', el), p, current);
     await B.chat($('.chat-slot', el), { project: p, channel: current, mode: 'team' });
   }
-}
-
-// ---------- Atelier IA : le fil où humains et IA travaillent ensemble ----------
-
-async function renderAtelier(el, p) {
-  const { data: channel, error } = await B.sb.from('channels').select('*')
-    .eq('project_id', p.id).eq('kind', 'ai').single();
-  if (error) return B.error(error);
-
-  el.innerHTML = `
-    <div class="atelier">
-      <section class="atelier-main"><div class="chat-slot"></div></section>
-      <aside class="our-project">
-        <div class="our-head"><h3>${tr('Notre projet')}</h3></div>
-        <div class="our-list"><div class="loading">…</div></div>
-        <div class="my-ais">
-          <h4>${tr('Vos IA dans ce projet')}</h4>
-          ${B.myProviders.filter((x) => x.hasKey).map((x) => `<div class="my-ai">${aiAvatar(x.id, 24, B.me)}<span>@${PROVIDERS[x.id].word}</span></div>`).join('')}
-          ${(B.me.connector_providers || []).map((id) => `<div class="my-ai">${aiAvatar(id, 24, B.me)}<span>${PROVIDERS[id].label} · ${tr('abonnement')}</span></div>`).join('')}
-          ${!B.myProviders.some((x) => x.hasKey) && !(B.me.connector_providers || []).length
-            ? `<p class="muted small">${tr('Aucune IA branchée.')} <a href="#/settings">${tr('Ajouter une IA')}</a></p>` : ''}
-          ${(B.me.connector_providers || []).length
-            ? `<p class="muted small">${tr("Avec l'abonnement, parlez à votre IA depuis son application : « Dans Bivouac, projet {project}, … ».", { project: esc(p.name) })}</p>` : ''}
-        </div>
-      </aside>
-    </div>`;
-
-  B.projectCounts(p.id).then((c) => {
-    const rows = [
-      ['bulb', 'Idées', c.ideas, 'projet', 'yellow'],
-      ['target', 'Objectifs', c.objectives, 'projet', 'red'],
-      ['checksq', 'Tâches', c.tasks, 'taches', 'teal'],
-      ['file', 'Documents', c.files, 'documents', 'violet'],
-      ['decision', 'Décisions', c.decisions, 'projet', 'green'],
-      ['route', 'Feuille de route', c.milestones, 'projet', 'orange']
-    ];
-    const box = $('.our-list', el);
-    if (box) box.innerHTML = rows.map(([ic, label, n, tab, tone]) =>
-      `<a class="our-row" href="#/p/${p.id}/${tab}"><span class="our-ico ${tone}">${icon(ic, 16)}</span>${tr(label)}${n ? ` (${n})` : ''}</a>`).join('');
-  });
-
-  await B.chat($('.chat-slot', el), { project: p, channel, mode: 'ai' });
 }

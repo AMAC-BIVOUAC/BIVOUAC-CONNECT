@@ -1,12 +1,12 @@
 // =====================================================================
 // mytasks.js — « Mes tâches » sur tous les projets, et « Mes tâches du jour »
 //
-//   • carte « Mes tâches » sur l'accueil (les plus urgentes + « Voir tout ») ;
-//   • fenêtre « Mes tâches du jour » à l'ouverture de l'app : UNE fois par jour,
+//   • fenêtre « Mes tâches » (toute la liste), ouverte depuis « Aujourd'hui » ;
+//   • fenêtre « Mes tâches du jour » à l'ouverture de l'app, sauf sur « Aujourd'hui » : UNE fois par jour,
 //     seulement s'il y a quelque chose (en retard, pour aujourd'hui, en cours),
 //     refermable, avec « Ne plus afficher » (réactivable dans Paramètres).
 // On coche « terminé » directement dedans, avec « Annuler » au cas où.
-// Pas de nouvel onglet : tout passe par l'accueil et une fenêtre.
+// Les 3 tâches à faire d'abord sont sur « Aujourd'hui » (pages/home.js, steps.js).
 // =====================================================================
 
 /** Mes tâches pas encore terminées, tous projets confondus */
@@ -147,27 +147,4 @@ B.showTodayTasks = async ({ force = false } = {}) => {
     B.closeModal();
   };
   bindMyTasks($('.mytasks', m), () => tasks, null);
-};
-
-// ---------------------------------------------------------------------
-// Carte « Mes tâches » de l'accueil
-// ---------------------------------------------------------------------
-
-B.myTasksCard = (box) => {
-  let tasks = [];
-  const load = async () => {
-    if (!box.isConnected) return;
-    try { tasks = await B.loadMyTasks(); } catch (err) { box.innerHTML = ''; return console.warn(err); }
-    const g = B.groupMyTasks(tasks);
-    const head = box.closest('.card')?.querySelector('[data-mytasks-all]');
-    if (head) head.classList.toggle('hidden', tasks.length <= 5);
-    if (head) head.innerHTML = `${tr('Voir tout ({n})', { n: tasks.length })} ${icon('arrow', 14)}`;
-    box.innerHTML = myTasksHtml(g, { limit: 5 })
-      || `<p class="muted small">${tr('Aucune tâche ne vous est confiée. Dans un projet, attribuez-vous une tâche pour la retrouver ici.')}</p>`;
-    paintIcons(box);
-  };
-  bindMyTasks(box, () => tasks, load);
-  load();
-  B.live('home-mytasks', 'tasks', `assignee_id=eq.${B.me.id}`, debounce(load, 400));
-  return load;
 };

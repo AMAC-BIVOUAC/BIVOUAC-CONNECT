@@ -73,25 +73,23 @@
       </a>
 
       <nav class="nav" data-tour="nav">
-        <a href="#/home" data-nav="home"><i data-icon="home"></i>Accueil</a>
-        <a href="#/projects" data-nav="projects"><i data-icon="folder"></i>Mes projets</a>
-        <a href="#/notifications" data-nav="notifications"><i data-icon="bell"></i>Notifications<span id="nav-badge" class="badge-count hidden"></span></a>
+        <a href="#/home" data-nav="home"><i data-icon="home"></i>Aujourd'hui</a>
         <a href="#/messages" data-nav="messages"><i data-icon="chat"></i>Messages<span id="dm-badge" class="badge-count hidden"></span></a>
       </nav>
 
       <div class="nav-section" data-tour="spaces">
-        <div class="nav-title">Mes espaces</div>
+        <div class="nav-title"><a href="#/projects" class="nav-title-link" title="Tous les projets">Projets</a></div>
         <div id="space-list"></div>
-        <button id="new-space" class="nav-add"><i data-icon="plus"></i>Nouvel espace</button>
+        <button id="new-space" class="nav-add"><i data-icon="plus"></i>Nouveau projet</button>
         <div class="nav-title online-title"><span class="presence"></span><span class="online-label">En ligne</span><span id="online-scope" class="online-scope" translate="no"></span><span id="online-count" class="online-count"></span></div>
         <div id="online-list"></div>
       </div>
 
       <div id="voice-bar" class="voice-bar hidden"></div>
-      <nav class="nav nav-bottom">
-        <a href="#/settings" data-nav="settings"><i data-icon="settings"></i>Paramètres</a>
-      </nav>
-      <div id="me-card" class="me-card"></div>
+      <div class="me-row">
+        <div id="me-card" class="me-card"></div>
+        <a href="#/settings" id="me-gear" class="me-gear" data-nav="settings" title="Paramètres" aria-label="Paramètres"><i data-icon="settings"></i></a>
+      </div>
     </aside>
 
     <div id="nav-scrim" class="nav-scrim" aria-hidden="true"></div>
@@ -104,11 +102,20 @@
           <div id="search-results" class="dropdown hidden"></div>
         </div>
         <div class="top-actions">
-          <a href="#/notifications" class="icon-btn bell" title="Notifications"><i data-icon="bell"></i><span id="bell-dot" class="dot hidden"></span></a>
+          <button id="create-btn" class="btn primary create-btn" type="button" data-tour="quick" title="Créer"><i data-icon="plus"></i><span>Créer</span></button>
+          <button id="bell-btn" class="icon-btn bell" type="button" title="Notifications" aria-label="Notifications" aria-haspopup="dialog" aria-expanded="false"><i data-icon="bell"></i><span id="bell-dot" class="dot hidden"></span></button>
           <a href="#/settings" id="top-avatar" class="avatar-link" title="Paramètres"></a>
         </div>
       </header>
       <main id="view"></main>
+      <!-- Téléphone seulement : barre du bas (Aujourd'hui · Projets · + · Messages · Moi) -->
+      <nav id="bottom-nav" class="bottom-nav" aria-label="Menu principal">
+        <a href="#/home" data-bnav="home"><i data-icon="home"></i><span>Aujourd'hui</span></a>
+        <a href="#/projects" data-bnav="projects"><i data-icon="folder"></i><span>Projets</span></a>
+        <button id="bottom-create" class="bottom-create" type="button" title="Créer" aria-label="Créer"><i data-icon="plus"></i></button>
+        <a href="#/messages" data-bnav="messages"><i data-icon="chat"></i><span>Messages</span><span id="bnav-dm" class="badge-count hidden"></span></a>
+        <a href="#/settings" data-bnav="settings"><span id="bnav-me" class="bnav-me"></span><span>Moi</span></a>
+      </nav>
     </div>
   </section>
 
@@ -140,9 +147,11 @@
   <script src="js/pages/projects.js"></script>
   <script src="js/pages/project.js"></script>
   <script src="js/pages/hub.js"></script>
+  <script src="js/pages/camp.js"></script>
   <script src="js/pages/tasks.js"></script>
   <script src="js/pages/calendar.js"></script>
   <script src="js/mytasks.js"></script>
+  <script src="js/steps.js"></script>
   <script src="js/pages/docs.js"></script>
   <script src="js/pages/team.js"></script>
   <script src="js/pages/notifications.js"></script>

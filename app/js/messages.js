@@ -21,7 +21,7 @@ const dmTotal = () => [...B.dmUnread.values()].reduce((a, b) => a + b, 0);
 function paintDmBadges() {
   const total = dmTotal();
   const badge = $('#dm-badge');
-  if (badge) { badge.textContent = total > 99 ? '99+' : total; badge.classList.toggle('hidden', !total); }
+  for (const b of [badge, $('#bnav-dm')]) if (b) { b.textContent = total > 99 ? '99+' : total; b.classList.toggle('hidden', !total); }
   $$('[data-dm-unread]').forEach((el) => {
     const n = B.dmUnread.get(el.dataset.dmUnread) || 0;
     el.textContent = n > 99 ? '99+' : n;

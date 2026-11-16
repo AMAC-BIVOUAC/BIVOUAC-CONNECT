@@ -154,6 +154,7 @@ B.renderSidebar = () => {
   const me = B.me;
   B.renderMeCard();
   $('#top-avatar').innerHTML = avatar(me, 36);
+  $('#bnav-me').innerHTML = avatar(me, 24);
   B.highlightNav();
 };
 
@@ -178,6 +179,9 @@ B.highlightNav = () => {
   const hash = location.hash || '#/home';
   $$('#sidebar [data-nav]').forEach((a) => a.classList.toggle('active', hash.startsWith(`#/${a.dataset.nav}`)));
   $$('#sidebar [data-space]').forEach((a) => a.classList.toggle('active', hash.startsWith(`#/p/${a.dataset.space}`)));
+  // Barre du bas (téléphone) : un projet ouvert compte pour « Projets »
+  const where = hash.startsWith('#/p/') ? 'projects' : hash.replace(/^#\//, '').split('/')[0] || 'home';
+  $$('#bottom-nav [data-bnav]').forEach((a) => { const on = a.dataset.bnav === where; a.classList.toggle('active', on); if (on) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current'); });
   B.renderOnline?.(); // l'encart « En ligne » suit le projet ouvert
 };
 
@@ -336,10 +340,9 @@ document.addEventListener('mousedown', (e) => {
 B.refreshBadge = async () => {
   const { count } = await B.sb.from('notifications').select('id', { count: 'exact', head: true })
     .eq('user_id', B.me.id).is('read_at', null);
-  const badge = $('#nav-badge');
-  badge.textContent = count > 9 ? '9+' : count;
-  badge.classList.toggle('hidden', !count);
   $('#bell-dot').classList.toggle('hidden', !count);
+  $('#bell-btn').title = count ? tr(count > 1 ? '{n} notifications non lues' : '{n} notification non lue', { n: count }) : tr('Notifications');
+  $('#bell-btn').setAttribute('aria-label', $('#bell-btn').title);
 };
 
 // ---------- Demande d'IA entrante : toast Accepter / Refuser ----------
@@ -412,9 +415,9 @@ window.bivouac.getUpdate().then((u) => { B.update = { ...B.update, ...u }; B.emi
  */
 B.nextStep = (pid, c) => {
   if (c.messages === 0) return ['chat', 'Échanger librement', "Lancez la discussion dans #général : partagez l'idée de départ avec l'équipe.", `#/p/${pid}/discussion`];
-  if (c.ideas === 0) return ['bulb', 'Faire émerger', "Notez vos premières idées dans « Notre projet ». Vous pouvez demander à votre IA d'en proposer dans l'Atelier.", `#/p/${pid}/projet`];
+  if (c.ideas === 0) return ['bulb', 'Faire émerger', "Notez vos premières idées dans « Camp de base ». Vous pouvez demander à votre IA d'en proposer dans l'Atelier.", `#/p/${pid}/projet`];
   if (c.objectives === 0) return ['target', 'Structurer', 'Fixez 1 à 3 objectifs clairs : à quoi verra-t-on que le projet est réussi ?', `#/p/${pid}/projet`];
-  if (c.tasks === 0) return ['checksq', 'Structurer', 'Transformez vos idées en tâches (bouton « → tâche » sur une idée).', `#/p/${pid}/projet`];
+  if (c.tasks === 0) return ['checksq', 'Structurer', 'Transformez vos idées en tâches : dans le Camp de base, cliquez sur une idée.', `#/p/${pid}/projet`];
   if (c.done === 0) return ['rocket', 'Avancer ensemble', "Glissez une tâche dans « En cours » et attribuez-la à quelqu'un.", `#/p/${pid}/taches`];
   if (c.milestones === 0) return ['route', 'Concrétiser', 'Posez les grandes étapes dans la feuille de route, avec des dates.', `#/p/${pid}/projet`];
   return null;

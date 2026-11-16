@@ -1,6 +1,7 @@
 // =====================================================================
-// Notre projet — idées, objectifs, décisions, feuille de route
-// (le parcours : faire émerger → structurer → concrétiser)
+// « Tout le projet » — idées, objectifs, décisions, feuille de route, activité
+// Ancien onglet « Notre projet ». Depuis la refonte (livraison 2), il s'ouvre à la demande
+// en bas du Camp de base (pages/camp.js) : c'est ici qu'on modifie, archive, donne suite, lance un vote.
 // =====================================================================
 
 const ITEM_TYPES = {

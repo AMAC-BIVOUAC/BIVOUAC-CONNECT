@@ -176,6 +176,12 @@ B.pages.settings = async (view) => {
       </section>
 
       <section class="card">
+        <div class="card-head"><h2>${tr('Animations')}</h2></div>
+        <label class="check"><input type="checkbox" id="s-anim" ${B.animationsOn() ? 'checked' : ''} /> ${tr('Animer le chemin du Camp de base et le point « Vous êtes ici »')}</label>
+        <p class="muted small">${tr('Réglage de cet appareil. Si votre appareil demande de réduire les animations, elles sont déjà coupées.')}</p>
+      </section>
+
+      <section class="card">
         <div class="card-head"><h2>${tr("Résumé « Qu'est-ce que j'ai raté ? »")}</h2></div>
         <p class="muted">${tr('Choisissez qui rédige vos résumés : sans IA (gratuit, instantané), une IA branchée par clé API (dans l\'app, sur votre clé) ou une IA de votre abonnement (elle s\'ouvre avec la demande prête).')}</p>
         <div class="summary-options">
@@ -445,6 +451,7 @@ B.pages.settings = async (view) => {
     await B.updateMe({ level: r.value }).catch(B.error);
     $$('input[name=lvl]', view).forEach((x) => x.closest('.level').classList.toggle('on', x.checked));
   }));
+  $('#s-anim', view).onchange = (e) => B.setAnimations(e.target.checked);
   $('#s-today', view).onchange = (e) => B.setTodayTasksEnabled(e.target.checked);
   $('#s-tour', view).onclick = () => { location.hash = '#/home'; setTimeout(B.startTour, 400); };
 

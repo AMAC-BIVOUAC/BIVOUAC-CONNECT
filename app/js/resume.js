@@ -201,11 +201,11 @@ function missedView(d, pid) {
     const more = list.length > 4 ? `<li class="muted">${tr(list.length - 4 > 1 ? 'et {n} autres' : 'et {n} autre', { n: list.length - 4 })}</li>` : '';
     return `<div class="missed-group"><span class="act-ico ${key}">${icon(ico, 15)}</span><div><strong>${label} <span class="missed-count">${list.length}</span></strong><ul>${shown}${more}</ul></div></div>`;
   }).join('');
-  if (groups) blocks.push(block('spark', tr('Dans le projet'), `<div class="missed-groups">${groups}</div><a class="link small" href="#/p/${pid}/projet">${tr('Voir « Notre projet »')}</a>`));
+  if (groups) blocks.push(block('spark', tr('Dans le projet'), `<div class="missed-groups">${groups}</div><a class="link small" href="#/p/${pid}/projet">${tr('Voir « Camp de base »')}</a>`));
 
   // 4. À venir (7 jours)
   if (d.dates.length) {
-    blocks.push(block('calendar', tr('À venir (7 jours)'), d.dates.slice(0, 6).map((x) => row(`#/p/${pid}/calendrier`, 'calendar', 'event',
+    blocks.push(block('calendar', tr('À venir (7 jours)'), d.dates.slice(0, 6).map((x) => row(`#/p/${pid}/taches/calendrier`, 'calendar', 'event',
       `<span translate="no">${esc(x.title)}</span>`, '', `${fmtDate(x.day)}${x.time ? ' · ' + esc(x.time) : ''}`)).join('')));
   }
   return blocks.join('') || `<p class="missed-text">${tr('Rien de nouveau depuis votre dernière visite.')}</p>`;

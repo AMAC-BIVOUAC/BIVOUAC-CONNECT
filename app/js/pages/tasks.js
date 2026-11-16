@@ -1,6 +1,6 @@
 // =====================================================================
-// Tâches — vues Liste, Kanban (glisser-déposer) et Par personne (vision globale de l'équipe + une carte par membre).
-// Les dates sont dans l'onglet Calendrier.
+// Tâches — vues Tableau (glisser-déposer), Liste, Calendrier et Par personne (vision globale de l'équipe + une carte par membre).
+// Le Calendrier (calendar.js) est une vue de cet onglet depuis la refonte, livraison 3 : adresse …/taches/calendrier.
 // =====================================================================
 
 const STATUSES = [
@@ -59,9 +59,12 @@ B.openTask = (task, after) => {
   });
 };
 
-B.pages.tasks = async (el, p) => {
-  let view = store.get('tasks-view', 'kanban');
-  if (!['list', 'people'].includes(view)) view = 'kanban'; // l'ancienne vue calendrier est devenue l'onglet Calendrier
+B.pages.tasks = async (el, p, sub) => {
+  // Quatre vues : Tableau · Liste · Calendrier · Par personne. Le Calendrier a sa propre adresse
+  // (…/taches/calendrier) : il vit dans calendar.js et s'abonne à d'autres tables.
+  const onCalendar = sub === 'calendrier';
+  let view = onCalendar ? 'calendar' : store.get('tasks-view', 'kanban');
+  if (!['list', 'people', 'calendar'].includes(view)) view = 'kanban';
   let tasks = [];
   // Filtre par personne (réglage de ce poste, par projet) : '' = tout le monde, 'none' = sans responsable
   let who = store.get(`tasks-who:${p.id}`, '');
@@ -72,8 +75,9 @@ B.pages.tasks = async (el, p) => {
       <div class="tasks-head">
         <h2>${esc(p.name)}</h2>
         <div class="seg">
+          <button data-v="kanban">${icon('kanban', 15)} ${tr('Tableau')}</button>
           <button data-v="list">${icon('list', 15)} ${tr('Liste')}</button>
-          <button data-v="kanban">${icon('kanban', 15)} ${tr('Kanban')}</button>
+          <button data-v="calendar">${icon('calendar', 15)} ${tr('Calendrier')}</button>
           <button data-v="people">${icon('users', 15)} ${tr('Par personne')}</button>
         </div>
         <button class="btn primary small" id="new-task">${icon('plus', 15)} ${tr('Tâche')}</button>
@@ -83,7 +87,23 @@ B.pages.tasks = async (el, p) => {
     </div>`;
   const body = $('.tasks-body', el);
 
-  $$('.seg button', el).forEach((b) => (b.onclick = () => { view = b.dataset.v; store.set('tasks-view', view); render(); }));
+  $$('.seg button', el).forEach((b) => {
+    b.setAttribute('aria-pressed', String(b.dataset.v === view));
+    b.onclick = () => {
+      if (b.dataset.v === 'calendar') return (location.hash = `#/p/${p.id}/taches/calendrier`);
+      store.set('tasks-view', b.dataset.v);
+      if (onCalendar) return (location.hash = `#/p/${p.id}/taches`);
+      view = b.dataset.v;
+      render();
+    };
+  });
+  if (onCalendar) {
+    $$('.seg button', el).forEach((b) => b.classList.toggle('on', b.dataset.v === 'calendar'));
+    $('.who-filter', el).hidden = true;
+    $('#new-task', el).onclick = () => B.openTask({ project_id: p.id, status: 'todo' }, () => B.route());
+    body.classList.add('in-calendar');
+    return B.pages.calendar(body, p);
+  }
   // Une nouvelle tâche créée pendant qu'on regarde les tâches de quelqu'un lui est confiée d'avance
   const draft = (status) => ({ project_id: p.id, status, ...(who && who !== 'none' ? { assignee_id: who } : {}) });
   $('#new-task', el).onclick = () => B.openTask(draft('todo'), load);
@@ -129,7 +149,7 @@ B.pages.tasks = async (el, p) => {
   }
 
   function render() {
-    $$('.seg button', el).forEach((b) => b.classList.toggle('on', b.dataset.v === view));
+    $$('.seg button', el).forEach((b) => { b.classList.toggle('on', b.dataset.v === view); b.setAttribute('aria-pressed', String(b.dataset.v === view)); });
     $('.who-filter', el).hidden = view === 'people'; // la vue Par personne montre déjà tout le monde
     if (view === 'people') return renderPeople();
     renderFilter();
@@ -156,7 +176,7 @@ B.pages.tasks = async (el, p) => {
             <td>${who ? `${avatar(who, 22)} ${esc(who.display_name)}` : '<span class="muted">—</span>'}</td>
             <td>${t.due_date ? fmtDate(t.due_date) : '<span class="muted">—</span>'}</td></tr>`;
         }).join('')}</tbody></table>`
-        : `<div class="empty">${icon('checksq', 30)}<p>${who ? tr('Aucune tâche pour ce filtre.') : tr('Aucune tâche. Créez-en une, ou transformez une idée de « Notre projet ».')}</p></div>`;
+        : `<div class="empty">${icon('checksq', 30)}<p>${who ? tr('Aucune tâche pour ce filtre.') : tr('Aucune tâche. Créez-en une, ou transformez une idée de « Camp de base ».')}</p></div>`;
     }
   }
 

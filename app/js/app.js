@@ -16,7 +16,8 @@ function loginMsg(text, isError = false) {
 }
 
 // ---------------------------------------------------------------------
-// Navigation : #/home, #/projects, #/notifications, #/settings, #/p/<id>/<onglet>/<sous-page>
+// Navigation : #/home, #/projects, #/messages, #/settings, #/p/<id>/<onglet>/<sous-page>
+// (#/notifications ouvre la cloche ; …/atelier = Discussion, …/calendrier = Tâches)
 // ---------------------------------------------------------------------
 
 let routing = 0;
@@ -194,7 +195,8 @@ async function onSession(session) {
     await B.route();
 
     // Mes tâches du jour : une fois par jour, seulement s'il y a quelque chose d'urgent
-    if (!joined) B.showTodayTasks();
+    // (pas sur « Aujourd'hui » : la page montre déjà ces tâches)
+    if (!joined && !/^(#\/home)?$/.test(location.hash)) B.showTodayTasks();
 
     // Demandes d'IA reçues pendant mon absence
     (await B.pendingRequestsForMe()).forEach(B.showIncomingRequest);

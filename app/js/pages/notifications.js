@@ -1,27 +1,28 @@
 // =====================================================================
-// Notifications — mentions, demandes d'IA (accepter / refuser), tâches
+// Notifications — mentions, demandes d'IA (accepter / refuser), tâches, votes
+// Depuis la refonte (livraison 3), ce n'est plus une page : la cloche de la barre du haut ouvre un panneau.
+// L'ancienne adresse #/notifications ramène sur « Aujourd'hui » et ouvre ce panneau.
+// Une notification devient « lue » quand on l'ouvre, ou avec « Tout marquer comme lu » : ouvrir la cloche
+// ne suffit pas (sinon les mentions disparaîtraient de « On vous attend » sans avoir été traitées).
 // =====================================================================
 
-B.pages.notifications = async (view) => {
-  view.innerHTML = `
-    <div class="page narrow">
-      <div class="page-head"><h1>${tr('Notifications')}</h1><button class="btn small" id="read-all">${icon('check', 15)} ${tr('Tout marquer comme lu')}</button></div>
-      <div class="card notif-list"><div class="loading">${tr('Chargement…')}</div></div>
-    </div>`;
+const NOTIF_ICONS = { mention: 'at', ai_request: 'spark', ai_answer: 'spark', task: 'checksq', vote: 'decision' };
 
-  const icons = { mention: 'chat', ai_request: 'spark', ai_answer: 'spark', task: 'checksq', vote: 'users' };
-
+/** Remplit un bloc avec la liste des notifications ; renvoie la fonction qui la recharge */
+B.renderNotifications = (box) => {
+  let reqMap = new Map();
   const load = async () => {
+    if (!box.isConnected) return;
     const { data, error } = await B.sb.from('notifications').select('*').order('created_at', { ascending: false }).limit(60);
     if (error) return B.error(error);
     const reqIds = data.filter((n) => n.type === 'ai_request' && n.ref_id).map((n) => n.ref_id);
     const { data: reqs } = reqIds.length
       ? await B.sb.from('ai_requests').select('*').in('id', reqIds)
       : { data: [] };
-    const reqMap = new Map((reqs || []).map((r) => [r.id, r]));
+    reqMap = new Map((reqs || []).map((r) => [r.id, r]));
     const STATUS = { accepted: tr('En cours…'), done: tr('Acceptée ✓'), refused: tr('Refusée'), error: tr('Erreur') };
 
-    $('.notif-list', view).innerHTML = data.length ? data.map((n) => {
+    box.innerHTML = data.length ? data.map((n) => {
       const req = n.type === 'ai_request' ? reqMap.get(n.ref_id) : null;
       const actions = req?.status === 'pending'
         ? `<div class="notif-actions"><button class="btn small" data-refuse="${req.id}">${tr('Refuser')}</button>
@@ -32,35 +33,80 @@ B.pages.notifications = async (view) => {
       return `<div class="notif ${n.read_at ? '' : 'unread'}" data-id="${n.id}">
         ${avatar(B.person(n.actor_id), 36)}
         <div class="notif-body">
-          <p>${icon(icons[n.type] || 'bell', 14)} <span translate="no">${esc(n.text)}</span></p>
+          <p>${icon(NOTIF_ICONS[n.type] || 'bell', 14)} <span translate="no">${esc(n.text)}</span></p>
           <small>${timeAgo(n.created_at)}${n.project_id ? ' · ' + esc(B.project(n.project_id)?.name || '') : ''}
-          ${n.link ? ` · <a href="${esc(n.link)}">${tr('Ouvrir')}</a>` : ''}</small>
+          ${n.link ? ` · <a href="${esc(n.link)}" data-open="${n.id}">${tr('Ouvrir')}</a>` : ''}</small>
           ${actions}
         </div>
       </div>`;
     }).join('') : `<div class="empty">${icon('bell', 30)}<p>${tr('Aucune notification.')}</p></div>`;
-
-    $$('[data-accept]', view).forEach((b) => (b.onclick = async () => {
-      b.disabled = true;
-      b.textContent = tr("L'IA travaille…");
-      await B.acceptRequest(reqMap.get(b.dataset.accept)).catch(B.error);
-      load();
-    }));
-    $$('[data-refuse]', view).forEach((b) => (b.onclick = async () => {
-      await B.refuseRequest(reqMap.get(b.dataset.refuse)).catch(B.error);
-      load();
-    }));
+    paintIcons(box);
   };
+  box.addEventListener('click', async (e) => {
+    const accept = e.target.closest('[data-accept]'), refuse = e.target.closest('[data-refuse]'), open = e.target.closest('[data-open]');
+    if (accept) {
+      accept.disabled = true;
+      accept.textContent = tr("L'IA travaille…");
+      await B.acceptRequest(reqMap.get(accept.dataset.accept)).catch(B.error);
+      return load();
+    }
+    if (refuse) {
+      await B.refuseRequest(reqMap.get(refuse.dataset.refuse)).catch(B.error);
+      return load();
+    }
+    if (open) { // ouvrir une notification = elle est lue ; le lien fait le reste
+      B.sb.from('notifications').update({ read_at: new Date().toISOString() }).eq('id', open.dataset.open).then(() => B.refreshBadge());
+      B.closeBell();
+    }
+  });
+  load();
+  return load;
+};
 
-  $('#read-all', view).onclick = async () => {
+/** Le panneau de la cloche */
+B.closeBell = () => {
+  const p = $('#bell-panel');
+  if (!p) return;
+  p.remove();
+  document.removeEventListener('mousedown', bellOutside);
+  $('#bell-btn').setAttribute('aria-expanded', 'false');
+  B.bellOff?.();
+  B.bellOff = null;
+};
+function bellOutside(e) { if (!e.target.closest('#bell-panel, #bell-btn')) B.closeBell(); }
+
+B.openBell = () => {
+  if ($('#bell-panel')) return B.closeBell();
+  const panel = document.createElement('section');
+  panel.id = 'bell-panel';
+  panel.className = 'bell-panel';
+  panel.setAttribute('role', 'dialog');
+  panel.setAttribute('aria-label', tr('Notifications'));
+  panel.innerHTML = `
+    <header class="bell-head"><h2>${tr('Notifications')}</h2>
+      <button class="link" id="read-all">${icon('check', 14)} ${tr('Tout marquer comme lu')}</button>
+      <button class="icon-btn" data-close title="${tr('Fermer')}" aria-label="${tr('Fermer')}">${icon('x', 16)}</button></header>
+    <div class="notif-list"><div class="loading">${tr('Chargement…')}</div></div>`;
+  document.body.appendChild(panel);
+  const load = B.renderNotifications($('.notif-list', panel));
+  $('[data-close]', panel).onclick = B.closeBell;
+  $('#read-all', panel).onclick = async () => {
     await B.sb.from('notifications').update({ read_at: new Date().toISOString() }).eq('user_id', B.me.id).is('read_at', null);
     B.refreshBadge();
+    B.emit('notification-read');
     load();
   };
+  $('#bell-btn').setAttribute('aria-expanded', 'true');
+  B.bellOff = B.on('notification', load);
+  setTimeout(() => document.addEventListener('mousedown', bellOutside), 0);
+  $('[data-close]', panel).focus();
+};
+$('#bell-btn').addEventListener('click', B.openBell);
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape') B.closeBell(); });
+window.addEventListener('hashchange', () => B.closeBell());
 
-  await load();
-  // ouvrir la page = tout est vu
-  await B.sb.from('notifications').update({ read_at: new Date().toISOString() }).eq('user_id', B.me.id).is('read_at', null);
-  B.refreshBadge();
-  B.onLeave(B.on('notification', load));
+/** Ancienne page : on revient sur « Aujourd'hui », cloche ouverte */
+B.pages.notifications = async () => {
+  location.replace('#/home');
+  setTimeout(() => { if (!$('#bell-panel')) B.openBell(); }, 350);
 };

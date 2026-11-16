@@ -70,10 +70,10 @@ B.runOnboarding = () => new Promise((resolve) => {
 // ---------------------------------------------------------------------
 
 const TOUR = [
-  ['[data-tour="spaces"]', 'Vos espaces', "Chaque projet a son espace : une discussion d'équipe, un Atelier IA, ses idées, tâches et documents."],
-  ['[data-tour="quick"]', 'Actions rapides', 'Créez un projet, invitez un ami avec un lien, branchez une IA ou ajoutez une tâche.'],
-  ['[data-nav="notifications"]', 'Notifications', "Mentions, tâches confiées… et demandes d'utilisation de votre IA : vous acceptez ou refusez, c'est votre clé."],
-  ['[data-nav="settings"]', 'Vos IA', 'Dans Paramètres, collez vos clés API (Claude, ChatGPT, Gemini, Mistral…). Elles restent chiffrées sur votre PC.'],
+  ['[data-tour="spaces"]', 'Vos projets', "Chaque projet a son camp de base, sa discussion (avec l'Atelier IA), ses tâches, ses documents et son équipe."],
+  ['[data-tour="quick"]', 'Créer', 'Ajoutez une tâche, créez un projet, invitez un ami avec un lien ou branchez une IA.'],
+  ['#bell-btn', 'Notifications', "La cloche : mentions, tâches confiées… et demandes d'utilisation de votre IA, que vous acceptez ou refusez."],
+  ['[data-nav="settings"]', 'Vos IA', 'La roue ouvre les Paramètres : branchez votre IA par votre abonnement, ou par une clé API (elle reste chiffrée sur votre PC).'],
   ['[data-tour="search"]', 'Recherche', 'Retrouvez un message, une idée, une tâche ou un projet.']
 ];
 
@@ -84,6 +84,8 @@ B.startTour = (i = 0) => {
   if (!step) return tour.classList.add('hidden');
   if (!target) return B.startTour(i + 1);
   const r = target.getBoundingClientRect();
+  // Zone cachée ou hors de l'écran (téléphone : menu replié, bouton Créer dans la barre du bas) : étape suivante
+  if (!r.width || r.right <= 0 || r.left >= window.innerWidth) return B.startTour(i + 1);
   let top, left;
   if (r.right + 350 < window.innerWidth && r.width < 300) {   // à droite de la zone
     top = Math.min(r.top, window.innerHeight - 200);
