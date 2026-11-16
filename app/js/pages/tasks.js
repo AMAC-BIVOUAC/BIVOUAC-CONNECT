@@ -119,7 +119,7 @@ B.pages.tasks = async (el, p) => {
     const who = t.assignee_id ? B.person(t.assignee_id) : null;
     const late = t.due_date && t.status !== 'done' && t.due_date < new Date().toISOString().slice(0, 10);
     return `<div class="task-card ${t.status}" draggable="true" data-id="${t.id}">
-      <label class="tick"><input type="checkbox" ${t.status === 'done' ? 'checked' : ''} />${icon('check', 12)}</label>
+      <label class="tick"><input type="checkbox" aria-label="${tr('Marquer comme terminée')}" ${t.status === 'done' ? 'checked' : ''} />${icon('check', 12)}</label>
       <span class="task-title">${esc(t.title)}</span>
       <span class="task-meta">
         ${t.due_date ? `<span class="due ${late ? 'late' : ''}">${icon('calendar', 12)} ${fmtDate(t.due_date)}</span>` : ''}
@@ -150,7 +150,7 @@ B.pages.tasks = async (el, p) => {
         <tbody>${tasks.map((t) => {
           const who = t.assignee_id ? B.person(t.assignee_id) : null;
           return `<tr data-id="${t.id}" class="${t.status}">
-            <td><label class="tick"><input type="checkbox" ${t.status === 'done' ? 'checked' : ''} />${icon('check', 12)}</label></td>
+            <td><label class="tick"><input type="checkbox" aria-label="${tr('Marquer comme terminée')}" ${t.status === 'done' ? 'checked' : ''} />${icon('check', 12)}</label></td>
             <td class="task-title">${esc(t.title)}</td>
             <td><span class="status s-${t.status}">${tr(STATUSES.find((x) => x[0] === t.status)[1])}</span></td>
             <td>${who ? `${avatar(who, 22)} ${esc(who.display_name)}` : '<span class="muted">—</span>'}</td>
@@ -219,7 +219,7 @@ B.pages.tasks = async (el, p) => {
           <button class="icon-btn add-for" data-for="${person?.id || ''}" title="${tr('Nouvelle tâche')}">${icon('plus', 14)}</button>
         </header>
         ${open.length ? `<ul>${open.map((t) => `<li data-id="${t.id}" class="${t.status}">
-            <label class="tick"><input type="checkbox" />${icon('check', 12)}</label>
+            <label class="tick"><input type="checkbox" aria-label="${tr('Marquer comme terminée')}" />${icon('check', 12)}</label>
             <span class="task-title">${esc(t.title)}</span>
             ${t.status === 'doing' ? `<span class="status s-doing">${tr('En cours')}</span>` : ''}
             ${t.due_date ? `<span class="due ${isLate(t) ? 'late' : ''}">${icon('calendar', 12)} ${fmtDate(t.due_date)}</span>` : ''}

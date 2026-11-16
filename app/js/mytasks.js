@@ -47,7 +47,7 @@ function myTaskRow(t, group) {
   const due = t.due_date
     ? `<span class="due ${group === 'late' ? 'late' : ''}">${icon('calendar', 12)} ${group === 'today' ? tr("aujourd'hui") : fmtDate(t.due_date)}</span>` : '';
   return `<div class="mytask" data-id="${t.id}">
-    <label class="tick" title="${tr('Marquer comme terminée')}"><input type="checkbox" />${icon('check', 12)}</label>
+    <label class="tick" title="${tr('Marquer comme terminée')}"><input type="checkbox" aria-label="${tr('Marquer comme terminée')}" />${icon('check', 12)}</label>
     <button class="mytask-title" translate="no">${esc(t.title)}</button>
     ${t.status === 'doing' ? `<span class="status s-doing">${tr('En cours')}</span>` : ''}
     ${due}
@@ -101,7 +101,7 @@ B.openMyTasks = async (after) => {
   const tasks = await B.loadMyTasks().catch((err) => { B.error(err); return null; });
   if (!tasks) return;
   const m = B.modal(`
-    <h2>${icon('checksq', 20)} ${tr('Mes tâches')}</h2>
+    <h2 class="t-mine">${icon('checksq', 20)} ${tr('Mes tâches')}</h2>
     <p class="muted small">${tr('Les tâches qui vous sont confiées, dans tous vos projets.')}</p>
     <div class="mytasks">${myTasksHtml(B.groupMyTasks(tasks)) || `<p class="muted">${tr('Aucune tâche ne vous est confiée pour le moment.')}</p>`}</div>
     <div class="actions"><span class="spacer"></span><button class="btn" data-close>${tr('Fermer')}</button></div>`, { wide: true });
@@ -131,7 +131,7 @@ B.showTodayTasks = async ({ force = false } = {}) => {
   const m = B.modal(`
     <div class="today-head">
       <span class="today-ico">${icon('checksq', 24)}</span>
-      <div><h2>${tr('Mes tâches du jour')}</h2><p class="muted small today-date">${esc(dateText)}</p></div>
+      <div><h2 class="t-mine">${tr('Mes tâches du jour')}</h2><p class="muted small today-date">${esc(dateText)}</p></div>
     </div>
     <div class="mytasks">${myTasksHtml(g, { only: ['late', 'today', 'doing'] }) || `<p class="muted">${tr("Rien d'urgent aujourd'hui.")}</p>`}</div>
     <div class="actions">
