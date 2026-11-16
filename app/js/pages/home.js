@@ -1,8 +1,8 @@
 // =====================================================================
-// Aujourd'hui (remplace l'accueil ; refonte, livraison 2 — voir REFONTE.md)
-//   bandeau discret → On vous attend (votes où je n'ai pas voté, mentions)
-//   → À faire de votre côté (3 tâches, « Reporter ») → Vos projets (prochaine étape)
-//   → Bien joué cette semaine (simple liste).
+// Aujourd'hui (remplace l'accueil ; refonte, livraison 2, revue pour le téléphone le 16/11 — voir REFONTE.md)
+//   bandeau discret (avec les tâches terminées de la semaine) → On vous attend (votes où je n'ai pas voté, mentions)
+//   → Votre prochain pas (UNE tâche, « N autres tâches » ouvre la liste) → Vos projets (une porte par projet).
+// Règle de clarté : un écran = une question (« que dois-je faire ? »), tient sans défiler sur téléphone.
 // Une seule carte teintée (« On vous attend »), une seule carte principale (« À faire de votre côté »).
 // Les actions rapides sont dans le bouton « Créer » de la barre du haut (steps.js).
 // =====================================================================
@@ -106,54 +106,40 @@ B.pages.home = async (view) => {
           </div>`).join('')}
       </section>` : '';
 
-    // À faire de votre côté : 3 tâches, la carte principale
-    const top = tasks.slice(0, 3);
+    // Votre prochain pas : UNE tâche, la carte principale ; les autres derrière « N autres tâches »
+    const [first, ...rest] = tasks;
     const todoHtml = `
       <section class="card main-card" id="today-todo">
-        <div class="card-label mine"><span class="label-ico">${icon('route', 15)}</span>${tr('À faire de votre côté')}
-          ${tasks.length > 3 ? `<button class="link see-all" data-all>${tr('Voir mes {n} tâches', { n: tasks.length })} ${icon('arrow', 14)}</button>` : ''}</div>
-        ${top.length ? top.map((t, k) => {
-          const p = B.project(t.project_id);
-          const late = t.due_date && B.daysUntil(t.due_date) < 0;
-          return `<div class="todo-row" data-id="${t.id}">
-            <span class="todo-n" aria-hidden="true">${k + 1}</span>
-            <label class="tick" title="${tr("C'est fait")}"><input type="checkbox" aria-label="${tr("C'est fait")} : ${esc(t.title)}" />${icon('check', 12)}</label>
-            <div class="todo-text"><button class="todo-title" translate="no">${esc(t.title)}</button>
-              <span class="meta">${projDot(p)}${t.due_date ? ` · ${late ? `<span class="chip-late">${esc(B.plannedText(t.due_date))}</span>` : esc(B.daysUntil(t.due_date) <= 1 ? B.daysText(t.due_date) : B.longDate(t.due_date))}` : ''}${t.status === 'doing' ? ` · ${tr('En cours')}` : ''}</span></div>
-            ${t.due_date && B.daysUntil(t.due_date) <= 0 ? `<button class="btn" data-snooze>${tr('Reporter')}</button>` : ''}
-          </div>`;
-        }).join('') : `<p class="muted calm">${tr("Rien à faire de votre côté pour l'instant. Dans un projet, prenez une tâche pour la retrouver ici.")}</p>`}
+        <div class="card-label mine"><span class="label-ico">${icon('route', 15)}</span>${tr('Votre prochain pas')}</div>
+        ${first ? `<div class="big-task todo-row" data-id="${first.id}">
+            <label class="tick big" title="${tr("C'est fait")}"><input type="checkbox" aria-label="${tr("C'est fait")} : ${esc(first.title)}" />${icon('check', 14)}</label>
+            <div class="big-text">
+              <button class="big-title todo-title" translate="no">${esc(first.title)}</button>
+              <span class="meta">${projDot(B.project(first.project_id))}</span>
+              <div class="big-actions"><button class="btn teal" data-done>${tr("C'est fait")}</button><button class="btn" data-snooze>${tr('Reporter')}</button>${B.dueHtml(first.due_date)}</div>
+            </div>
+          </div>
+          ${rest.length ? `<button class="more-link" data-all>${tr(rest.length > 1 ? '{n} autres tâches pour vous' : '{n} autre tâche pour vous', { n: rest.length })}${icon('chevron', 16)}</button>` : ''}`
+          : `<p class="muted calm">${tr("Rien à faire de votre côté pour l'instant. Dans un projet, prenez une tâche pour la retrouver ici.")}</p>`}
       </section>`;
 
-    // Vos projets : avancement sur le chemin et prochaine étape
+    // Vos projets : une porte par projet (où il en est, sa prochaine étape)
     const projHtml = `
-      <section class="card" id="today-projects">
-        <div class="card-label"><span class="label-ico">${icon('folder', 15)}</span>${tr('Vos projets')}</div>
-        ${B.projects.slice(0, 6).map((p) => {
+      <section id="today-projects">
+        <h2 class="sec-title">${tr('Vos projets')}</h2>
+        <div class="doors">${B.projects.slice(0, 6).map((p) => {
           const path = B.pathOf(items.filter((i) => i.project_id === p.id));
-          const pct = path.total ? Math.round((path.done / path.total) * 100) : p.progress;
-          const count = path.total ? tr(path.done > 1 ? '{n} étapes sur {m}' : '{n} étape sur {m}', { n: path.done, m: path.total })
-            : (p.taskCount ? tr('{n} % des tâches', { n: p.progress }) : '');
-          const next = path.next
-            ? `${tr('Prochaine étape')} : <b translate="no">${esc(path.next.title)}</b>${path.next.due_date ? ` · ${esc(B.daysText(path.next.due_date))}` : ''}`
+          const line = path.next ? `${tr('Prochaine')} : <span translate="no">${esc(path.next.title)}</span>`
             : path.total ? tr('Toutes les étapes sont franchies') : tr("Pas encore d'étape sur le chemin");
-          return `<a class="tproj" href="#/p/${p.id}/projet">
-            <span class="tproj-top"><i class="sq" style="background:${esc(p.color)}"></i><b translate="no">${esc(p.name)}</b><span class="unread-badge hidden" data-unread="project:${p.id}"></span><span class="tproj-count">${count}</span></span>
-            <span class="bar"><span style="width:${pct}%;background:${esc(p.color)}"></span></span>
-            <span class="tproj-next">${icon('flag', 14)}<span>${next}</span></span>
-          </a>`;
-        }).join('')}
-        ${B.projects.length > 6 ? `<a href="#/projects" class="link">${tr('Voir tout')} ${icon('arrow', 14)}</a>` : ''}
+          return `<a class="door tproj" href="#/p/${p.id}/projet">
+            <span class="door-ico" style="background:${esc(p.color)}">${icon('compass', 20)}</span>
+            <span class="door-text"><b translate="no">${esc(p.name)}</b><span>${line}</span></span>
+            <span class="unread-badge hidden" data-unread="project:${p.id}"></span></a>`;
+        }).join('')}</div>
+        ${B.projects.length > 6 ? `<a href="#/projects" class="more-link">${tr('Voir tout')}${icon('chevron', 16)}</a>` : ''}
       </section>`;
 
-    // Bien joué cette semaine : simple liste, sans cadre
-    const winsHtml = wins.length ? `
-      <section class="plist" id="today-wins">
-        <div class="plist-t">${icon('doublecheck', 15)} ${tr('Bien joué cette semaine')}</div>
-        <ul>${wins.slice(0, 5).map((a) => B.winRow(a, { when: false })).join('')}</ul>
-      </section>` : '';
-
-    body.innerHTML = `<div class="today-grid"><div class="today-main">${waitHtml}${todoHtml}</div><div class="today-side">${projHtml}${winsHtml}</div></div>`;
+    body.innerHTML = `<div class="today-grid"><div class="today-main">${waitHtml}${todoHtml}</div><div class="today-side">${projHtml}</div></div>`;
     B.paintUnread(body);
   };
 
@@ -173,7 +159,7 @@ B.pages.home = async (view) => {
     if (!row) return;
     const t = tasks.find((x) => x.id === row.dataset.id);
     if (!t) return;
-    if (e.target.matches('input[type=checkbox]')) { row.classList.add('done'); if (!(await B.completeTask(t, load))) { row.classList.remove('done'); e.target.checked = false; } return; }
+    if (e.target.matches('input[type=checkbox]') || e.target.closest('[data-done]')) { row.classList.add('done'); if (!(await B.completeTask(t, load))) { row.classList.remove('done'); const c = $('input[type=checkbox]', row); if (c) c.checked = false; } return; }
     if (e.target.closest('[data-snooze]')) return B.snoozeTask(t, e.target.closest('[data-snooze]'), load);
     if (e.target.closest('.todo-title')) B.openTask(t, load);
   });

@@ -866,6 +866,7 @@ B.voiceStrip = (el, project, channel) => {
 
   const render = () => {
     if (!alive) return;
+    el.classList.toggle('in-room', inRoom()); // téléphone : le bandeau reste ouvert quand on est dans le vocal
     const people = inRoom() ? B.voice.people : peekPeople;
     const full = !inRoom() && people.size >= VOICE_MAX;
     el.innerHTML = `

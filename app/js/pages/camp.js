@@ -1,11 +1,13 @@
 // =====================================================================
-// Camp de base (remplace « Notre projet » ; refonte, livraison 2 — voir REFONTE.md)
-//   paysage : l'objectif est le sommet, les étapes sont le chemin, « Vous êtes ici » juste après
-//   la dernière étape franchie → À faire de votre côté (carte principale) → À décider ensemble
-//   (bloc compact) → Derniers progrès (liste) → Idées (une ligne).
+// Camp de base (remplace « Notre projet » ; refonte, livraison 2, revue pour le téléphone le 16/11)
+// Règle de clarté : un écran = une question. L'accueil du projet tient sans défiler : le paysage (où en est-on ?),
+// UN seul « Votre prochain pas », puis des portes. Les listes sont derrière les portes, chacune sur sa page :
+//   …/projet/chemin   Le chemin : étapes franchies, à venir, abandonnées (revenir en arrière = responsables, 032)
+//   …/projet/decider  À décider : votes ouverts, décisions
+//   …/projet/idees    Idées : une ligne par idée ; en faire une tâche, la ranger
+//   …/projet/absence  Pendant votre absence (resume.js)
+//   …/projet/tout     Tout le projet : l'ancien écran complet (hub.js), pour modifier en détail
 // Mêmes données qu'avant : items (objective, milestone, decision, idea), item_votes, tasks, activity.
-// Les listes complètes (modifier, archiver, donner suite, lancer un vote) restent dans
-// « Tout le projet », en bas de page : c'est l'ancien écran (hub.js), ouvert à la demande.
 // =====================================================================
 
 // Le chemin, dans le repère du dessin (1100 × 220, origine en haut à -20) : 4 courbes, puis la montée au sommet
@@ -104,56 +106,113 @@ function landscape(path, W, H) {
   return `${svg}<div class="land-over" aria-hidden="true">${labels}${bubble}</div>`;
 }
 
-B.pages.camp = async (el, p) => {
+// ---------------------------------------------------------------------
+// Petits morceaux communs aux pages du Camp de base
+// ---------------------------------------------------------------------
+const campHref = (p, sub = '') => `#/p/${p.id}/projet${sub ? '/' + sub : ''}`;
+
+/** En-tête d'une sous-page : ← retour au Camp de base + titre */
+const subHead = (p, title) => `<header class="sub-head">
+  <a class="icon-btn" href="${campHref(p)}" aria-label="${tr('Retour au camp de base')}">${icon('back', 20)}</a>
+  <h2>${title}</h2></header>`;
+
+/** Une porte : icône, titre, une ligne. `tint` = celle qui demande d'agir (une seule par écran) */
+const door = (href, ic, title, line, { tint = false, badge = 0 } = {}) => `<a class="door ${tint ? 'tint' : ''}" href="${href}">
+  <span class="door-ico">${icon(ic, 22)}</span>
+  <span class="door-text"><b>${title}</b><span>${line}</span></span>
+  ${badge ? `<span class="n" aria-hidden="true">${badge}</span>` : ''}</a>`;
+
+/** Ligne d'une liste qui s'ouvre au toucher */
+const tapRow = (attrs, lead, title, line = '', side = '') => `<button type="button" class="tap-row" ${attrs}>
+  ${lead}<span class="tap-text"><b translate="no">${title}</b>${line ? `<span>${line}</span>` : ''}</span>${side}${icon('chevron', 16)}</button>`;
+
+const openVotesOf = (items) => items.filter((i) => i.type === 'decision' && i.vote_options && i.vote_until && new Date(i.vote_until) > new Date() && !i.archived_at);
+
+/** Une petite fenêtre : un titre et une date (noter une idée, fixer l'objectif, ajouter ou modifier une étape) */
+function itemForm(p, type, item, done) {
+  const T = {
+    idea: [tr('Noter une idée'), tr('Une nouvelle idée…'), false],
+    objective: [tr("Fixer l'objectif"), tr('À quoi verra-t-on que le projet est réussi ?'), true],
+    milestone: [item ? tr("Modifier l'étape") : tr('Ajouter une étape'), tr('Une grande étape…'), true]
+  }[type];
+  const m = B.modal(`
+    <h2>${esc(T[0])}</h2>
+    <label for="ci-title">${tr('Titre')}</label><input id="ci-title" maxlength="200" placeholder="${esc(T[1])}" value="${esc(item?.title || '')}" />
+    ${T[2] ? `<label for="ci-date">${tr('Date (facultatif)')}</label><input id="ci-date" type="date" value="${esc(item?.due_date || '')}" />` : ''}
+    <p class="msg" id="ci-msg"></p>
+    <div class="actions"><button class="btn" data-close>${tr('Annuler')}</button><button class="btn primary" id="ci-go">${item ? tr('Enregistrer') : tr('Ajouter')}</button></div>`);
+  $('[data-close]', m).onclick = B.closeModal;
+  const go = async () => {
+    const title = $('#ci-title', m).value.trim();
+    if (!title) return ($('#ci-msg', m).textContent = tr('Écrivez un titre.'));
+    const row = { title, due_date: $('#ci-date', m)?.value || null };
+    const { error } = item
+      ? await B.sb.from('items').update(row).eq('id', item.id)
+      : await B.sb.from('items').insert({ project_id: p.id, type, ...row });
+    if (error) return ($('#ci-msg', m).textContent = errText(error));
+    B.closeModal();
+    done?.();
+  };
+  $('#ci-go', m).onclick = go;
+  $('#ci-title', m).addEventListener('keydown', (e) => { if (e.key === 'Enter') go(); });
+  $('#ci-title', m).focus();
+}
+
+// ---------------------------------------------------------------------
+// La page : l'accueil du projet, ou l'une de ses sous-pages
+// ---------------------------------------------------------------------
+B.pages.camp = async (el, p, sub) => {
+  if (sub === 'absence') return B.pages.absence(el, p);
+  if (sub === 'chemin') return renderChemin(el, p);
+  if (sub === 'decider') return renderDecider(el, p);
+  if (sub === 'idees') return renderIdees(el, p);
+  if (sub === 'tout') {
+    el.innerHTML = `<div class="subpage wide">${subHead(p, tr('Tout le projet'))}<div id="camp-hub"></div></div>`;
+    await B.pages.hub($('#camp-hub', el), p);
+    paintIcons(el);
+    if (B.pendingNewVote) { B.pendingNewVote = false; $('#camp-hub [data-new-vote]', el)?.click(); }
+    return;
+  }
+  return renderCampHome(el, p);
+};
+
+// ---------- Accueil du projet : où en est-on, mon prochain pas, les portes ----------
+async function renderCampHome(el, p) {
   el.innerHTML = `<div class="camp">
     <section class="card landcard" id="camp-land"></section>
     <div class="camp-grid">
       <section class="card main-card" id="camp-todo"></section>
-      <div class="camp-side"><section class="card decide" id="camp-decide"></section><section class="plist" id="camp-wins"></section></div>
+      <nav class="doors" id="camp-doors" aria-label="${tr('Dans ce projet')}"></nav>
     </div>
-    <section class="card ideas-row" id="camp-ideas"></section>
-    <details class="camp-all" id="camp-all">
-      <summary>${icon('list', 16)} ${tr('Tout le projet : objectifs, étapes, décisions, idées, activité')}</summary>
-      <div id="camp-hub"></div>
-    </details>
   </div>`;
 
-  let items = [], votes = [], tasks = [], wins = [];
-  let hubReady = false;
-
-  /** Ouvre « Tout le projet » (l'ancien écran, chargé à la première ouverture) */
-  const openAll = async (then) => {
-    const d = $('#camp-all', el);
-    if (!d) return;
-    d.open = true;
-    if (!hubReady) { hubReady = true; await B.pages.hub($('#camp-hub', el), p); paintIcons(d); }
-    d.scrollIntoView({ behavior: B.animationsOn() ? 'smooth' : 'auto', block: 'start' });
-    then?.();
-  };
-  $('#camp-all', el).addEventListener('toggle', (e) => { if (e.target.open && !hubReady) openAll(); });
+  let items = [], votes = [], tasks = [], missed = null;
+  let lastW = 0;
+  let drawn = false; // le chemin ne se dessine qu'à l'ouverture, pas à chaque mise à jour
 
   const load = async () => {
     if (!el.isConnected) return;
-    const [it, tk, w] = await Promise.all([
+    const [it, tk] = await Promise.all([
       B.sb.from('items').select('*').eq('project_id', p.id).order('created_at'),
-      B.sb.from('tasks').select('*').eq('project_id', p.id).eq('assignee_id', B.me.id).neq('status', 'done'),
-      B.loadWins([p.id], { limit: 3 }).catch(() => [])
+      B.sb.from('tasks').select('*').eq('project_id', p.id).eq('assignee_id', B.me.id).neq('status', 'done')
     ]);
     if (it.error) return B.error(it.error);
     items = (it.data || []).filter((i) => i.project_id === p.id);
     tasks = B.orderMyTasks((tk.data || []).filter((t) => t.project_id === p.id && t.assignee_id === B.me.id && t.status !== 'done'));
-    wins = w;
-    const ids = items.filter((i) => i.vote_options).map((i) => i.id);
+    const ids = openVotesOf(items).map((i) => i.id);
     votes = ids.length ? ((await B.sb.from('item_votes').select('*').in('item_id', ids)).data || []).filter((v) => ids.includes(v.item_id)) : [];
     render();
+    loadMissed();
+  };
+  // « Pendant votre absence » : compté à part (plus lent), la porte se met à jour toute seule
+  const loadMissed = async () => {
+    const since = B.visits.get(p.id);
+    if (!since) return;
+    try { missed = B.missedSummary(await B.missedData(p.id, since)); } catch { missed = null; }
+    renderDoors();
   };
 
-  const openVotes = () => items.filter((i) => i.type === 'decision' && i.vote_options && i.vote_until && new Date(i.vote_until) > new Date() && !i.archived_at);
-  const iVoted = (i) => votes.some((v) => v.item_id === i.id && v.user_id === B.me.id);
-
   // ---------- Le paysage ----------
-  let lastW = 0;
-  let drawn = false; // le chemin ne se dessine qu'à l'ouverture, pas à chaque mise à jour
   const renderLand = () => {
     const box = $('#camp-land', el);
     if (!box) return;
@@ -165,7 +224,7 @@ B.pages.camp = async (el, p) => {
     const say = path.total
       ? tr('Chemin du projet : {n} étapes franchies sur {m}.', { n: path.done, m: path.total }) + (path.next ? ` ${tr('Prochaine étape')} : ${path.next.title}.` : '')
       : tr('Chemin du projet : aucune étape pour le moment.');
-    const W = Math.max(280, Math.round(box.clientWidth)), H = W < 560 ? 320 : 300;
+    const W = Math.max(280, Math.round(box.clientWidth)), H = W < 560 ? 240 : 300;
     lastW = W;
     box.innerHTML = `
       <div class="land ${drawn ? '' : 'draw'}" role="img" aria-label="${esc(say)}" style="height:${H}px">${landscape(path, W, H)}
@@ -175,25 +234,18 @@ B.pages.camp = async (el, p) => {
             : `<h2 class="land-title">${tr('Quel sommet visez-vous ?')}</h2><button class="btn small" data-add="objective">${icon('plus', 14)} ${tr("Fixer l'objectif")}</button>`}
         </div>
       </div>
-      <div class="where">
-        <div class="wrow"><span class="wdot me"></span><div>
-          ${path.total ? `<b>${tr(path.done > 1 ? '{n} étapes sur {m} franchies' : '{n} étape sur {m} franchie', { n: path.done, m: path.total })}</b>
-            <span>${path.last ? `${tr('Dernière')} : <span translate="no">${esc(path.last.title)}</span>${path.last.due_date ? ` · ${esc(fmtDate(path.last.due_date))}` : ''}` : tr('Le départ est donné.')}</span>`
-            : `<b>${tr("Pas encore d'étape sur le chemin")}</b><span>${tr('Posez 3 ou 4 grandes étapes, avec une date.')}</span>`}
-        </div></div>
-        <div class="wrow"><span class="wdot next"></span><div>
-          ${path.next ? `<b>${tr('Prochaine étape')} : <span translate="no">${esc(path.next.title)}</span></b>
-            <span>${path.next.due_date ? `${esc(B.longDate(path.next.due_date))} · ${esc(B.daysUntil(path.next.due_date) < 0 ? B.plannedText(path.next.due_date) : B.daysText(path.next.due_date))}` : tr('pas encore de date')}</span>`
-            : path.total ? `<b>${tr('Toutes les étapes sont franchies')}</b><span>${tr('Le sommet est en vue.')}</span>`
-            : `<b>${tr('Prochaine étape')}</b><span>${tr('à définir ensemble')}</span>`}
-        </div>
-        ${path.next ? `<button class="btn small" data-reach="${path.next.id}">${icon('flag', 14)} ${tr('Étape franchie')}</button>`
-          : `<button class="btn small" data-add="milestone">${icon('plus', 14)} ${tr('Ajouter une étape')}</button>`}
-        </div>
-      </div>`;    drawn = true;
+      <a class="where-link" href="${campHref(p, 'chemin')}">
+        <span class="wdot me" aria-hidden="true"></span>
+        <span class="where-text">${path.total
+          ? `<b>${tr(path.done > 1 ? '{n} étapes sur {m} franchies' : '{n} étape sur {m} franchie', { n: path.done, m: path.total })}</b>
+             <span>${path.next ? `${tr('Prochaine')} : <span translate="no">${esc(path.next.title)}</span>${path.next.due_date ? ` · ${esc(B.daysUntil(path.next.due_date) < 0 ? B.plannedText(path.next.due_date) : B.daysText(path.next.due_date))}` : ''}` : tr('Le sommet est en vue.')}</span>`
+          : `<b>${tr("Pas encore d'étape sur le chemin")}</b><span>${tr('Posez 3 ou 4 grandes étapes, avec une date.')}</span>`}</span>
+        <span class="where-go">${tr('Le chemin')}${icon('chevron', 16)}</span>
+      </a>`;
+    drawn = true;
   };
 
-  // ---------- À faire de votre côté : la carte principale ----------
+  // ---------- Votre prochain pas : UNE tâche ----------
   const renderTodo = () => {
     const box = $('#camp-todo', el);
     if (!box) return;
@@ -202,7 +254,7 @@ B.pages.camp = async (el, p) => {
     // « Prépare … » : seulement si la tâche est prévue au plus tard le jour de la prochaine étape
     const prepares = first && next && next.due_date && (!first.due_date || first.due_date <= next.due_date);
     box.innerHTML = `
-      <div class="card-label mine"><span class="label-ico">${icon('checksq', 15)}</span>${tr('À faire de votre côté')}</div>
+      <div class="card-label mine"><span class="label-ico">${icon('checksq', 15)}</span>${tr('Votre prochain pas')}</div>
       ${first ? `<div class="big-task" data-id="${first.id}">
           <label class="tick big" title="${tr("C'est fait")}"><input type="checkbox" data-done aria-label="${tr("C'est fait")} : ${esc(first.title)}" />${icon('check', 14)}</label>
           <div class="big-text">
@@ -211,164 +263,55 @@ B.pages.camp = async (el, p) => {
             <div class="big-actions"><button class="btn teal" data-done>${tr("C'est fait")}</button><button class="btn" data-snooze>${tr('Reporter')}</button>${B.dueHtml(first.due_date)}</div>
           </div>
         </div>
-        ${rest.length ? `<div class="then"><div class="then-t">${tr('Ensuite')}</div>
-          ${rest.slice(0, 2).map((t) => `<div class="then-r" data-id="${t.id}">
-            <label class="tick" title="${tr("C'est fait")}"><input type="checkbox" data-done aria-label="${tr("C'est fait")} : ${esc(t.title)}" />${icon('check', 12)}</label>
-            <button class="then-title" translate="no">${esc(t.title)}</button>${B.dueHtml(t.due_date)}</div>`).join('')}
-          ${rest.length > 2 ? `<a class="link" href="#/p/${p.id}/taches">${tr('Voir mes {n} tâches', { n: tasks.length })} ${icon('arrow', 14)}</a>` : ''}</div>` : ''}`
+        ${rest.length ? `<a class="more-link" href="#/p/${p.id}/taches">${tr(rest.length > 1 ? '{n} autres tâches pour vous' : '{n} autre tâche pour vous', { n: rest.length })}${icon('chevron', 16)}</a>` : ''}`
         : `<p class="muted calm">${tr('Rien à faire de votre côté dans ce projet.')}</p>
-           <a class="btn" href="#/p/${p.id}/taches">${icon('checksq', 15)} ${tr('Voir les tâches')}</a>`}`;
+           <a class="more-link" href="#/p/${p.id}/taches">${tr('Voir les tâches')}${icon('chevron', 16)}</a>`}`;
   };
 
-  // ---------- À décider ensemble : bloc compact ----------
-  const renderDecide = () => {
-    const box = $('#camp-decide', el);
+  // ---------- Les portes ----------
+  const renderDoors = () => {
+    const box = $('#camp-doors', el);
     if (!box) return;
-    const open = openVotes().sort((a, b) => Number(iVoted(a)) - Number(iVoted(b)) || String(a.vote_until).localeCompare(String(b.vote_until)));
-    const missing = open.filter((i) => !iVoted(i)).length;
-    const i = open[0];
-    const label = `<div class="card-label decide-label"><span class="label-ico">${icon('decision', 15)}</span>${tr('À décider ensemble')}${missing ? `<span class="n">${missing}</span>` : ''}</div>`;
-    if (!i) {
-      box.innerHTML = `${label}<p class="muted calm">${tr("Rien à décider pour l'instant.")}</p>
-        <button class="link" data-new-vote-camp>${icon('users', 14)} ${tr('Soumettre une décision au vote')}</button>`;
-      return;
-    }
-    const vs = votes.filter((v) => v.item_id === i.id);
-    const mine = new Set(vs.filter((v) => v.user_id === B.me.id).map((v) => v.choice));
-    const until = new Date(i.vote_until).toLocaleString(B.locale(), { weekday: 'long', hour: '2-digit', minute: '2-digit' });
-    box.innerHTML = `${label}
-      <b class="vote-q" translate="no">${esc(i.title)}</b>
-      <div class="vote-row" data-vote="${i.id}">${i.vote_options.map((o, k) => { const n = vs.filter((v) => v.choice === k).length;
-        return `<button class="btn vote-b ${mine.has(k) ? 'on' : ''}" data-choice="${k}" aria-pressed="${mine.has(k)}"><span translate="no">${esc(o)}</span>${n ? ` · ${n}` : ''}</button>`; }).join('')}</div>
-      <p class="vote-note">${mine.size ? tr('Vous avez voté') : tr('Votre vote manque')} · ${tr('clôture {when}', { when: esc(until) })}${i.vote_multi ? ` · ${tr('plusieurs réponses possibles')}` : ''}</p>
-      ${open.length > 1 ? `<button class="link" data-all-votes>${tr(open.length > 2 ? '{n} autres votes en cours' : '{n} autre vote en cours', { n: open.length - 1 })} ${icon('arrow', 14)}</button>` : ''}`;
+    const open = openVotesOf(items);
+    const missing = open.filter((i) => !votes.some((v) => v.item_id === i.id && v.user_id === B.me.id)).length;
+    const ideas = items.filter((i) => i.type === 'idea' && !i.archived_at && !i.done).length;
+    const forMe = missed?.forMe || 0;
+    // Une seule porte teintée : celle qui m'attend en premier
+    const tintAbsence = forMe > 0;
+    const tintDecide = !tintAbsence && missing > 0;
+    box.innerHTML = [
+      door(campHref(p, 'absence'), 'spark', tr('Pendant votre absence'),
+        missed == null ? tr('Ce qui a bougé') : forMe ? tr(forMe > 1 ? '{n} choses pour vous' : '{n} chose pour vous', { n: forMe })
+          : missed.news ? tr(missed.news > 1 ? '{n} nouveautés' : '{n} nouveauté', { n: missed.news }) : tr('Rien de nouveau'),
+        { tint: tintAbsence }),
+      door(campHref(p, 'decider'), 'decision', tr('À décider'),
+        missing ? tr('Votre vote manque') : open.length ? tr(open.length > 1 ? '{n} votes ouverts' : '{n} vote ouvert', { n: open.length }) : tr('Rien à trancher'),
+        { tint: tintDecide, badge: missing }),
+      door(campHref(p, 'idees'), 'bulb', tr('Idées'), ideas ? tr(ideas > 1 ? '{n} idées' : '{n} idée', { n: ideas }) : tr('Notez la première')),
+      door(campHref(p, 'tout'), 'list', tr('Tout le projet'), tr('Objectifs, décisions, activité'))
+    ].join('');
   };
 
-  // ---------- Derniers progrès : simple liste ----------
-  const renderWins = () => {
-    const box = $('#camp-wins', el);
-    if (!box) return;
-    box.classList.toggle('hidden', !wins.length);
-    box.innerHTML = wins.length ? `<div class="plist-t">${icon('doublecheck', 15)} ${tr('Derniers progrès')}</div><ul>${wins.map((a) => B.winRow(a)).join('')}</ul>` : '';
-  };
-
-  // ---------- Idées : une ligne de pastilles ----------
-  const renderIdeas = () => {
-    const box = $('#camp-ideas', el);
-    if (!box) return;
-    const ideas = items.filter((i) => i.type === 'idea' && !i.archived_at && !i.done);
-    box.innerHTML = `<div class="card-label idea-label"><span class="label-ico">${icon('bulb', 15)}</span>${tr('Idées')}${ideas.length ? `<span class="n soft">${ideas.length}</span>` : ''}</div>
-      ${ideas.slice(0, 4).map((i) => `<button class="idea-chip" data-idea="${i.id}" translate="no">${esc(i.title)}</button>`).join('')}
-      ${ideas.length > 4 ? `<button class="link" data-all-ideas>${tr('+ {n} autres', { n: ideas.length - 4 })}</button>` : ''}
-      <button class="idea-chip add" data-add="idea">${icon('plus', 13)} ${tr('Noter une idée')}</button>
-      <span class="ideas-hint">${tr('Une idée devient une tâche en un clic')}</span>`;
-  };
-
-  const render = () => { renderLand(); renderTodo(); renderDecide(); renderWins(); renderIdeas(); paintIcons(el); };
+  const render = () => { renderLand(); renderTodo(); renderDoors(); paintIcons(el); };
 
   // Le paysage suit la largeur de la fenêtre
   const ro = new ResizeObserver(debounce(() => {
     const w = Math.round($('#camp-land', el)?.clientWidth || 0);
-    if (w && Math.abs(w - lastW) > 4) { lastW = w; renderLand(); }
+    if (w && Math.abs(w - lastW) > 4) renderLand();
   }, 150));
   ro.observe($('#camp-land', el));
   B.onLeave(() => ro.disconnect());
 
-  /** Petite fenêtre : noter une idée, fixer l'objectif, ajouter une étape */
-  const addItem = (type) => {
-    const T = {
-      idea: [tr('Noter une idée'), tr('Une nouvelle idée…'), false],
-      objective: [tr("Fixer l'objectif"), tr('À quoi verra-t-on que le projet est réussi ?'), true],
-      milestone: [tr('Ajouter une étape'), tr('Une grande étape…'), true]
-    }[type];
-    const m = B.modal(`
-      <h2>${esc(T[0])}</h2>
-      <label for="ci-title">${tr('Titre')}</label><input id="ci-title" maxlength="200" placeholder="${esc(T[1])}" />
-      ${T[2] ? `<label for="ci-date">${tr('Date (facultatif)')}</label><input id="ci-date" type="date" />` : ''}
-      <p class="msg" id="ci-msg"></p>
-      <div class="actions"><button class="btn" data-close>${tr('Annuler')}</button><button class="btn primary" id="ci-go">${tr('Ajouter')}</button></div>`);
-    $('[data-close]', m).onclick = B.closeModal;
-    const go = async () => {
-      const title = $('#ci-title', m).value.trim();
-      if (!title) return ($('#ci-msg', m).textContent = tr('Écrivez un titre.'));
-      const { error } = await B.sb.from('items').insert({ project_id: p.id, type, title, due_date: $('#ci-date', m)?.value || null });
-      if (error) return ($('#ci-msg', m).textContent = errText(error));
-      B.closeModal();
-      load();
-    };
-    $('#ci-go', m).onclick = go;
-    $('#ci-title', m).addEventListener('keydown', (e) => { if (e.key === 'Enter') go(); });
-    $('#ci-title', m).focus();
-  };
-
-  el.addEventListener('click', async (e) => {
-    if (e.target.closest('#camp-hub')) return; // « Tout le projet » gère ses propres clics (hub.js)
+  el.addEventListener('click', (e) => {
     const add = e.target.closest('[data-add]');
-    if (add) return addItem(add.dataset.add);
-
-    // Étape franchie (avec « Annuler »)
-    const reach = e.target.closest('[data-reach]');
-    if (reach) {
-      const s = items.find((i) => i.id === reach.dataset.reach);
-      const { error } = await B.sb.from('items').update({ done: true }).eq('id', reach.dataset.reach);
-      if (error) return B.error(error);
-      B.toast(`${icon('flag', 14)} ${tr('Étape franchie : « {title} »', { title: esc(s?.title || '') })}`, { type: 'success',
-        actions: [[tr('Annuler'), '', async () => { await B.sb.from('items').update({ done: false }).eq('id', reach.dataset.reach); load(); }]] });
-      return load();
-    }
-
-    // Voter (même règle qu'avant : une voix, modifiable jusqu'à la clôture ; plusieurs si choix multiple)
-    const vb = e.target.closest('.vote-b');
-    if (vb) {
-      const item = items.find((i) => i.id === vb.closest('[data-vote]').dataset.vote);
-      const choice = Number(vb.dataset.choice);
-      const had = votes.some((v) => v.item_id === item.id && v.user_id === B.me.id && v.choice === choice);
-      let error;
-      if (had) ({ error } = await B.sb.from('item_votes').delete().match({ item_id: item.id, user_id: B.me.id, choice }));
-      else {
-        if (!item.vote_multi) ({ error } = await B.sb.from('item_votes').delete().match({ item_id: item.id, user_id: B.me.id }));
-        if (!error) ({ error } = await B.sb.from('item_votes').insert({ item_id: item.id, user_id: B.me.id, choice, voted_at: new Date().toISOString() }));
-      }
-      if (error) B.error(new Error(/row-level security/i.test(error.message || '') ? tr('Ce vote est clos.') : errText(error)));
-      return load();
-    }
-    if (e.target.closest('[data-all-votes]') || e.target.closest('[data-all-ideas]')) return openAll();
-    if (e.target.closest('[data-new-vote-camp]')) return openAll(() => $('#camp-hub [data-new-vote]', el)?.click());
-
-    // Une idée : en faire une tâche, ou la ranger
-    const chip = e.target.closest('[data-idea]');
-    if (chip) {
-      const idea = items.find((i) => i.id === chip.dataset.idea);
-      const r = chip.getBoundingClientRect();
-      const m = B.popMenu(r.left, r.bottom + 6, `
-        <button class="pop-item" data-m="task">${icon('checksq', 16)}<span>${tr('En faire une tâche')}</span></button>
-        <button class="pop-item" data-m="tidy">${icon('check', 16)}<span>${tr('Ranger cette idée')}</span></button>`);
-      $('[data-m="task"]', m).onclick = async () => {
-        B.closePopMenu();
-        const { error } = await B.sb.from('tasks').insert({ project_id: p.id, title: idea.title, description: idea.body });
-        if (error) return B.error(error);
-        await B.sb.from('items').update({ done: true }).eq('id', idea.id);
-        B.toast(`${tr('Tâche créée : « {title} ».', { title: esc(idea.title) })} <a href="#/p/${p.id}/taches">${tr('Voir les tâches')}</a>`, { type: 'success' });
-        B.loadProjects(); load();
-      };
-      $('[data-m="tidy"]', m).onclick = async () => {
-        B.closePopMenu();
-        const { error } = await B.sb.from('items').update({ archived_at: new Date().toISOString() }).eq('id', idea.id);
-        if (error) return B.error(error);
-        load();
-      };
-      $('.pop-item', m)?.focus();
-      return;
-    }
-
-    // Mes tâches : c'est fait, reporter, ouvrir
-    const row = e.target.closest('.big-task, .then-r');
+    if (add) return itemForm(p, add.dataset.add, null, load);
+    const row = e.target.closest('.big-task');
     if (!row) return;
     const t = tasks.find((x) => x.id === row.dataset.id);
     if (!t) return;
     if (e.target.closest('[data-done]')) return B.completeTask(t, load);
     if (e.target.closest('[data-snooze]')) return B.snoozeTask(t, e.target.closest('[data-snooze]'), load);
-    if (e.target.closest('.big-title, .then-title')) B.openTask(t, load);
+    if (e.target.closest('.big-title')) B.openTask(t, load);
   });
 
   await load();
@@ -376,4 +319,201 @@ B.pages.camp = async (el, p) => {
   B.live('camp-items', 'items', `project_id=eq.${p.id}`, soon);
   B.live('camp-votes', 'item_votes', null, soon);
   B.live('camp-tasks', 'tasks', `project_id=eq.${p.id}`, soon);
-};
+  B.onLeave(B.on('visit', (pid) => { if (pid === p.id) loadMissed(); }));
+}
+
+// ---------- Le chemin : toutes les étapes, et revenir en arrière ----------
+async function renderChemin(el, p) {
+  el.innerHTML = `<div class="subpage">${subHead(p, tr('Le chemin'))}<div id="chemin"></div></div>`;
+  let items = [];
+  const manager = B.isManager(p.id);
+
+  const load = async () => {
+    const { data, error } = await B.sb.from('items').select('*').eq('project_id', p.id).order('created_at');
+    if (error) return B.error(error);
+    items = (data || []).filter((i) => i.project_id === p.id);
+    render();
+  };
+
+  const stepRow = (s, state) => {
+    const mark = state === 'done' ? `<span class="step-mark done">${icon('check', 14)}</span>`
+      : state === 'gone' ? `<span class="step-mark gone"></span>`
+        : `<span class="step-mark ${state === 'next' ? 'next' : ''}"></span>`;
+    const line = state === 'done' ? tr('Franchie') + (s.due_date ? ` · ${tr('prévue le {date}', { date: fmtDate(s.due_date) })}` : '')
+      : state === 'gone' ? tr('Abandonnée')
+        : s.due_date ? `${esc(B.longDate(s.due_date))} · ${esc(B.daysUntil(s.due_date) < 0 ? B.plannedText(s.due_date) : B.daysText(s.due_date))}` : tr('pas encore de date');
+    return tapRow(`data-step="${s.id}"`, mark, esc(s.title), line);
+  };
+
+  const render = () => {
+    const box = $('#chemin', el);
+    if (!box) return;
+    const path = B.pathOf(items);
+    const gone = items.filter((i) => i.type === 'milestone' && i.archived_at);
+    const goal = items.find((i) => i.type === 'objective' && !i.archived_at && !i.done) || null;
+    const done = path.steps.slice(0, path.done), ahead = path.steps.slice(path.done);
+    box.innerHTML = `
+      <section class="summit">
+        <span class="summit-ico">${icon('flag', 22)}</span>
+        <div><div class="eyebrow">${tr('Le sommet')}${goal?.due_date ? ` · ${esc(B.longDate(goal.due_date))}` : ''}</div>
+        ${goal ? `<p class="summit-title" translate="no">${esc(goal.title)}</p>` : `<button class="btn small" data-add="objective">${icon('plus', 14)} ${tr("Fixer l'objectif")}</button>`}</div>
+      </section>
+      ${done.length ? `<section class="list-block"><h3>${tr('Franchies')}</h3>${done.map((s) => stepRow(s, 'done')).join('')}</section>` : ''}
+      <div class="here-mark"><span class="here-dot" aria-hidden="true"></span>${tr('Vous êtes ici')}</div>
+      <section class="list-block"><h3>${tr('À venir')}</h3>
+        ${ahead.length ? ahead.map((s) => stepRow(s, s === path.next ? 'next' : 'later')).join('') : `<p class="muted calm">${tr('Plus aucune étape à venir.')}</p>`}
+        <button class="btn dashed" data-add="milestone">${icon('plus', 16)} ${tr('Ajouter une étape')}</button>
+      </section>
+      ${gone.length ? `<details class="list-block gone"><summary>${tr(gone.length > 1 ? '{n} étapes abandonnées' : '{n} étape abandonnée', { n: gone.length })}</summary>${gone.map((s) => stepRow(s, 'gone')).join('')}</details>` : ''}`;
+    paintIcons(box);
+  };
+
+  /** Une étape : ce qu'on peut en faire (revenir en arrière = responsables, comme la base l'impose, migration 032) */
+  const openStep = (s) => {
+    const state = s.archived_at ? 'gone' : s.done ? 'done' : 'todo';
+    const status = state === 'done' ? tr('Franchie') : state === 'gone' ? tr('Abandonnée')
+      : s.due_date ? tr('Prévue le {date}', { date: B.longDate(s.due_date) }) : tr('Pas encore de date');
+    const back = manager ? (state === 'done'
+      ? `<button class="btn" data-act="undo">${tr('Remettre à faire')}</button>`
+      : state === 'gone' ? `<button class="btn" data-act="restore">${tr('Reprendre cette étape')}</button>`
+        : `<button class="btn link danger-ghost" data-act="drop">${tr('Abandonner cette étape')}</button>`) : '';
+    const m = B.modal(`
+      <h2 translate="no">${esc(s.title)}</h2>
+      <p class="muted">${status}</p>
+      ${s.body ? `<p translate="no">${esc(s.body)}</p>` : ''}
+      <div class="sheet-actions">
+        ${state === 'todo' ? `<button class="btn teal" data-act="reach">${icon('flag', 15)} ${tr('Étape franchie')}</button>` : ''}
+        ${state !== 'gone' ? `<button class="btn" data-act="edit">${icon('edit', 15)} ${tr('Modifier')}</button>` : ''}
+        ${back}
+      </div>
+      ${!manager && state !== 'todo' ? `<p class="muted small">${tr('Seuls le Créateur et les Administrateurs peuvent revenir en arrière sur une étape.')}</p>` : ''}
+      ${manager && state === 'todo' ? `<p class="muted small">${tr('Une étape abandonnée reste visible dans l’historique du chemin.')}</p>` : ''}
+      <div class="actions"><span class="spacer"></span><button class="btn" data-close>${tr('Fermer')}</button></div>`);
+    $('[data-close]', m).onclick = B.closeModal;
+    $$('[data-act]', m).forEach((b) => (b.onclick = async () => {
+      const act = b.dataset.act;
+      if (act === 'edit') { B.closeModal(); return itemForm(p, 'milestone', s, load); }
+      const patch = { reach: { done: true }, undo: { done: false }, drop: { archived_at: new Date().toISOString() }, restore: { archived_at: null } }[act];
+      const { error } = await B.sb.from('items').update(patch).eq('id', s.id);
+      if (error) return B.error(error);
+      B.closeModal();
+      const said = { reach: tr('Étape franchie : « {title} »'), undo: tr('Étape remise à faire : « {title} »'), drop: tr('Étape abandonnée : « {title} »'), restore: tr('Étape reprise : « {title} »') }[act];
+      B.toast(esc(said.replace('{title}', s.title)), { type: 'success' });
+      load();
+    }));
+  };
+
+  el.addEventListener('click', (e) => {
+    const add = e.target.closest('[data-add]');
+    if (add) return itemForm(p, add.dataset.add, null, load);
+    const row = e.target.closest('[data-step]');
+    if (row) { const s = items.find((x) => x.id === row.dataset.step); if (s) openStep(s); }
+  });
+  await load();
+  B.live('chemin-items', 'items', `project_id=eq.${p.id}`, debounce(load, 300));
+}
+
+// ---------- À décider : les votes ouverts, puis les décisions ----------
+async function renderDecider(el, p) {
+  el.innerHTML = `<div class="subpage">${subHead(p, tr('À décider'))}<div id="decider"></div></div>`;
+  let items = [], votes = [];
+  const load = async () => {
+    const { data, error } = await B.sb.from('items').select('*').eq('project_id', p.id).eq('type', 'decision').order('created_at', { ascending: false });
+    if (error) return B.error(error);
+    items = (data || []).filter((i) => i.project_id === p.id && i.type === 'decision');
+    const ids = items.filter((i) => i.vote_options).map((i) => i.id);
+    votes = ids.length ? ((await B.sb.from('item_votes').select('*').in('item_id', ids)).data || []).filter((v) => ids.includes(v.item_id)) : [];
+    render();
+  };
+  const voteBlock = (i) => {
+    const vs = votes.filter((v) => v.item_id === i.id);
+    const mine = new Set(vs.filter((v) => v.user_id === B.me.id).map((v) => v.choice));
+    const until = new Date(i.vote_until).toLocaleString(B.locale(), { weekday: 'long', hour: '2-digit', minute: '2-digit' });
+    return `<section class="vote-card">
+      <b class="vote-q" translate="no">${esc(i.title)}</b>
+      <div class="vote-row" data-vote="${i.id}">${i.vote_options.map((o, k) => { const n = vs.filter((v) => v.choice === k).length;
+        return `<button class="btn vote-b ${mine.has(k) ? 'on' : ''}" data-choice="${k}" aria-pressed="${mine.has(k)}"><span translate="no">${esc(o)}</span>${n ? ` · ${n}` : ''}</button>`; }).join('')}</div>
+      <p class="vote-note">${mine.size ? tr('Vous avez voté') : tr('Votre vote manque')} · ${tr('clôture {when}', { when: esc(until) })}${i.vote_multi ? ` · ${tr('plusieurs réponses possibles')}` : ''}</p>
+    </section>`;
+  };
+  const render = () => {
+    const box = $('#decider', el);
+    if (!box) return;
+    const open = openVotesOf(items);
+    const others = items.filter((i) => !open.includes(i) && !i.archived_at);
+    box.innerHTML = `
+      ${open.length ? open.map(voteBlock).join('') : `<p class="muted calm">${tr("Rien à décider pour l'instant.")}</p>`}
+      <a class="btn dashed" href="${campHref(p, 'tout')}" data-new-vote-go>${icon('plus', 16)} ${tr('Soumettre une décision au vote')}</a>
+      ${others.length ? `<section class="list-block"><h3>${tr('Décisions')}</h3>${others.slice(0, 8).map((i) => `<a class="tap-row" href="${campHref(p, 'tout')}">
+        <span class="step-mark ${i.done || (i.vote_until && new Date(i.vote_until) <= new Date()) ? 'done' : ''}">${i.done || (i.vote_until && new Date(i.vote_until) <= new Date()) ? icon('check', 14) : ''}</span>
+        <span class="tap-text"><b translate="no">${esc(i.title)}</b></span>${icon('chevron', 16)}</a>`).join('')}</section>` : ''}`;
+    paintIcons(box);
+  };
+  el.addEventListener('click', async (e) => {
+    if (e.target.closest('[data-new-vote-go]')) B.pendingNewVote = true; // « Tout le projet » ouvre la fenêtre du vote
+    const vb = e.target.closest('.vote-b');
+    if (!vb) return;
+    const item = items.find((i) => i.id === vb.closest('[data-vote]').dataset.vote);
+    const choice = Number(vb.dataset.choice);
+    const had = votes.some((v) => v.item_id === item.id && v.user_id === B.me.id && v.choice === choice);
+    let error;
+    if (had) ({ error } = await B.sb.from('item_votes').delete().match({ item_id: item.id, user_id: B.me.id, choice }));
+    else {
+      if (!item.vote_multi) ({ error } = await B.sb.from('item_votes').delete().match({ item_id: item.id, user_id: B.me.id }));
+      if (!error) ({ error } = await B.sb.from('item_votes').insert({ item_id: item.id, user_id: B.me.id, choice, voted_at: new Date().toISOString() }));
+    }
+    if (error) B.error(new Error(/row-level security/i.test(error.message || '') ? tr('Ce vote est clos.') : errText(error)));
+    load();
+  });
+  await load();
+  const soon = debounce(load, 300);
+  B.live('decider-items', 'items', `project_id=eq.${p.id}`, soon);
+  B.live('decider-votes', 'item_votes', null, soon);
+}
+
+// ---------- Idées : une ligne par idée ----------
+async function renderIdees(el, p) {
+  el.innerHTML = `<div class="subpage">${subHead(p, tr('Idées'))}<div id="idees"></div></div>`;
+  let ideas = [];
+  const load = async () => {
+    const { data, error } = await B.sb.from('items').select('*').eq('project_id', p.id).eq('type', 'idea').order('created_at', { ascending: false });
+    if (error) return B.error(error);
+    ideas = (data || []).filter((i) => i.project_id === p.id && i.type === 'idea' && !i.archived_at && !i.done);
+    const box = $('#idees', el);
+    if (!box) return;
+    box.innerHTML = `
+      <button class="btn dashed" data-add="idea">${icon('plus', 16)} ${tr('Noter une idée')}</button>
+      ${ideas.length ? `<section class="list-block">${ideas.map((i) => tapRow(`data-idea="${i.id}"`, `<span class="idea-ico">${icon('bulb', 18)}</span>`, esc(i.title),
+        esc(B.person(i.author_id).display_name || ''))).join('')}</section>
+        <p class="muted small">${tr('Touchez une idée pour en faire une tâche ou la ranger.')}</p>`
+        : `<p class="muted calm">${tr('Pas encore d’idée. Notez-en une : elle pourra devenir une tâche en un geste.')}</p>`}`;
+    paintIcons(box);
+  };
+  el.addEventListener('click', (e) => {
+    if (e.target.closest('[data-add]')) return itemForm(p, 'idea', null, load);
+    const row = e.target.closest('[data-idea]');
+    if (!row) return;
+    const idea = ideas.find((i) => i.id === row.dataset.idea);
+    const r = row.getBoundingClientRect();
+    const m = B.popMenu(Math.max(8, r.right - 250), r.bottom - 6, `
+      <button class="pop-item" data-m="task">${icon('checksq', 16)}<span>${tr('En faire une tâche')}</span></button>
+      <button class="pop-item" data-m="tidy">${icon('check', 16)}<span>${tr('Ranger cette idée')}</span></button>`);
+    $('[data-m="task"]', m).onclick = async () => {
+      B.closePopMenu();
+      const { error } = await B.sb.from('tasks').insert({ project_id: p.id, title: idea.title, description: idea.body });
+      if (error) return B.error(error);
+      await B.sb.from('items').update({ done: true }).eq('id', idea.id);
+      B.toast(`${tr('Tâche créée : « {title} ».', { title: esc(idea.title) })} <a href="#/p/${p.id}/taches">${tr('Voir les tâches')}</a>`, { type: 'success' });
+      B.loadProjects(); load();
+    };
+    $('[data-m="tidy"]', m).onclick = async () => {
+      B.closePopMenu();
+      const { error } = await B.sb.from('items').update({ archived_at: new Date().toISOString() }).eq('id', idea.id);
+      if (error) return B.error(error);
+      load();
+    };
+    $('.pop-item', m)?.focus();
+  });
+  await load();
+  B.live('idees-items', 'items', `project_id=eq.${p.id}`, debounce(load, 300));
+}

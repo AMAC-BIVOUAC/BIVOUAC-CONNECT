@@ -63,7 +63,10 @@ B.pages.tasks = async (el, p, sub) => {
   // Quatre vues : Tableau · Liste · Calendrier · Par personne. Le Calendrier a sa propre adresse
   // (…/taches/calendrier) : il vit dans calendar.js et s'abonne à d'autres tables.
   const onCalendar = sub === 'calendrier';
-  let view = onCalendar ? 'calendar' : store.get('tasks-view', 'kanban');
+  // Téléphone : la Liste par défaut (les colonnes du Tableau s'empilent et deviennent très longues)
+  const phone = B.isPhone();
+  const viewKey = phone ? 'tasks-view-phone' : 'tasks-view';
+  let view = onCalendar ? 'calendar' : store.get(viewKey, phone ? 'list' : 'kanban');
   if (!['list', 'people', 'calendar'].includes(view)) view = 'kanban';
   let tasks = [];
   // Filtre par personne (réglage de ce poste, par projet) : '' = tout le monde, 'none' = sans responsable
@@ -81,22 +84,42 @@ B.pages.tasks = async (el, p, sub) => {
           <button data-v="people">${icon('users', 15)} ${tr('Par personne')}</button>
         </div>
         <button class="btn primary small" id="new-task">${icon('plus', 15)} ${tr('Tâche')}</button>
+        <div class="tasks-phone-bar">
+          <label class="sr-only" for="view-select">${tr('Vue')}</label>
+          <select id="view-select" class="pill-select">
+            <option value="list">${tr('Liste')}</option><option value="kanban">${tr('Tableau')}</option>
+            <option value="calendar">${tr('Calendrier')}</option><option value="people">${tr('Par personne')}</option>
+          </select>
+          <button class="btn small pill" id="who-toggle" aria-expanded="false">${icon('filter', 15)} <span id="who-label">${tr('Tout le monde')}</span></button>
+        </div>
       </div>
       <div class="who-filter" role="group" aria-label="${tr('Filtrer par personne')}"></div>
       <div class="tasks-body"></div>
+      <button class="fab" id="fab-task">${icon('plus', 20)} ${tr('Tâche')}</button>
     </div>`;
   const body = $('.tasks-body', el);
 
+  const pickView = (v) => {
+    if (v === 'calendar') return (location.hash = `#/p/${p.id}/taches/calendrier`);
+    store.set(viewKey, v);
+    if (onCalendar) return (location.hash = `#/p/${p.id}/taches`);
+    view = v;
+    render();
+  };
   $$('.seg button', el).forEach((b) => {
     b.setAttribute('aria-pressed', String(b.dataset.v === view));
-    b.onclick = () => {
-      if (b.dataset.v === 'calendar') return (location.hash = `#/p/${p.id}/taches/calendrier`);
-      store.set('tasks-view', b.dataset.v);
-      if (onCalendar) return (location.hash = `#/p/${p.id}/taches`);
-      view = b.dataset.v;
-      render();
-    };
+    b.onclick = () => pickView(b.dataset.v);
   });
+  // Téléphone : la vue dans une liste déroulante, le filtre derrière un bouton
+  $('#view-select', el).value = view;
+  $('#view-select', el).onchange = (e) => pickView(e.target.value);
+  $('#who-toggle', el).onclick = (e) => {
+    const f = $('.who-filter', el);
+    const open = !f.classList.contains('open');
+    f.classList.toggle('open', open);
+    e.currentTarget.setAttribute('aria-expanded', String(open));
+  };
+  $('#fab-task', el).onclick = () => $('#new-task', el).click();
   if (onCalendar) {
     $$('.seg button', el).forEach((b) => b.classList.toggle('on', b.dataset.v === 'calendar'));
     $('.who-filter', el).hidden = true;
@@ -112,6 +135,8 @@ B.pages.tasks = async (el, p, sub) => {
     if (!b) return;
     who = b.dataset.who;
     store.set(`tasks-who:${p.id}`, who);
+    $('.who-filter', el).classList.remove('open');
+    $('#who-toggle', el).setAttribute('aria-expanded', 'false');
     render();
   });
 
@@ -121,6 +146,9 @@ B.pages.tasks = async (el, p, sub) => {
     const count = (fn) => open.filter(fn).length;
     const members = B.projectMembers(p.id).sort((a, b) => (a.id === B.me.id ? -1 : b.id === B.me.id ? 1 : a.display_name.localeCompare(b.display_name)));
     const chip = (id, label, n, extra = '') => `<button class="who-chip ${who === id ? 'on' : ''}" data-who="${id}">${extra}<span>${label}</span><small>${n}</small></button>`;
+    const mine = members.find((m) => m.id === who);
+    $('#who-label', el).innerHTML = !who ? tr('Tout le monde') : who === 'none' ? tr('Sans responsable')
+      : who === B.me.id ? tr('Moi') : `<span translate="no">${esc(mine?.display_name || '')}</span>`;
     $('.who-filter', el).innerHTML = chip('', tr('Tout le monde'), open.length)
       + members.map((m) => chip(m.id, m.id === B.me.id ? tr('Moi') : `<span translate="no">${esc(m.display_name)}</span>`, count((x) => x.assignee_id === m.id), avatar(m, 20))).join('')
       + chip('none', tr('Sans responsable'), count((x) => !x.assignee_id));
@@ -164,6 +192,9 @@ B.pages.tasks = async (el, p, sub) => {
         </div>`;
       }).join('')}</div>`;
       bindDnd();
+    } else if (view === 'list' && phone) {
+      body.innerHTML = tasks.length ? phoneList(tasks)
+        : `<div class="empty">${icon('checksq', 30)}<p>${who ? tr('Aucune tâche pour ce filtre.') : tr('Aucune tâche. Créez-en une, ou transformez une idée de « Camp de base ».')}</p></div>`;
     } else if (view === 'list') {
       body.innerHTML = tasks.length ? `<table class="task-table">
         <thead><tr><th></th><th>${tr('Tâche')}</th><th>${tr('Statut')}</th><th>${tr('Responsable')}</th><th>${tr('Échéance')}</th></tr></thead>
@@ -178,6 +209,28 @@ B.pages.tasks = async (el, p, sub) => {
         }).join('')}</tbody></table>`
         : `<div class="empty">${icon('checksq', 30)}<p>${who ? tr('Aucune tâche pour ce filtre.') : tr('Aucune tâche. Créez-en une, ou transformez une idée de « Camp de base ».')}</p></div>`;
     }
+  }
+
+  /** Téléphone : une liste groupée. « À vous » d'abord, puis À faire ; En cours et Terminé repliés.
+   *  Une ligne par tâche : rond à cocher, titre (code « P0-05 » mis en petite étiquette), date si besoin, responsable. */
+  function phoneList(list) {
+    const row = (t) => {
+      const m = t.title.match(/^\[([^\]]{2,24})\]\s*(.*)$/);
+      const code = m ? m[1].split('·')[0].trim() : '';
+      const title = m ? m[2] : t.title;
+      const whoP = t.assignee_id && t.assignee_id !== B.me.id ? B.person(t.assignee_id) : null;
+      return `<div class="t-row ${t.status}" data-id="${t.id}">
+        <label class="tick"><input type="checkbox" aria-label="${tr('Marquer comme terminée')}" ${t.status === 'done' ? 'checked' : ''} />${icon('check', 12)}</label>
+        <button class="t-title task-title">${code ? `<span class="t-code" translate="no">${esc(code)}</span>` : ''}<span translate="no">${esc(title)}</span></button>
+        ${t.due_date && t.status !== 'done' ? B.dueHtml(t.due_date) : ''}${whoP ? avatar(whoP, 24) : ''}</div>`;
+    };
+    const mine = list.filter((t) => t.assignee_id === B.me.id && t.status !== 'done');
+    const todo = list.filter((t) => t.status === 'todo' && t.assignee_id !== B.me.id);
+    const doing = list.filter((t) => t.status === 'doing' && t.assignee_id !== B.me.id);
+    const done = list.filter((t) => t.status === 'done');
+    const block = (title, arr, cls = '') => arr.length ? `<section class="t-block ${cls}"><h3>${title} <small>${arr.length}</small></h3>${arr.map(row).join('')}</section>` : '';
+    const fold = (title, arr) => arr.length ? `<details class="t-block fold"><summary>${title} <small>${arr.length}</small></summary>${arr.map(row).join('')}</details>` : '';
+    return block(tr('À vous'), B.orderMyTasks(mine), 'mine') + block(tr('À faire'), todo) + fold(tr('En cours'), doing) + fold(tr('Terminé'), done);
   }
 
   /** Vue Par personne : vision globale de l'équipe, puis une carte par membre (moi d'abord) et « Sans responsable » */
@@ -255,7 +308,7 @@ B.pages.tasks = async (el, p, sub) => {
     if (add) return B.openTask(draft(add.dataset.status), load);
     // Vision globale : clic sur une personne = ses tâches en Kanban
     const row = e.target.closest('.to-row');
-    if (row) { who = row.dataset.who; store.set(`tasks-who:${p.id}`, who); view = 'kanban'; store.set('tasks-view', view); return render(); }
+    if (row) { who = row.dataset.who; store.set(`tasks-who:${p.id}`, who); view = 'kanban'; store.set(viewKey, view); return render(); }
     const addFor = e.target.closest('.add-for');
     if (addFor) return B.openTask({ project_id: p.id, status: 'todo', ...(addFor.dataset.for ? { assignee_id: addFor.dataset.for } : {}) }, load);
     const holder = e.target.closest('[data-id]');

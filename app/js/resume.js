@@ -1,6 +1,7 @@
 // =====================================================================
-// resume.js — « Qu'est-ce que j'ai raté ? » : un résumé de ce qui s'est passé dans un projet
-// depuis ma dernière visite (migration 011, visit_project).
+// resume.js — « Pendant votre absence » (ancien « Qu'est-ce que j'ai raté ? ») : ce qui s'est passé dans un projet
+// depuis ma dernière visite (migration 011, visit_project). Une page plein écran sur téléphone (…/projet/absence) :
+// une phrase, « Pour vous » (avec un bouton d'action), « Ce qui a avancé », les conversations, « J'ai tout vu ».
 //
 // Qui rédige le résumé : réglage de CE poste (Paramètres), un seul choix :
 //   'none'        sans IA : quelques phrases factuelles, gratuites et instantanées (par défaut)
@@ -21,6 +22,7 @@ B.enterProject = async (pid) => {
   B.visits.set(pid, data);
   const d = await B.missedData(pid, data, { countOnly: true }).catch(() => null);
   if (d) { B.missedCount.set(pid, d.count); B.paintUnread(); }
+  B.emit('visit', pid);
 };
 B.leaveProject = () => { visitedProject = null; };
 
@@ -134,139 +136,109 @@ B.missedMaterial = (d, project) => {
   return lines.join('\n');
 };
 
-// ---------- Affichage lisible : des blocs courts, ce qui me concerne en premier ----------
+// ---------- « Pendant votre absence » : une page, ce qui me concerne en premier ----------
 
-const MISSED_GROUPS = () => [
-  ['task', 'checksq', tr('Nouvelles tâches')], ['done', 'check', tr('Tâches terminées')], ['decision', 'decision', tr('Décisions')],
-  ['idea', 'bulb', tr('Idées')], ['objective', 'target', tr('Objectifs')], ['milestone', 'route', tr('Feuille de route')],
-  ['file', 'file', tr('Documents')], ['event', 'calendar', tr('Calendrier')], ['member', 'userplus', tr('Équipe')]
-];
 const plain = (s, n) => esc(String(s || '').replace(/[*`#>_]/g, '').replace(/\s+/g, ' ').trim().slice(0, n));
 const authorOf = (m) => (m.is_ai ? aiName(m.ai_provider, B.person(m.author_id)) : B.person(m.author_id).display_name);
+// Ce qui a avancé : les nouveautés qui font progresser le projet (pas les messages)
+const PROGRESS = ['done', 'milestone', 'decision', 'objective', 'file', 'member', 'event'];
 
-/** Les chiffres clés en haut de la fenêtre */
-function missedChips(d) {
-  const forMe = d.messages.filter(mentionsMe).length + d.myTasks.length + d.openVotes.length;
-  const chips = [
-    [forMe, 'at', forMe > 1 ? '{n} pour vous' : '{n} pour vous', 'me'],
-    [d.messages.length, 'chat', d.messages.length > 1 ? '{n} messages' : '{n} message', ''],
-    [d.activity.length, 'spark', d.activity.length > 1 ? '{n} nouveautés' : '{n} nouveauté', ''],
-    [d.dates.length, 'calendar', d.dates.length > 1 ? '{n} dates à venir' : '{n} date à venir', '']
-  ].filter(([n]) => n);
-  return chips.length ? `<div class="missed-chips">${chips.map(([n, ic, label, cls]) => `<span class="missed-chip ${cls}">${icon(ic, 13)} ${tr(label, { n })}</span>`).join('')}</div>` : '';
-}
+/** Les deux chiffres de la porte du Camp de base */
+B.missedSummary = (d) => ({ forMe: d.messages.filter(mentionsMe).length + d.myTasks.length + d.openVotes.length, news: d.count });
 
-/** Tout le contenu, en blocs (sans IA, instantané) */
-function missedView(d, pid) {
-  const blocks = [];
-  const row = (href, ico, cls, title, sub, side = '') => `<a class="missed-row" href="${href}">
-    <span class="act-ico ${cls}">${icon(ico, 15)}</span>
-    <span class="missed-row-text"><strong>${title}</strong>${sub ? `<small>${sub}</small>` : ''}</span>
-    ${side ? `<span class="missed-side">${side}</span>` : ''}</a>`;
-  const block = (ico, title, body, cls = '') => `<section class="missed-block ${cls}"><h3>${icon(ico, 15)} ${title}</h3>${body}</section>`;
-  const chanHref = (c) => (c.kind === 'ai' ? `#/p/${pid}/atelier` : `#/p/${pid}/discussion/${c.id}`);
-  const chanName = (c) => (c.kind === 'ai' ? tr('Atelier IA') : `#${esc(c.name)}`);
+/** Compatibilité : l'ancienne fenêtre ouvre désormais la page */
+B.openMissed = (pid) => { location.hash = `#/p/${pid}/projet/absence`; };
 
-  // 1. Pour vous : mentions, tâches confiées, votes qui attendent ma voix
-  const me = [];
-  d.messages.filter(mentionsMe).forEach((m) => {
-    const c = d.channels.find((x) => x.id === m.channel_id);
-    if (c) me.push(row(chanHref(c), 'at', 'me', tr('{who} vous mentionne', { who: `<span translate="no">${esc(authorOf(m))}</span>` }),
-      `<span translate="no">« ${plain(m.content, 110)} »</span> · ${chanName(c)}`, timeAgo(m.created_at)));
-  });
-  d.myTasks.forEach((t) => me.push(row(`#/p/${pid}/taches`, 'checksq', '', tr('Tâche pour vous : {title}', { title: `<span translate="no">${esc(t.title)}</span>` }),
-    t.due_date ? tr('À faire pour le {date}', { date: fmtDate(t.due_date) }) : '')));
-  d.openVotes.forEach((v) => me.push(row(`#/p/${pid}/projet`, 'users', 'vote', tr('Vote à donner : {title}', { title: `<span translate="no">${esc(v.title)}</span>` }),
-    tr('Clôture {when}', { when: new Date(v.vote_until).toLocaleString(B.locale(), { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) }))));
-  if (me.length) blocks.push(block('at', tr('Pour vous'), me.join(''), 'for-me'));
-
-  // 2. Conversations : un salon par ligne, qui a écrit et le dernier message
-  const convs = d.channels.map((c) => {
-    const list = d.messages.filter((m) => m.channel_id === c.id);
-    if (!list.length) return '';
-    const last = list[list.length - 1];
-    const who = [...new Set(list.map(authorOf))];
-    const whoTxt = who.length <= 3 ? who.join(', ') : `${who.slice(0, 3).join(', ')} +${who.length - 3}`;
-    return row(chanHref(c), c.kind === 'ai' ? 'spark' : 'hash', c.kind === 'ai' ? 'ai' : '',
-      `${chanName(c)} <span class="missed-count">${tr(list.length > 1 ? '{n} messages' : '{n} message', { n: list.length })}</span>`,
-      `<span translate="no">${esc(whoTxt)}</span> — <span translate="no">« ${plain(last.content, 90)} »</span>`, tr('Lire'));
-  }).join('');
-  if (convs) blocks.push(block('chat', tr('Conversations'), convs));
-
-  // 3. Dans le projet : les nouveautés regroupées par type
-  const groups = MISSED_GROUPS().map(([key, ico, label]) => {
-    const list = d.activity.filter((a) => a.icon === key);
-    if (!list.length) return '';
-    const shown = list.slice(-4).reverse().map((a) => `<li translate="no">${esc(a.text)}</li>`).join('');
-    const more = list.length > 4 ? `<li class="muted">${tr(list.length - 4 > 1 ? 'et {n} autres' : 'et {n} autre', { n: list.length - 4 })}</li>` : '';
-    return `<div class="missed-group"><span class="act-ico ${key}">${icon(ico, 15)}</span><div><strong>${label} <span class="missed-count">${list.length}</span></strong><ul>${shown}${more}</ul></div></div>`;
-  }).join('');
-  if (groups) blocks.push(block('spark', tr('Dans le projet'), `<div class="missed-groups">${groups}</div><a class="link small" href="#/p/${pid}/projet">${tr('Voir « Camp de base »')}</a>`));
-
-  // 4. À venir (7 jours)
-  if (d.dates.length) {
-    blocks.push(block('calendar', tr('À venir (7 jours)'), d.dates.slice(0, 6).map((x) => row(`#/p/${pid}/taches/calendrier`, 'calendar', 'event',
-      `<span translate="no">${esc(x.title)}</span>`, '', `${fmtDate(x.day)}${x.time ? ' · ' + esc(x.time) : ''}`)).join('')));
-  }
-  return blocks.join('') || `<p class="missed-text">${tr('Rien de nouveau depuis votre dernière visite.')}</p>`;
-}
-
-// ---------- La fenêtre ----------
-
-B.openMissed = async (pid) => {
-  const project = B.project(pid);
+B.pages.absence = async (el, p) => {
+  const pid = p.id;
+  const camp = `#/p/${pid}/projet`;
   let since = B.visits.get(pid);
   if (!since) { await B.enterProject(pid); since = B.visits.get(pid); }
   if (!since) since = new Date(Date.now() - 7 * 86400000).toISOString();
-  const sinceTxt = new Date(since).toLocaleString(B.locale(), { weekday: 'long', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' });
-  const m = B.modal(`
-    <h2>${icon('spark', 18)} ${tr("Qu'est-ce que j'ai raté ?")}</h2>
-    <p class="muted small">${tr('Dans « {project} », depuis votre dernière visite ({date}).', { project: esc(project.name), date: esc(sinceTxt) })}</p>
-    <div class="missed-body"><div class="loading">${tr('Chargement…')}</div></div>
-    <div class="actions"><span class="spacer"></span><button class="btn" data-close>${tr('Fermer')}</button></div>`, { wide: true });
-  $('[data-close]', m).onclick = B.closeModal;
-  const body = $('.missed-body', m);
+  const sinceTxt = new Date(since).toLocaleString(B.locale(), { weekday: 'long', day: 'numeric', month: 'long' });
+  const pref = B.summaryPref();
+  const opt = B.summaryOptions().find((o) => o.id === pref);
+
+  el.innerHTML = `<div class="absence">
+    <header class="absence-head">
+      <div><div class="eyebrow" translate="no">${esc(p.name)}</div>
+        <h1>${tr('Pendant votre absence')}</h1>
+        <p class="muted">${tr('Depuis {date}', { date: esc(sinceTxt) })}</p></div>
+      <a class="icon-btn" href="${camp}" aria-label="${tr('Fermer')}">${icon('x', 20)}</a>
+    </header>
+    <div class="absence-body" aria-live="polite"><div class="loading">${tr('Chargement…')}</div></div>
+    <footer class="absence-foot">
+      <a class="btn primary big" href="${camp}">${tr('J’ai tout vu')}</a>
+      ${pref !== 'none' && opt ? `<button class="btn link" id="ask-ai">${icon('spark', 15)} ${tr('Demander un résumé à {ai}', { ai: esc(opt.label) })}</button>` : ''}
+    </footer>
+  </div>`;
+  const body = $('.absence-body', el);
 
   let d;
   try { d = await B.missedData(pid, since); } catch (err) { body.textContent = errText(err); return; }
-  const done = () => { $$('a[href^="#/"]', body).forEach((a) => a.addEventListener('click', () => B.closeModal())); paintIcons(body); };
-  if (!d.count && !d.myTasks.length && !d.openVotes.length) {
-    body.innerHTML = `<div class="missed-empty">${icon('check', 22)}<p>${tr('Rien de nouveau depuis votre dernière visite. Vous êtes à jour !')}</p></div>${d.dates.length ? missedView(d, pid) : ''}`;
-    return done();
-  }
+  if (!el.isConnected) return;
+  const chanHref = (c) => (c.kind === 'ai' ? `#/p/${pid}/atelier` : `#/p/${pid}/discussion/${c.id}`);
+  const chanName = (c) => (c.kind === 'ai' ? tr('Atelier IA') : `#${esc(c.name)}`);
+  const mentions = d.messages.filter(mentionsMe);
+  const forMe = mentions.length + d.myTasks.length + d.openVotes.length;
+  const progress = d.activity.filter((a) => PROGRESS.includes(a.icon)).reverse();
+  const convs = d.channels.map((c) => ({ c, list: d.messages.filter((m) => m.channel_id === c.id) })).filter((x) => x.list.length);
 
-  const pref = B.summaryPref();
-  const details = missedChips(d) + missedView(d, pid);
-  const opt = B.summaryOptions().find((o) => o.id === pref);
+  // Une phrase pour commencer
+  const lead = !d.count && !forMe
+    ? tr('Rien de nouveau depuis votre dernière visite. Vous êtes à jour !')
+    : [d.count ? tr(d.count > 1 ? '{n} nouveautés dans le projet.' : 'Une nouveauté dans le projet.', { n: d.count }) : '',
+      forMe ? tr(forMe > 1 ? '{n} choses attendent votre réponse.' : 'Une chose attend votre réponse.', { n: forMe }) : tr('Rien ne vous attend.')].filter(Boolean).join(' ');
 
-  if (pref === 'none') {
-    body.innerHTML = `${details}
-      <p class="missed-hint">${tr('Envie d\'un résumé rédigé par l\'une de vos IA ? Choisissez-la dans <a href="#/settings">Paramètres</a>.')}</p>`;
-  } else if (pref.startsWith('api:')) {
-    const provider = opt.provider;
-    body.innerHTML = `<div class="missed-text typing">${icon('spark', 14)} ${tr('{ai} rédige votre résumé…', { ai: esc(opt.label) })}</div>${details}`;
-    done();
-    try {
-      const text = await window.bivouac.summarize({
-        provider, model: await B.modelFor(provider), userName: B.me.display_name, lang: B.lang, material: B.missedMaterial(d, project)
-      });
-      if (!$('.missed-body', m)) return; // fenêtre fermée entre-temps
-      body.innerHTML = `<div class="missed-ai"><div class="missed-text md" translate="no">${md(text)}</div>
-        <p class="missed-hint">${icon('spark', 12)} ${tr('Rédigé par {ai} · votre clé API', { ai: esc(opt.label) })}</p></div>${details}`;
-    } catch (err) {
-      body.innerHTML = `<p class="missed-hint error">${tr("{ai} n'a pas pu rédiger le résumé : {err}", { ai: esc(opt.label), err: esc(errText(err)) })}</p>${details}`;
+  const act = (href, label) => `<a class="btn small" href="${href}">${label}</a>`;
+  const forYou = [
+    ...d.openVotes.map((v) => `<div class="fy-row"><span class="fy-ico">${icon('decision', 20)}</span><span class="fy-text"><b translate="no">${esc(v.title)}</b><span>${tr('Votre vote manque')}</span></span>${act(`${camp}/decider`, tr('Voter'))}</div>`),
+    ...mentions.map((m) => { const c = d.channels.find((x) => x.id === m.channel_id);
+      return `<div class="fy-row"><span class="fy-ico">${icon('at', 20)}</span><span class="fy-text"><b>${tr('{who} vous mentionne', { who: `<span translate="no">${esc(authorOf(m))}</span>` })}</b><span translate="no">« ${plain(m.content, 80)} »</span></span>${c ? act(chanHref(c), tr('Répondre')) : ''}</div>`; }),
+    ...d.myTasks.map((t) => `<div class="fy-row"><span class="fy-ico">${icon('checksq', 20)}</span><span class="fy-text"><b translate="no">${esc(t.title)}</b><span>${tr('Tâche pour vous')}${t.due_date ? ` · ${esc(fmtDate(t.due_date))}` : ''}</span></span>${act(`#/p/${pid}/taches`, tr('Ouvrir'))}</div>`)
+  ];
+
+  body.innerHTML = `
+    <p class="absence-lead">${lead}</p>
+    <div id="ai-slot"></div>
+    ${forYou.length ? `<section class="absence-sec"><h2>${tr('Pour vous')}</h2>${forYou.join('')}</section>` : ''}
+    ${progress.length ? `<section class="absence-sec"><h2>${tr('Ce qui a avancé')}</h2><ul class="wins">
+      ${progress.slice(0, 4).map((a) => `<li class="win"><span class="win-tick">${icon('check', 12)}</span><span translate="no">${esc(a.text)}</span></li>`).join('')}</ul>
+      ${progress.length > 4 ? `<a class="more-link" href="${camp}/tout">${tr(progress.length - 4 > 1 ? 'et {n} autres' : 'et {n} autre', { n: progress.length - 4 })}${icon('chevron', 16)}</a>` : ''}</section>` : ''}
+    ${convs.length ? `<section class="absence-sec"><h2>${tr('Conversations')}</h2>${convs.map(({ c, list }) => `<a class="tap-row" href="${chanHref(c)}">
+      <span class="fy-ico ${c.kind === 'ai' ? 'ai' : ''}">${icon(c.kind === 'ai' ? 'spark' : 'hash', 20)}</span>
+      <span class="tap-text"><b>${chanName(c)}</b><span>${tr(list.length > 1 ? '{n} nouveaux messages' : '{n} nouveau message', { n: list.length })}</span></span>${icon('chevron', 16)}</a>`).join('')}</section>` : ''}
+    ${d.dates.length ? `<section class="absence-sec"><h2>${tr('Cette semaine')}</h2>${d.dates.slice(0, 3).map((x) => `<a class="tap-row" href="#/p/${pid}/taches/calendrier">
+      <span class="fy-ico">${icon('calendar', 20)}</span><span class="tap-text"><b translate="no">${esc(x.title)}</b><span>${esc(B.longDate(x.day))}${x.time ? ' · ' + esc(x.time) : ''}</span></span>${icon('chevron', 16)}</a>`).join('')}</section>` : ''}`;
+  paintIcons(el);
+
+  // Résumé rédigé par une IA (réglage de ce poste) : sur demande seulement
+  $('#ask-ai', el)?.addEventListener('click', async (e) => {
+    const slot = $('#ai-slot', el);
+    e.currentTarget.disabled = true;
+    if (pref.startsWith('api:')) {
+      slot.innerHTML = `<div class="missed-text typing">${icon('spark', 14)} ${tr('{ai} rédige votre résumé…', { ai: esc(opt.label) })}</div>`;
+      try {
+        const text = await window.bivouac.summarize({
+          provider: opt.provider, model: await B.modelFor(opt.provider), userName: B.me.display_name, lang: B.lang, material: B.missedMaterial(d, p)
+        });
+        if (!el.isConnected) return;
+        slot.innerHTML = `<div class="missed-ai"><div class="missed-text md" translate="no">${md(text)}</div>
+          <p class="missed-hint">${icon('spark', 12)} ${tr('Rédigé par {ai} · votre clé API', { ai: esc(opt.label) })}</p></div>`;
+      } catch (err) {
+        slot.innerHTML = `<p class="missed-hint error">${tr("{ai} n'a pas pu rédiger le résumé : {err}", { ai: esc(opt.label), err: esc(errText(err)) })}</p>`;
+      }
+    } else {
+      // IA de l'abonnement : elle s'ouvre avec la demande prête (et la demande est copiée, au cas où)
+      const prompt = tr("Dans Bivouac, qu'est-ce que j'ai raté dans le projet « {project} » depuis le {date} ? Fais-moi un résumé court.", { project: p.name, date: sinceTxt })
+        + ` (what_did_i_miss, since=${new Date(since).toISOString()})`;
+      await navigator.clipboard.writeText(prompt).catch(() => {});
+      let res = { target: 'web', prefilled: false };
+      try { res = await window.bivouac.openAssistant(opt.provider, prompt); } catch (err) { console.warn(err); }
+      slot.innerHTML = `<p class="missed-hint">${icon('spark', 12)} ${res.target === 'desktop' ? tr("{ai} s'ouvre (application) avec la demande prête.", { ai: esc(opt.label) })
+        : res.prefilled ? tr("{ai} s'ouvre dans votre navigateur avec la demande prête.", { ai: esc(opt.label) })
+          : tr("{ai} s'ouvre dans votre navigateur : collez la demande (déjà copiée).", { ai: esc(opt.label) })}</p>`;
     }
-  } else {
-    // IA de l'abonnement : elle s'ouvre avec la demande prête (et la demande est copiée, au cas où)
-    const prompt = tr("Dans Bivouac, qu'est-ce que j'ai raté dans le projet « {project} » depuis le {date} ? Fais-moi un résumé court.", { project: project.name, date: sinceTxt })
-      + ` (what_did_i_miss, since=${new Date(since).toISOString()})`;
-    await navigator.clipboard.writeText(prompt).catch(() => {});
-    let res = { target: 'web', prefilled: false };
-    try { res = await window.bivouac.openAssistant(opt.provider, prompt); } catch (err) { console.warn(err); }
-    const where = res.target === 'desktop' ? tr("{ai} s'ouvre (application) avec la demande prête.", { ai: esc(opt.label) })
-      : res.prefilled ? tr("{ai} s'ouvre dans votre navigateur avec la demande prête.", { ai: esc(opt.label) })
-        : tr("{ai} s'ouvre dans votre navigateur : collez la demande (déjà copiée).", { ai: esc(opt.label) });
-    body.innerHTML = `<p class="missed-hint">${icon('spark', 12)} ${where} ${tr('La demande est aussi copiée : collez-la si besoin. En attendant, l\'essentiel :')}</p>${details}`;
-  }
-  done();
+    paintIcons(slot);
+  });
 };

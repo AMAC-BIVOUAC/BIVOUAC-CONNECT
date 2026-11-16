@@ -183,6 +183,7 @@ B.highlightNav = () => {
   const where = hash.startsWith('#/p/') ? 'projects' : hash.replace(/^#\//, '').split('/')[0] || 'home';
   $$('#bottom-nav [data-bnav]').forEach((a) => { const on = a.dataset.bnav === where; a.classList.toggle('active', on); if (on) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current'); });
   B.renderOnline?.(); // l'encart « En ligne » suit le projet ouvert
+  B.renderPhoneNav?.(); // téléphone : barre du bas de l'appli ou du projet (phone.js)
 };
 
 $('#new-space').addEventListener('click', () => B.openNewProject());

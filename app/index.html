@@ -96,6 +96,7 @@
     <div id="main">
       <header id="topbar">
         <button id="menu-btn" class="icon-btn menu-btn" type="button" title="Menu" aria-controls="sidebar" aria-expanded="false"><i data-icon="list"></i></button>
+        <button id="search-btn" class="icon-btn search-btn" type="button" title="Rechercher" aria-label="Rechercher" aria-expanded="false"><i data-icon="search"></i></button>
         <div class="search" data-tour="search">
           <i data-icon="search"></i>
           <input id="search-input" placeholder="Rechercher…" autocomplete="off" />
@@ -108,14 +109,16 @@
         </div>
       </header>
       <main id="view"></main>
-      <!-- Téléphone seulement : barre du bas (Aujourd'hui · Projets · + · Messages · Moi) -->
+      <!-- Téléphone seulement (phone.js) : « en vocal » partout, puis la barre du bas.
+           Dans l'appli : Aujourd'hui · Projets · Messages · Moi. Dans un projet : ses 5 rubriques. -->
+      <div id="voice-pill" class="voice-pill hidden"></div>
       <nav id="bottom-nav" class="bottom-nav" aria-label="Menu principal">
-        <a href="#/home" data-bnav="home"><i data-icon="home"></i><span>Aujourd'hui</span></a>
-        <a href="#/projects" data-bnav="projects"><i data-icon="folder"></i><span>Projets</span></a>
-        <button id="bottom-create" class="bottom-create" type="button" title="Créer" aria-label="Créer"><i data-icon="plus"></i></button>
-        <a href="#/messages" data-bnav="messages"><i data-icon="chat"></i><span>Messages</span><span id="bnav-dm" class="badge-count hidden"></span></a>
-        <a href="#/settings" data-bnav="settings"><span id="bnav-me" class="bnav-me"></span><span>Moi</span></a>
+        <a href="#/home" data-bnav="home"><span class="bnav-ico"><i data-icon="home"></i></span><span>Aujourd'hui</span></a>
+        <a href="#/projects" data-bnav="projects"><span class="bnav-ico"><i data-icon="folder"></i></span><span>Projets</span></a>
+        <a href="#/messages" data-bnav="messages"><span class="bnav-ico"><i data-icon="chat"></i></span><span>Messages</span><span id="bnav-dm" class="badge-count hidden"></span></a>
+        <a href="#/settings" data-bnav="settings"><span class="bnav-ico"><span id="bnav-me" class="bnav-me"></span></span><span>Moi</span></a>
       </nav>
+      <nav id="project-nav" class="bottom-nav project-nav" aria-label="Rubriques du projet"></nav>
     </div>
   </section>
 
@@ -152,6 +155,7 @@
   <script src="js/pages/calendar.js"></script>
   <script src="js/mytasks.js"></script>
   <script src="js/steps.js"></script>
+  <script src="js/phone.js"></script>
   <script src="js/pages/docs.js"></script>
   <script src="js/pages/team.js"></script>
   <script src="js/pages/notifications.js"></script>

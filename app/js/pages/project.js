@@ -42,13 +42,15 @@ B.pages.project = async (view, [pid, tab = 'projet', sub]) => {
   view.innerHTML = `
     <div class="project">
       <header class="project-head">
+        <a class="icon-btn proj-back" href="#/projects" aria-label="${tr('Retour à mes projets')}">${icon('back', 20)}</a>
         <span class="proj-icon" style="background:${esc(p.color)}">${icon('users', 20)}</span>
         <div class="project-title">
           <h1>${esc(p.name)}</h1>
           <p>${tr('{n} membres', { n: humans + p.aiCount })} (${tr(humans > 1 ? '{n} humains' : '{n} humain', { n: humans })} · ${tr('{n} IA', { n: p.aiCount })})</p>
         </div>
-        <button class="btn small missed-btn" id="missed" title="${tr('Un résumé de ce qui s\'est passé depuis votre dernière visite')}">${icon('spark', 15)} ${tr("Qu'est-ce que j'ai raté ?")}<span class="unread-badge hidden" data-unread="missed:${pid}"></span></button>
+        <button class="btn small missed-btn" id="missed" title="${tr('Un résumé de ce qui s\'est passé depuis votre dernière visite')}">${icon('spark', 15)} ${tr('Pendant votre absence')}<span class="unread-badge hidden" data-unread="missed:${pid}"></span></button>
         ${B.canInvite(pid) ? `<button class="btn small" id="invite">${icon('userplus', 15)} ${tr('Inviter')}</button>` : ''}
+        <button class="icon-btn proj-more" id="proj-more" aria-label="${tr('Plus d’options pour ce projet')}">${icon('more', 20)}</button>
       </header>
       <nav class="tabs" data-tour="tabs">
         ${TABS.map(([id, ic, label]) => `<a href="#/p/${pid}/${id}" class="${id === shownTab ? 'on' : ''}" ${id === shownTab ? 'aria-current="page"' : ''}>${icon(ic, 16)}${tr(label)}${
@@ -64,7 +66,8 @@ B.pages.project = async (view, [pid, tab = 'projet', sub]) => {
     tabsNav.scrollLeft = Math.max(0, left - (tabsNav.clientWidth - onTab.offsetWidth) / 2);
   }
   $('#invite', view)?.addEventListener('click', () => B.openInvite(pid));
-  $('#missed', view).onclick = () => B.openMissed(pid);
+  $('#missed', view).onclick = () => (location.hash = `#/p/${pid}/projet/absence`);
+  $('#proj-more', view).onclick = (e) => B.projectMoreMenu(e.currentTarget, pid);
   B.enterProject(pid); // retient ma visite précédente (point de départ du résumé)
 
   // Accompagnement (débutants)
@@ -76,7 +79,7 @@ B.pages.project = async (view, [pid, tab = 'projet', sub]) => {
   const el = $('#tab', view);
   if (tab === 'discussion') return renderDiscussion(el, p, sub);
   if (tab === 'atelier') return renderDiscussion(el, p, null, { atelier: true });
-  if (tab === 'projet') return B.pages.camp(el, p);
+  if (tab === 'projet') return B.pages.camp(el, p, sub);
   if (tab === 'taches') return B.pages.tasks(el, p, sub);
   if (tab === 'documents') return B.pages.docs(el, p);
   if (tab === 'equipe') return B.pages.team(el, p);
@@ -92,12 +95,16 @@ async function renderDiscussion(el, p, channelId, { atelier = false } = {}) {
   const ai = all.find((c) => c.kind === 'ai') || null;
   const current = atelier ? null : (channels.find((c) => c.id === channelId) || channels[0]);
 
+  // Téléphone : d'abord la liste des salons ; un salon s'ouvre ensuite en plein écran (phone.js)
+  if (B.isPhone() && !channelId && !atelier) return renderChannelList(el, p, channels, ai);
+
   // En-tête de l'Atelier : à quoi il sert, et mes IA dans ce projet
   const atelierHead = () => {
     const keys = B.myProviders.filter((x) => x.hasKey).map((x) => x.id);
     const subs = (B.me.connector_providers || []).filter((id) => !keys.includes(id));
     const mine = [...keys, ...subs];
     return `<header class="channel-head atelier-head">
+      <a class="icon-btn conv-back" href="#/p/${p.id}/discussion" aria-label="${tr('Retour aux salons')}">${icon('back', 20)}</a>
       <h2>${icon('spark', 18)} ${tr('Atelier IA')}</h2>
       <p>${tr('Humains et IA travaillent ensemble ici.')} ${mine.length
         ? `<span class="my-ais-line">${tr('Vos IA')} : ${mine.map((id) => `<span class="my-ai">${aiAvatar(id, 20, B.me)}<span>${esc(PROVIDERS[id].label)}</span></span>`).join('')}</span>`
@@ -119,7 +126,10 @@ async function renderDiscussion(el, p, channelId, { atelier = false } = {}) {
       </aside>
       <section class="channel-main ${atelier ? 'is-atelier' : ''}">
         ${atelier ? atelierHead() : ''}
-        ${current ? `<header class="channel-head"><h2># ${esc(current.name)}</h2><p>${esc(current.description || '')}</p>
+        ${current ? `<header class="channel-head">
+          <a class="icon-btn conv-back" href="#/p/${p.id}/discussion" aria-label="${tr('Retour aux salons')}">${icon('back', 20)}</a>
+          <h2># ${esc(current.name)}</h2><p>${esc(current.description || '')}</p>
+          <button class="btn small voice-toggle" id="voice-toggle" aria-expanded="false">${icon('headphones', 16)} ${tr('Vocal')}</button>
           ${B.isManager(p.id) ? `<span class="channel-tools">
             <button class="icon-btn" id="ch-rename" title="${tr('Renommer le salon')}">${icon('edit', 15)}</button>
             ${current.id !== channels[0].id ? `<button class="icon-btn" id="ch-delete" title="${tr('Supprimer le salon')}">${icon('trash', 15)}</button>` : ''}
@@ -195,8 +205,71 @@ async function renderDiscussion(el, p, channelId, { atelier = false } = {}) {
   }, 300), 'INSERT');
 
   if (atelier && ai) return B.chat($('.chat-slot', el), { project: p, channel: ai, mode: 'ai' });
+  // Téléphone : le bandeau vocal reste replié tant qu'on n'est pas dans le vocal ; le bouton « Vocal » l'ouvre
+  $('#voice-toggle', el)?.addEventListener('click', (e) => {
+    const strip = $('.voice-strip', el);
+    const open = !strip.classList.contains('open');
+    strip.classList.toggle('open', open);
+    e.currentTarget.setAttribute('aria-expanded', String(open));
+  });
   if (current) {
     B.voiceStrip($('.voice-strip', el), p, current);
     await B.chat($('.chat-slot', el), { project: p, channel: current, mode: 'team' });
   }
 }
+
+// ---------- Téléphone : la liste des salons (une ligne par salon, dernier message, non-lus) ----------
+async function renderChannelList(el, p, channels, ai) {
+  const all = [...channels, ...(ai ? [ai] : [])];
+  const { data } = all.length
+    ? await B.sb.from('messages').select('channel_id, content, created_at, author_id, is_ai, ai_provider')
+      .in('channel_id', all.map((c) => c.id)).order('created_at', { ascending: false }).limit(80)
+    : { data: [] };
+  const last = new Map();
+  (data || []).forEach((m) => { if (!last.has(m.channel_id)) last.set(m.channel_id, m); });
+  const when = (iso) => {
+    const d = new Date(iso);
+    return isoDay(d) === isoDay() ? d.toLocaleTimeString(B.locale(), { hour: '2-digit', minute: '2-digit' }) : fmtDate(isoDay(d));
+  };
+  const row = (c) => {
+    const m = last.get(c.id);
+    const who = m ? (m.is_ai ? aiName(m.ai_provider, B.person(m.author_id)) : B.person(m.author_id).display_name) : '';
+    const preview = m ? `${esc(who)} : ${esc(String(m.content || '').replace(/[*`#>_]/g, '').replace(/\s+/g, ' ').slice(0, 90))}` : tr('Pas encore de message');
+    const inVoice = c.kind === 'team' ? B.voiceIn(p.id, c.id).length : 0;
+    const href = c.kind === 'ai' ? `#/p/${p.id}/atelier` : `#/p/${p.id}/discussion/${c.id}`;
+    return `<a class="chan-row" href="${href}">
+      <span class="chan-ico ${c.kind === 'ai' ? 'ai' : ''}">${icon(c.kind === 'ai' ? 'spark' : 'hash', 22)}</span>
+      <span class="chan-text">
+        <span class="chan-top"><b>${c.kind === 'ai' ? tr('Atelier IA') : esc(c.name)}</b>${m ? `<small>${esc(when(m.created_at))}</small>` : ''}</span>
+        <span class="chan-bottom"><span translate="no">${preview}</span>
+          ${inVoice ? `<span class="chan-voice" title="${tr('En vocal')}">${icon('headphones', 14)} ${inVoice}</span>` : ''}
+          <span class="unread-badge hidden" data-unread="channel:${c.id}"></span></span>
+      </span></a>`;
+  };
+  el.innerHTML = `<div class="chan-list">
+    <section><h2 class="sec-title">${tr('Entre humains')}</h2>${channels.map(row).join('')}
+      <button class="add-channel chan-add">${icon('plus', 20)} ${tr('Nouveau salon')}</button></section>
+    ${ai ? `<section><h2 class="sec-title">${tr('Avec les IA')}</h2>${row(ai)}<p class="muted small">${tr('Les IA n’écrivent qu’ici.')}</p></section>` : ''}
+  </div>`;
+  B.paintUnread(el);
+  $('.add-channel', el).onclick = () => {
+    const m = B.modal(`<h2>${tr('Nouveau salon')}</h2>
+      <label for="ch-name">${tr('Nom')}</label><input id="ch-name" maxlength="40" placeholder="${tr('ex. idées')}" />
+      <label for="ch-desc">${tr('Sujet (facultatif)')}</label><input id="ch-desc" maxlength="200" placeholder="${tr('ex. Toutes les idées en vrac')}" />
+      <p class="msg" id="ch-msg"></p>
+      <div class="actions"><button class="btn" data-close>${tr('Annuler')}</button><button class="btn primary" id="ch-ok">${tr('Créer')}</button></div>`);
+    $('[data-close]', m).onclick = B.closeModal;
+    $('#ch-ok', m).onclick = async () => {
+      const name = $('#ch-name', m).value.trim().toLowerCase().replace(/\s+/g, '-');
+      if (!name) return;
+      const { data: ch, error } = await B.sb.from('channels')
+        .insert({ project_id: p.id, kind: 'team', name, description: $('#ch-desc', m).value.trim() || null }).select().single();
+      if (error) return ($('#ch-msg', m).textContent = errText(error));
+      B.closeModal();
+      location.hash = `#/p/${p.id}/discussion/${ch.id}`;
+    };
+  };
+  B.live('chans', 'channels', `project_id=eq.${p.id}`, debounce(() => { if (location.hash === `#/p/${p.id}/discussion`) B.route(); }, 300), 'INSERT');
+  B.live('chan-list-msgs', 'messages', null, debounce(() => { if (location.hash === `#/p/${p.id}/discussion`) B.route(); }, 800), 'INSERT');
+}
+

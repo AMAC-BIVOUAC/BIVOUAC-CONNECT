@@ -35,7 +35,9 @@ B.chat = async (root, { project, channel, mode }) => {
         <div class="composer-row">
           <button type="button" class="icon-btn attach" title="${tr('Joindre un fichier')}">${icon('plus', 20)}</button>
           <input type="file" class="file-input hidden" multiple />
-          <textarea rows="1" placeholder="${isAi
+          <textarea rows="1" placeholder="${B.isPhone?.()
+            ? (isAi ? tr('Écrire… (@claude pour votre IA)') : tr('Écrire dans #{channel}…', { channel: esc(channel.name) }))
+            : isAi
             ? tr("Écrire… « @claude … » pour votre IA, « @pseudo Claude … » pour l'IA d'un membre")
             : tr('Écrire dans #{channel}… (@pseudo pour mentionner)', { channel: esc(channel.name) })}"></textarea>
           <button type="submit" class="send" title="${tr('Envoyer')}">${icon('send', 18)}</button>
