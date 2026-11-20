@@ -84,6 +84,19 @@ B.modal = (html, { wide = false } = {}) => {
   setTimeout(() => $('input, textarea, select', m)?.focus(), 30);
   return m;
 };
+/**
+ * Zone de texte longue (description d'une tâche, détails d'un objectif…) : grande par défaut, puis elle grandit
+ * avec le texte jusqu'à `maxVh` % de la hauteur de l'écran (au-delà, elle défile). Toujours redimensionnable à la main.
+ */
+B.growTextarea = (ta, maxVh = 45) => {
+  if (!ta) return;
+  const fit = () => {
+    ta.style.height = 'auto';
+    ta.style.height = Math.min(ta.scrollHeight + 2, window.innerHeight * maxVh / 100) + 'px';
+  };
+  ta.addEventListener('input', fit);
+  requestAnimationFrame(fit);
+};
 B.closeModal = () => {
   $('#modal-backdrop').classList.add('hidden');
   $('#modal').innerHTML = '';

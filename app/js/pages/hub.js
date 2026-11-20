@@ -336,7 +336,7 @@ B.pages.hub = async (el, p) => {
     const m = B.modal(`
       <h2>${esc(((one) => one[0].toUpperCase() + one.slice(1))(tr(t.one)))}</h2>
       <label>${tr('Titre')}</label><input id="it-title" maxlength="200" value="${esc(item.title)}" />
-      <label>${tr('Détails')}</label><textarea id="it-body" rows="5" maxlength="5000">${esc(item.body || '')}</textarea>
+      <label>${tr('Détails')}</label><textarea id="it-body" class="long-text" rows="10" maxlength="5000">${esc(item.body || '')}</textarea>
       <label>${tr('Date (facultatif)')}</label><input id="it-date" type="date" value="${item.due_date || ''}" />
       <p class="muted small">${tr('Ajouté par {who}', { who: esc(B.person(item.author_id).display_name) })} · ${timeAgo(item.created_at)}</p>
       <div class="actions">
@@ -345,7 +345,8 @@ B.pages.hub = async (el, p) => {
         ${item.type === 'decision' && !(item.vote_options && new Date(item.vote_until) > new Date()) ? `<button class="btn" id="it-follow">${icon('arrow', 14)} ${tr('Donner suite')}</button>` : ''}
         <span class="spacer"></span>
         <button class="btn" data-close>${tr('Annuler')}</button><button class="btn primary" id="it-save">${tr('Enregistrer')}</button>
-      </div>`);
+      </div>`, { wide: true });
+    B.growTextarea($('#it-body', m));
     $('[data-close]', m).onclick = B.closeModal;
     $('#it-save', m).onclick = async () => {
       const { error } = await B.sb.from('items').update({

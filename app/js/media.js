@@ -117,9 +117,31 @@
     paintEmojis();
   };
 
+  /** Fichiers d'un presse-papiers ; une capture sans nom (« image.png ») reçoit un nom daté, ex. capture-2026-11-20-14h05-1.png */
+  B.pastedFiles = (data) => {
+    const files = [...(data.files || [])].length ? [...data.files]
+      : [...(data.items || [])].filter((it) => it.kind === 'file').map((it) => it.getAsFile()).filter(Boolean);
+    const d = new Date(), z = (n) => String(n).padStart(2, '0');
+    const stamp = `${d.getFullYear()}-${z(d.getMonth() + 1)}-${z(d.getDate())}-${z(d.getHours())}h${z(d.getMinutes())}`;
+    return files.map((f, i) => {
+      if (f.name && !/^image\.(png|jpe?g|gif|webp|bmp)$/i.test(f.name)) return f;
+      const ext = (f.type.split('/')[1] || 'png').replace('jpeg', 'jpg');
+      return new File([f], `capture-${stamp}-${i + 1}.${ext}`, { type: f.type, lastModified: Date.now() });
+    });
+  };
   B.bindMediaComposer = (form, ta, onFiles) => {
     const btn = h(`<button type="button" class="icon-btn media-compose" title="${tr('Smileys, GIF et mèmes')}" aria-label="${tr('Smileys, GIF et mèmes')}">${icon('smile', 20)}</button>`);
     ta.before(btn); btn.onclick = () => B.openMediaPicker({ textarea: ta, onFiles });
+    // Coller (Ctrl+V) une capture d'écran, une image copiée ou un fichier copié : il rejoint les pièces jointes, comme avec +.
+    // Si le presse-papiers contient aussi du texte (copie depuis Word, Excel…), c'est le texte qui est collé, comme avant.
+    ta.addEventListener('paste', (e) => {
+      const data = e.clipboardData;
+      if (!data || data.getData('text/plain')) return;
+      const files = B.pastedFiles(data);
+      if (!files.length) return;
+      e.preventDefault();
+      onFiles(files);
+    });
     const urls = new Map();
     B.onLeave(() => { urls.forEach(url => URL.revokeObjectURL(url)); urls.clear(); });
     return (container, files) => {

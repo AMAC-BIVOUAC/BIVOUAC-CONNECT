@@ -16,7 +16,7 @@ B.openTask = (task, after) => {
   const m = B.modal(`
     <h2>${isNew ? tr('Nouvelle tâche') : tr('Tâche')}</h2>
     <label>${tr('Titre')}</label><input id="tk-title" maxlength="200" value="${esc(task.title || '')}" placeholder="${tr('ex. Finaliser la maquette')}" />
-    <label>${tr('Description')}</label><textarea id="tk-desc" rows="4" maxlength="5000">${esc(task.description || '')}</textarea>
+    <label>${tr('Description')}</label><textarea id="tk-desc" class="long-text" rows="10" maxlength="5000">${esc(task.description || '')}</textarea>
     <div class="form-row">
       <div><label>${tr('Responsable')}</label><select id="tk-who"><option value="">${tr('— Personne —')}</option>
         ${members.map((p) => `<option value="${p.id}" ${p.id === task.assignee_id ? 'selected' : ''}>${esc(p.display_name)}</option>`).join('')}</select></div>
@@ -27,7 +27,8 @@ B.openTask = (task, after) => {
       ${isNew || !B.canDelete(task.project_id, task.created_by) ? '' : `<button class="btn danger-ghost" id="tk-del">${icon('trash', 15)} ${tr('Supprimer')}</button>`}
       <span class="spacer"></span>
       <button class="btn" data-close>${tr('Annuler')}</button><button class="btn primary" id="tk-save">${isNew ? tr('Créer') : tr('Enregistrer')}</button>
-    </div>`);
+    </div>`, { wide: true });
+  B.growTextarea($('#tk-desc', m));
   $('[data-close]', m).onclick = B.closeModal;
   $('#tk-save', m).onclick = async () => {
     const title = $('#tk-title', m).value.trim();
@@ -84,6 +85,7 @@ B.pages.tasks = async (el, p, sub) => {
           <button data-v="people">${icon('users', 15)} ${tr('Par personne')}</button>
         </div>
         <button class="btn primary small" id="new-task">${icon('plus', 15)} ${tr('Tâche')}</button>
+        <a class="btn small" id="all-project" href="#/p/${p.id}/projet/tout" title="${tr('Tout le projet : objectifs, étapes, décisions, idées, activité')}">${icon('list', 15)} ${tr('Tout le projet')}</a>
         <div class="tasks-phone-bar">
           <label class="sr-only" for="view-select">${tr('Vue')}</label>
           <select id="view-select" class="pill-select">
