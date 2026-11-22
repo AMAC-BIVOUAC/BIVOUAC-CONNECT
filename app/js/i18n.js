@@ -405,6 +405,9 @@ const EN = {
   // Version web (2026-11-07)
   'Version web : les IA se branchent avec le connecteur (votre abonnement). Les clés API restent réservées à l\'app Windows.': 'Web version: AIs connect through the connector (your subscription). API keys are only available in the Windows app.',
   'Version web : toujours à jour (rechargez la page pour la toute dernière version).': 'Web version: always up to date (reload the page for the very latest version).',
+  "Télécharger l'application Windows": 'Download the Windows app',
+  "Couper le son d'ambiance": 'Turn off the ambient sound',
+  "Activer le son d'ambiance (feu de camp, vent)": 'Turn on the ambient sound (campfire, wind)',
   'Sur la version web, les clés API ne sont pas disponibles (elles restent sur votre PC). Branchez votre IA avec le connecteur : Paramètres → Mes IA.': 'API keys aren\'t available in the web version (they stay on your PC). Connect your AI with the connector: Settings → My AIs.',
   'Menu': 'Menu',
   // Reconnaître les IA de chacun (2026-11-07)

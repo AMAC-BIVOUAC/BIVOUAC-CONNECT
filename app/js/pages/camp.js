@@ -284,7 +284,7 @@ async function renderCampHome(el, p) {
             ${first.due_date ? `<div class="big-due">${B.dueHtml(first.due_date)}</div>` : ''}
           </div>
         </div>` : ''}
-      <div class="big-actions"><button class="btn primary" data-mine>${icon('checksq', 15)} ${tr('Mes tâches')}</button>${first ? `<button class="btn" data-snooze>${tr('Reporter')}</button>` : ''}</div>`;
+      <div class="big-actions"><button class="btn primary" data-mine>${icon('checksq', 15)} ${tr('Mes tâches')}</button></div>`; // plus de « Reporter » ici (22/11, Apo)
   };
 
   // ---------- Les portes ----------
@@ -327,7 +327,6 @@ async function renderCampHome(el, p) {
     if (e.target.closest('[data-mine]')) return B.myTasksInProject(p.id);
     const t = tasks[0];
     if (!t) return;
-    if (e.target.closest('[data-snooze]')) return B.snoozeTask(t, e.target.closest('[data-snooze]'), load);
     if (e.target.closest('.big-title')) B.openTask(t, load);
   });
 

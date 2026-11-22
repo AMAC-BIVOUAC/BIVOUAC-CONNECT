@@ -23,6 +23,7 @@ B.pages.home = async (view) => {
       </section>
       <div id="today-body"><div class="loading">${tr('Chargement…')}</div></div>
     </div>`;
+  B.mountAmbiance?.(view); // fond animé (montagnes, chamois, feu de camp, marmotte) et son d'ambiance — ambiance.js
 
   let tasks = [], items = [], votes = [], mentions = [], wins = [];
 
@@ -106,7 +107,8 @@ B.pages.home = async (view) => {
           </div>`).join('')}
       </section>` : '';
 
-    // Les prochains pas (22/11, Amaury) : UNE tâche par projet (la plus pressée), sur un paysage animé (boucle de 5 min)
+    // Les prochains pas (22/11, Amaury) : UNE tâche par projet (la plus pressée).
+    // Une seule action par ligne (22/11, Apo) : « Mes tâches » = les tâches de ce projet filtrées sur moi (plus de « C'est fait » ni « Reporter »).
     const byProject = new Map();
     for (const t of tasks) if (B.project(t.project_id)) (byProject.get(t.project_id) || byProject.set(t.project_id, []).get(t.project_id)).push(t);
     const groups = [...byProject.entries()];
@@ -119,14 +121,13 @@ B.pages.home = async (view) => {
             <span class="meta next-proj">${projDot(B.project(pid))}</span>
             ${B.taskCodeHtml(t.title)}
             <button class="todo-title next-title" translate="no">${esc(B.taskTitleText(t.title))}</button>
-            <div class="next-actions"><button class="btn small teal" data-done>${tr("C'est fait")}</button><button class="btn small" data-snooze>${tr('Reporter')}</button>${B.dueHtml(t.due_date)}
-              ${list.length > 1 ? `<button class="link small" data-proj-tasks="${pid}">${tr(list.length - 1 > 1 ? '+ {n} autres dans ce projet' : '+ {n} autre dans ce projet', { n: list.length - 1 })}</button>` : ''}</div>
+            <div class="next-actions"><button class="btn small" data-proj-tasks="${pid}">${icon('checksq', 14)} ${tr('Mes tâches')}</button>${B.dueHtml(t.due_date)}
+              ${list.length > 1 ? `<span class="muted small">${tr(list.length - 1 > 1 ? '+ {n} autres dans ce projet' : '+ {n} autre dans ce projet', { n: list.length - 1 })}</span>` : ''}</div>
           </div>`;
         }).join('')}</div>
           ${tasks.length > groups.length ? `<button class="more-link" data-all>${tr('Toutes mes tâches ({n})', { n: tasks.length })}${icon('chevron', 16)}</button>` : ''}`
           : `<p class="muted calm">${tr("Rien à faire de votre côté pour l'instant. Dans un projet, prenez une tâche pour la retrouver ici.")}</p>`}
-        <div class="scene" aria-hidden="true">${B.sceneSvg(true)}</div>
-      </section>`;
+      </section>`; // plus de paysage sous la carte (22/11, Apo)
 
     // Vos projets : une porte par projet (où il en est, sa prochaine étape)
     const projHtml = `
@@ -166,8 +167,6 @@ B.pages.home = async (view) => {
     if (!row) return;
     const t = tasks.find((x) => x.id === row.dataset.id);
     if (!t) return;
-    if (e.target.matches('input[type=checkbox]') || e.target.closest('[data-done]')) { row.classList.add('done'); if (!(await B.completeTask(t, load))) { row.classList.remove('done'); const c = $('input[type=checkbox]', row); if (c) c.checked = false; } return; }
-    if (e.target.closest('[data-snooze]')) return B.snoozeTask(t, e.target.closest('[data-snooze]'), load);
     if (e.target.closest('.todo-title')) B.openTask(t, load);
   });
 

@@ -64,6 +64,7 @@ const ICONS = {
   headphones: '<path d="M4 15v-3a8 8 0 0116 0v3"/><rect x="3" y="14" width="4" height="7" rx="1.5"/><rect x="17" y="14" width="4" height="7" rx="1.5"/>',
   headoff: '<path d="M4 15v-3a8 8 0 0116 0v3"/><rect x="3" y="14" width="4" height="7" rx="1.5"/><rect x="17" y="14" width="4" height="7" rx="1.5"/><path d="M3 3l18 18"/>',
   volume: '<path d="M4 10h4l5-4v12l-5-4H4z"/><path d="M16.5 9a4 4 0 010 6M19 6.5a8 8 0 010 11"/>',
+  volumeoff: '<path d="M4 10h4l5-4v12l-5-4H4z"/><path d="M16 9.5l5 5M21 9.5l-5 5"/>',
   hangup: '<path d="M3 15c5-4 13-4 18 0l-2 3-4-1v-2a10 10 0 00-6 0v2l-4 1z"/>'
 };
 

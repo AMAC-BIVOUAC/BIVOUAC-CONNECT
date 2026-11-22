@@ -681,20 +681,8 @@ B.voiceStateIcons = (info = {}, size = 12, { onlyOff = false } = {}) => {
   return `<span class="vs-badges">${out.join('')}</span>`;
 };
 
-/**
- * Une personne du vocal (bandeau du salon, barre « Vocal connecté ») : avatar (anneau quand elle parle) + nom,
- * et seulement micro ou son coupé. Écran et caméra se voient dans la colonne vidéo et dans la liste des salons.
- */
-function voicePersonHtml(uid, info = {}, size = 26) {
-  const person = B.person(uid);
-  const me = uid === B.me.id && B.voice;
-  const icons = B.voiceStateIcons(me ? { ...info, muted: B.voice.muted, deafened: B.voice.deafened } : info, 12, { onlyOff: true });
-  const title = (person.display_name || info.name || '') + (info.noMic ? ` · ${tr('sans micro')}` : '');
-  return `<span class="voice-person" data-person="${esc(uid)}" title="${esc(title)}">
-    <span class="voice-ring ${B.voiceSpeaking(uid) ? 'speaking' : ''}" data-voice-uid="${esc(uid)}">${avatar(person.display_name ? person : { id: uid, display_name: info.name }, size)}</span>
-    <span class="voice-name">${esc(person.display_name || info.name || '')}</span>${icons}
-  </span>`;
-}
+// Qui est dans le vocal : seulement dans la liste des salons (avatar, anneau quand on parle, clic droit = volume).
+// Plus d'avatars dans la barre « Vocal connecté » ni dans le bandeau du salon (22/11, Apo).
 
 /** Barre « en vocal » dans la barre latérale : visible partout tant qu'on est connecté */
 B.renderVoiceBar = () => {
@@ -712,7 +700,6 @@ B.renderVoiceBar = () => {
       <strong class="${v.connecting ? '' : 'ok'}">${icon('volume', 14)} ${status}</strong>
       <span>#${esc(v.channel.name)} · ${esc(v.project.name)}</span>
     </a>
-    <div class="voice-people">${[...v.people.entries()].map(([uid, info]) => voicePersonHtml(uid, info, 22)).join('')}</div>
     ${v.noMic ? `<div class="voice-warning">${icon('micoff', 14)} ${tr('Aucun micro : on ne vous entend pas.')}</div>` : ''}
     <div class="voice-controls">
       <button class="icon-btn ${v.muted || v.deafened ? 'off' : ''}" data-voice="mute" title="${v.muted ? tr('Réactiver le micro') : tr('Couper le micro')} · ${tr('clic droit : choisir le micro')}">${icon(v.muted || v.deafened ? 'micoff' : 'mic', 17)}</button>
@@ -893,7 +880,7 @@ document.addEventListener('contextmenu', async (e) => {
     return;
   }
   const btn = e.target.closest('[data-voice="mute"], [data-voice="deafen"]');
-  const person = e.target.closest('.voice-person[data-person], .video-tile[data-person]');
+  const person = e.target.closest('.ch-voice-person[data-person], .video-tile[data-person]');
   if (!v || (!btn && !person)) return;
   e.preventDefault();
 
@@ -960,9 +947,7 @@ B.voiceStrip = (el, project, channel) => {
     const full = !inRoom() && people.size >= VOICE_MAX;
     el.innerHTML = `
       <span class="voice-strip-title">${icon('headphones', 16)} ${tr('Vocal')}</span>
-      <div class="voice-people">${people.size
-        ? [...people.entries()].map(([uid, info]) => voicePersonHtml(uid, info)).join('')
-        : `<span class="muted small">${tr('Personne pour le moment.')}</span>`}</div>
+      ${people.size ? '' : `<span class="muted small">${tr('Personne pour le moment.')}</span>`}
       <span class="spacer"></span>
       ${full ? `<span class="muted small">${tr('Vocal complet ({n} personnes maximum).', { n: VOICE_MAX })}</span>` : ''}
       ${inRoom() && B.voice.noMic ? `<span class="voice-warning">${icon('micoff', 14)} ${tr('Aucun micro détecté ou micro désactivé : vous entendez les autres, mais ils ne vous entendent pas.')}</span>` : ''}

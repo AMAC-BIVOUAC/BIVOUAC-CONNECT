@@ -198,7 +198,7 @@ async function renderDiscussion(el, p, channelId, { atelier = false } = {}) {
     const people = B.voiceIn(p.id, box.dataset.chVoice);
     box.innerHTML = people.map((x) => {
       const person = B.person(x.id);
-      return `<a class="ch-voice-person" href="#/p/${p.id}/discussion/${box.dataset.chVoice}" title="${esc(person.display_name)}">
+      return `<a class="ch-voice-person" data-person="${esc(x.id)}" href="#/p/${p.id}/discussion/${box.dataset.chVoice}" title="${esc(person.display_name)}">
         <span class="voice-ring ${B.voice && B.voiceSpeaking(x.id) ? 'speaking' : ''}" data-voice-uid="${esc(x.id)}">${avatar(person, 20)}</span>
         <span class="ch-voice-name" translate="no">${esc(person.display_name)}</span>
         ${B.voiceStateIcons(x)}</a>`;

@@ -208,6 +208,7 @@ B.pages.settings = async (view) => {
         <div class="card-head"><h2>${tr('Mises à jour')}</h2></div>
         <div class="actions"><span class="muted small" id="up-text">${esc(B.updateText(B.update))}</span><span class="spacer"></span>
           <button class="btn" id="up-check">${tr('Rechercher une mise à jour')}</button>
+          ${window.BIVOUAC_WEB ? `<a class="btn primary" id="win-download" href="https://github.com/AMAC-BIVOUAC/BIVOUAC-CONNECT/releases/latest" target="_blank" rel="noopener">${icon('download', 15)} ${tr("Télécharger l'application Windows")}</a>` : ''}
           <button class="btn primary hidden" id="up-install">${tr('Redémarrer maintenant')}</button></div>
         <hr />
         <div class="actions"><span class="muted small">BIVOUAC-TECH v<span id="app-version">${esc(B.update.current || '')}</span> · ${tr('une création AMAC')} (Apollonius MANDON & Amaury CHARRIER)</span><span class="spacer"></span>

@@ -151,6 +151,7 @@ B.animationsOn = () => store.get('animations', true) !== false;
 B.setAnimations = (on) => {
   store.set('animations', Boolean(on));
   document.documentElement.classList.toggle('no-anim', !on);
+  B.emit('animations', Boolean(on)); // l'ambiance d'Aujourd'hui arrête ou relance ses mouvements (ambiance.js)
 };
 document.documentElement.classList.toggle('no-anim', !B.animationsOn());
 
