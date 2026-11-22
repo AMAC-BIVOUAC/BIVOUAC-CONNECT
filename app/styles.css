@@ -315,6 +315,10 @@ textarea { resize: vertical; }
 .online-person:hover { background: var(--navy-2); color: var(--card); }
 .online-av { position: relative; display: inline-flex; flex: none; }
 .online-voice { display: inline-flex; color: var(--mint); flex: none; }
+.online-dm { display: inline-flex; flex: none; margin-left: auto; color: var(--on-navy-muted); }
+.online-person:hover .online-dm, .online-person:focus-visible .online-dm { color: var(--card); }
+.online-voice + .online-dm { margin-left: 0; }
+.team-extra .dm-btn { color: var(--link); }
 /* Qui est en vocal, sous chaque salon de la Discussion (façon Discord) */
 .ch-voice { display: flex; flex-direction: column; gap: 2px; margin: 0 0 4px 26px; }
 .ch-voice.hidden { display: none; }
@@ -857,6 +861,8 @@ details.advanced[open] summary { margin-bottom: 10px; }
 .cal-chip { display: flex; align-items: center; gap: 4px; width: 100%; font: inherit; font-size: var(--fs-label); text-align: left; border: 0; border-left: 3px solid; border-radius: var(--r-sm); padding: 3px 6px; margin-top: 3px; cursor: pointer; white-space: nowrap; overflow: hidden; min-width: 0; }
 .cal-chip span { overflow: hidden; text-overflow: ellipsis; }
 .cal-chip b { font-weight: var(--fw-title); }
+.cal-chip .chip-who { margin-left: auto; flex: none; display: inline-flex; }
+.cal-chip .chip-who + .chip-proj { margin-left: 4px; }
 .cal-chip .ico { flex: none; }
 .cal-chip.event { background: var(--teal-soft); border-color: var(--teal); color: var(--title-mine); }
 .cal-chip.task { background: var(--task-soft); border-color: var(--task); color: var(--task-text); }

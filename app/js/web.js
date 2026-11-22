@@ -68,15 +68,17 @@
     },
 
     // Notification du navigateur (demandée la première fois ; seulement si l'onglet n'est pas regardé)
-    notify: async (title, body) => {
+    notify: async (title, body, _silent, link) => {
       if (!('Notification' in window) || !document.hidden) return;
       if (Notification.permission === 'default') await Notification.requestPermission().catch(() => {});
       if (Notification.permission !== 'granted') return;
       let n;
       try { n = new Notification(title, { body, icon: 'assets/icon-192.png', silent: true }); }
       catch { return; } // Certains navigateurs mobiles exposent Notification sans permettre ce constructeur.
-      n.onclick = () => { window.focus(); n.close(); };
+      n.onclick = () => { window.focus(); if (typeof link === 'string' && link.startsWith('#/')) location.hash = link; n.close(); };
     },
+    onNotifyClick: () => {}, // le clic est géré directement par la notification du navigateur
+    setKeepInTray: () => {}, // pas d'icône près de l'horloge dans un navigateur
 
     openExternal: async (url) => open(url),
 

@@ -166,8 +166,51 @@ B.paintPresence = (root = document) => $$('[data-online]', root).forEach((d) => 
   d.title = B.statusText(d.dataset.online);
 });
 
-/** Notification Windows / navigateur, sauf en statut « Occupé » */
-B.pcNotify = (title, body, silent) => (B.myStatus().state === 'busy' ? Promise.resolve() : window.bivouac.notify(title, body, silent));
+/** Notification Windows / navigateur, sauf en statut « Occupé ». `link` : adresse ouverte au clic (#/…) */
+B.pcNotify = (title, body, silent, link = null) => (B.myStatus().state === 'busy' ? Promise.resolve() : window.bivouac.notify(title, body, silent, link));
+
+// ---------- Réglages des notifications (Paramètres → Notifications, réglage de ce poste) ----------
+// messages : 'all' = chaque nouveau message des salons et de l'Atelier ; 'mentions' = seulement quand on me mentionne
+// tray : fermer la fenêtre la cache près de l'horloge (Windows) pour continuer à prévenir
+const NOTIFY_DEFAULTS = { messages: 'all', tray: true };
+B.notifyPrefs = () => ({ ...NOTIFY_DEFAULTS, ...(store.get('notify') || {}) });
+B.setNotifyPrefs = (patch) => {
+  store.set('notify', { ...B.notifyPrefs(), ...patch });
+  window.bivouac.setKeepInTray?.(B.notifyPrefs().tray);
+};
+window.bivouac.setKeepInTray?.(B.notifyPrefs().tray);
+window.bivouac.onNotifyClick?.((link) => { if (typeof link === 'string' && link.startsWith('#/')) location.hash = link; });
+
+/**
+ * Nouveau message dans un salon ou l'Atelier d'un de mes projets, pas affiché sous mes yeux :
+ * notification Windows « Projet · #salon » / « Auteur : début du message ». Les mentions ont déjà leur
+ * notification (pas de doublon) ; au plus une par salon toutes les 8 s (une conversation animée ne mitraille pas).
+ */
+const channelCache = new Map();
+const lastByChannel = new Map();
+B.notifyMessage = async (msg) => {
+  if (B.notifyPrefs().messages !== 'all' || !B.me) return;
+  const handle = (B.me.handle || '').toLowerCase();
+  if (handle && new RegExp(`(^|\\s)@${handle}\\b`, 'i').test(msg.content || '')) return;
+  const now = Date.now();
+  if (now - (lastByChannel.get(msg.channel_id) || 0) < 8000) return;
+  lastByChannel.set(msg.channel_id, now);
+  let ch = channelCache.get(msg.channel_id);
+  if (!ch) {
+    const { data } = await B.sb.from('channels').select('id, name, kind, project_id').eq('id', msg.channel_id).maybeSingle();
+    if (!data) return;
+    ch = data; channelCache.set(ch.id, ch);
+  }
+  const project = B.project(ch.project_id);
+  const isAtelier = ch.kind === 'ai';
+  const where = isAtelier ? tr('Atelier IA') : `#${ch.name}`;
+  const author = B.person(msg.author_id);
+  const who = msg.is_ai ? aiName(msg.ai_provider, author) : author.display_name;
+  const text = String(msg.content || '').replace(/\s+/g, ' ').trim();
+  const link = isAtelier ? `#/p/${ch.project_id}/atelier` : `#/p/${ch.project_id}/discussion/${ch.id}`;
+  B.playSound('notif');
+  B.pcNotify(project ? `${project.name} · ${where}` : where, `${who} : ${text.length > 140 ? `${text.slice(0, 140)}…` : text}`, B.soundPrefs().notif, link);
+};
 
 /** Menu du statut (clic sur ma carte en bas de la colonne) */
 B.openStatusMenu = (x, y) => {

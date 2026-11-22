@@ -198,6 +198,9 @@ B.changePassword = async (current, next) => {
 // ---------------------------------------------------------------------
 /** Page publique de la politique de confidentialité */
 B.PRIVACY_PAGE = 'https://www.bivouac-tech.com/confidentialite/';
+/** Site public (FAQ, contact) et adresse de contact de l'équipe (22/11, Apo) */
+B.SITE = 'https://www.bivouac-tech.com';
+B.CONTACT_EMAIL = 'contact@bivouac-tech.com';
 
 /** Télécharge toutes mes données dans un fichier JSON */
 B.exportMyData = async () => {

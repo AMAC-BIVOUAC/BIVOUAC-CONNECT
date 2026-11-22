@@ -167,7 +167,9 @@
   // ---------- Le son : feu de camp et vent léger, fabriqués par Web Audio ----------
 
   const S = { ctx: null, master: null, sources: [], timers: [], on: false };
-  const VOLUME = 0.35;
+  const VOLUME = 0.35; // 100 % du réglage
+  /** Réglage du volume (clic droit sur le bouton du son) : 0 à 1, retenu sur ce poste ; 1 = volume prévu */
+  const level = () => Math.min(1, Math.max(0, Number(store.get('ambiance:volume', 1)) || 0));
 
   const noise = (ctx, seconds) => {
     const buf = ctx.createBuffer(1, Math.floor(ctx.sampleRate * seconds), ctx.sampleRate);
@@ -196,7 +198,7 @@
     S.on = true;
     S.master = gainNode(ctx, 0);
     S.master.connect(ctx.destination);
-    S.master.gain.setTargetAtTime(VOLUME, ctx.currentTime, 1.2); // arrive doucement
+    S.master.gain.setTargetAtTime(VOLUME * level(), ctx.currentTime, 1.2); // arrive doucement
     const buf = noise(ctx, 3);
 
     // Feu : un grondement grave qui respire
@@ -294,12 +296,32 @@
     const paintBtn = () => {
       const on = soundWanted();
       btn.setAttribute('aria-pressed', String(on));
-      const label = on ? tr("Couper le son d'ambiance") : tr("Activer le son d'ambiance (feu de camp, vent)");
+      const label = (on ? tr("Couper le son d'ambiance") : tr("Activer le son d'ambiance (feu de camp, vent)")) + ` · ${tr('clic droit : volume')}`;
       btn.title = label; btn.setAttribute('aria-label', label);
       btn.innerHTML = icon(on ? 'volume' : 'volumeoff', 18);
     };
     const sync = () => (soundAllowed() && !B.isPhone?.() ? startSound() : stopSound()); // pas de son sur téléphone
     btn.onclick = () => { store.set('ambiance:sound', !soundWanted()); paintBtn(); sync(); };
+    // Clic droit : régler le volume (comme pour le vocal)
+    btn.oncontextmenu = (e) => {
+      e.preventDefault();
+      const menu = B.popMenu(e.clientX, e.clientY, `
+        <div class="pop-title">${icon('volume', 15)} ${tr("Son d'ambiance")}</div>
+        <label class="pop-label" for="amb-vol">${tr('Volume')}</label>
+        <div class="pop-range"><input id="amb-vol" type="range" min="0" max="100" step="5" value="${Math.round(level() * 100)}" /><span></span></div>
+        <button class="pop-item" data-reset>${tr('Volume normal (100 %)')}</button>`);
+      const range = $('input', menu);
+      const show = () => { $('.pop-range span', menu).textContent = `${range.value} %`; };
+      range.oninput = () => {
+        const v = Number(range.value) / 100;
+        store.set('ambiance:volume', v);
+        if (v > 0 && !soundWanted()) { store.set('ambiance:sound', true); paintBtn(); sync(); }
+        if (S.master) S.master.gain.setTargetAtTime(VOLUME * v, S.ctx.currentTime, 0.08);
+        show();
+      };
+      $('[data-reset]', menu).onclick = () => { range.value = 100; range.oninput(); };
+      show();
+    };
     paintBtn();
 
     // Le navigateur n'autorise le son qu'après un geste : on (re)lance au premier clic ou touche si besoin

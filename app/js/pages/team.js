@@ -89,7 +89,7 @@ B.pages.team = async (el, p) => {
               <span class="team-name">${esc(m.display_name)}<small>@${esc(m.handle)}</small></span>
               <span class="tag human">${tr('Humain')}</span>
               <span class="team-role">${m.title ? esc(m.title) : ''}</span>
-              <span class="team-extra">${roleCell(m)}
+              <span class="team-extra">${m.id === B.me.id ? '' : `<a class="icon-btn dm-btn" href="#/messages/${m.id}" title="${esc(tr('Message privé à {name}', { name: m.display_name }))}" aria-label="${esc(tr('Message privé à {name}', { name: m.display_name }))}">${icon('whisper', 16)}</a>`}${roleCell(m)}
                 ${B.canRemove(p.id, m) ? `<button class="icon-btn" data-remove="${m.id}" title="${tr('Retirer du projet')}">${icon('x', 15)}</button>` : ''}</span>
             </div>`).join('')}
           ${ais.map((a) => `

@@ -1,0 +1,57 @@
+<!doctype html>
+<!--
+  Page publique « Contact » — https://www.bivouac-tech.com/contact/
+  Source : dépôt BIVOUAC-TECH, dossier pages-publiques/ (22/11/2026). AUCUN secret ici.
+  Pas de formulaire (il faudrait un serveur d'envoi et un anti-spam) : un bouton qui ouvre la messagerie de la personne.
+  Adresse : contact@bivouac-tech.com (boîte ou redirection à créer chez l'hébergeur du domaine, voir EMAILS.md).
+-->
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="referrer" content="no-referrer" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; img-src 'self'" />
+  <title>Contact · BIVOUAC-TECH</title>
+  <style>
+    :root { --night: #0E2A3B; --link: #0B5E72; --orange: #F28C28; --action: #B4560A; --sand: #F7E1C0; --muted: #5B6B78; --text: #33536A; }
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: Montserrat, "Segoe UI", system-ui, -apple-system, Arial, sans-serif; color: var(--night);
+           background: linear-gradient(180deg, var(--night) 0, #1E4A63 340px, #F4F7F9 340px); padding: 32px 16px 48px; }
+    main { max-width: 640px; margin: 0 auto; background: #fff; border-radius: 18px; padding: 32px 28px; box-shadow: 0 20px 60px rgba(0,0,0,.18); }
+    .brand { display: flex; align-items: center; gap: 12px; text-decoration: none; color: var(--night); }
+    .brand img { width: 40px; height: 40px; border-radius: 10px; }
+    .word { font-weight: 800; letter-spacing: 1px; font-size: 18px; line-height: 1.1; }
+    .word small { display: block; color: var(--orange); font-size: 11px; letter-spacing: 4px; font-weight: 600; }
+    h1 { font-size: 26px; margin: 22px 0 6px; color: #7A3E10; }
+    p, li { line-height: 1.6; color: var(--text); font-size: 15px; }
+    a { color: var(--link); }
+    .btn { display: inline-block; background: var(--action); color: #fff; text-decoration: none; font-weight: 700; padding: 14px 24px;
+           border-radius: 10px; margin: 8px 0 4px; min-height: 44px; }
+    .mail { font-size: 17px; font-weight: 700; }
+    .note { background: var(--sand); border-radius: 12px; padding: 14px 16px; margin-top: 24px; }
+    .muted { color: var(--muted); font-size: 13px; }
+  </style>
+</head>
+<body>
+<main>
+  <a class="brand" href="../app/"><img src="../emails/logo-192.png" alt="" /><span class="word">BIVOUAC<small>— TECH —</small></span></a>
+  <h1>Nous écrire</h1>
+  <p>Une question, un problème, une idée pour BIVOUAC-TECH ? Écrivez-nous, c'est l'équipe qui vous répond (Apo et Amaury).</p>
+  <p><a class="btn" href="mailto:contact@bivouac-tech.com?subject=BIVOUAC-TECH%20%E2%80%94%20">Écrire à l'équipe</a></p>
+  <p class="mail"><a href="mailto:contact@bivouac-tech.com">contact@bivouac-tech.com</a></p>
+
+  <p>Pour qu'on vous aide vite, indiquez si possible :</p>
+  <ul>
+    <li>sur quoi vous êtes : Windows, version web, téléphone ;</li>
+    <li>ce que vous avez fait, et ce qui s'est passé ;</li>
+    <li>une capture d'écran (sans mot de passe ni information personnelle dessus).</li>
+  </ul>
+  <p class="muted">Ne nous envoyez jamais votre mot de passe : nous ne le demanderons jamais.</p>
+
+  <div class="note">
+    <p style="margin:0">La réponse est peut-être déjà là : <a href="../faq/">questions fréquentes</a>.
+      Données personnelles : <a href="../confidentialite/">politique de confidentialité</a>.</p>
+  </div>
+</main>
+</body>
+</html>

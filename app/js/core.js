@@ -382,6 +382,8 @@ B.startGlobalLive = () => {
       if (p.new.author_id === B.me.id) return;
       if (p.new.channel_id === B.openChannel && document.hasFocus()) readOpen();
       else refresh();
+      // Notification Windows quand le message n'est pas sous mes yeux (salon fermé, fenêtre cachée ou en arrière-plan)
+      if (p.new.channel_id !== B.openChannel || !document.hasFocus() || document.hidden) B.notifyMessage?.(p.new).catch(console.error);
     })
     .subscribe();
   window.addEventListener('focus', () => { if (B.openChannel) B.markRead(B.openChannel); });

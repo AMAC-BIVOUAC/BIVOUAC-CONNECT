@@ -51,9 +51,13 @@ const KIND_ICON = { event: 'calendar', task: 'checksq', milestone: 'flag' };
 B.dateChip = (d, { showProject = false } = {}) => {
   const cls = ['cal-chip', d.kind, d.status === 'done' ? 'done' : '', d.status === 'doing' ? 'doing' : '', d.late ? 'late' : ''].join(' ');
   const proj = showProject ? B.project(d.project_id) : null;
-  const tip = [d.time ? `${d.time}${d.end ? '–' + d.end : ''}` : '', d.title, d.kind === 'task' && d.status === 'doing' ? tr('En cours') : '', d.late ? tr('En retard') : ''].filter(Boolean).join(' · ');
+  // Tâche confiée à quelqu'un : sa photo au bout de la pastille (calendrier et « À venir »)
+  const who = d.kind === 'task' && d.raw?.assignee_id ? B.person(d.raw.assignee_id) : null;
+  const tip = [d.time ? `${d.time}${d.end ? '–' + d.end : ''}` : '', d.title, who ? tr('Confiée à {name}', { name: who.display_name }) : '',
+    d.kind === 'task' && d.status === 'doing' ? tr('En cours') : '', d.late ? tr('En retard') : ''].filter(Boolean).join(' · ');
   return `<button class="${cls}" data-kind="${d.kind}" data-id="${d.id}" data-project="${d.project_id}" title="${esc(tip)}">
     ${icon(KIND_ICON[d.kind], 12)}${d.time ? `<b>${esc(d.time)}</b>` : ''}<span translate="no">${esc(d.title)}</span>
+    ${who ? `<span class="chip-who">${avatar(who, 16)}</span>` : ''}
     ${proj ? `<i class="chip-proj" style="background:${esc(proj.color)}"></i>` : ''}</button>`;
 };
 

@@ -64,7 +64,8 @@ B.renderOnline = () => {
         ${B.dmAvatar(m, 26)}
         <span class="online-who"><span class="space-name" translate="no">${esc(m.display_name)}</span>${!offline && (B.statusOf(m.id)?.state !== 'free' || B.statusOf(m.id)?.text)
           ? `<small class="online-status">${esc(B.statusText(m.id))}</small>` : ''}</span>
-        ${B.voiceWhere?.(m.id, project ? pid : null) ? `<span class="online-voice" title="${esc(tr('En vocal'))}">${icon('headphones', 13)}</span>` : ''}</a>`;
+        ${B.voiceWhere?.(m.id, project ? pid : null) ? `<span class="online-voice" title="${esc(tr('En vocal'))}">${icon('headphones', 13)}</span>` : ''}
+        <span class="online-dm" aria-hidden="true">${icon('whisper', 15)}</span></a>`;
   box.innerHTML = (on.length
     ? on.map((m) => row(m, false)).join('')
     : `<p class="nav-empty">${project ? tr('Personne d\'autre de ce projet en ligne') : tr('Personne d\'autre en ligne')}</p>`)
@@ -87,7 +88,7 @@ B.startDmLive = () => {
       dmChanged();
       B.playSound('notif');
       const who = B.person(msg.sender_id).display_name;
-      B.pcNotify('Bivouac-Tech', tr('Message privé de {name}', { name: who }), B.soundPrefs().notif);
+      B.pcNotify('BIVOUAC-TECH', tr('Message privé de {name}', { name: who }), B.soundPrefs().notif, `#/messages/${msg.sender_id}`);
       if (msg.sender_id !== B.dmOpen) {
         B.toast(`${tr('Message privé de {name}', { name: `<span translate="no">${esc(who)}</span>` })} <a href="#/messages/${msg.sender_id}">${tr('Ouvrir')}</a>`);
       }

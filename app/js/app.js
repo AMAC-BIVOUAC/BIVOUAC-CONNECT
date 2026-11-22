@@ -224,7 +224,7 @@ B.on('notification', (n) => {
   B.refreshBadge();
   if (n.type !== 'ai_request') {
     B.playSound('notif');
-    B.pcNotify('Bivouac-Tech', n.text, B.soundPrefs().notif);
+    B.pcNotify('BIVOUAC-TECH', n.text, B.soundPrefs().notif, n.link || null);
     B.toast(`${esc(n.text)}${n.link ? ` <a href="${esc(n.link)}">${tr('Ouvrir')}</a>` : ''}`);
   }
 });

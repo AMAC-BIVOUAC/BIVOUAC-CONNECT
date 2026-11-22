@@ -161,6 +161,18 @@ B.pages.settings = async (view) => {
       </section>
 
       <section class="card">
+        <div class="card-head"><h2>${tr('Notifications')}</h2></div>
+        <p class="muted">${window.BIVOUAC_WEB
+          ? tr("Une notification s'affiche quand l'onglet n'est pas regardé, si votre navigateur l'autorise. Un clic ouvre le bon endroit.")
+          : tr("Une notification Windows s'affiche quand le message n'est pas sous vos yeux. Un clic ouvre le bon endroit. En statut Occupé, rien ne s'affiche.")}</p>
+        <p><strong>${tr("Messages des salons et de l'Atelier IA")}</strong></p>
+        <label class="check"><input type="radio" name="n-msg" value="all" ${B.notifyPrefs().messages === 'all' ? 'checked' : ''} /> ${tr('Chaque nouveau message')}</label>
+        <label class="check"><input type="radio" name="n-msg" value="mentions" ${B.notifyPrefs().messages === 'mentions' ? 'checked' : ''} /> ${tr('Seulement quand on me mentionne')}</label>
+        ${window.BIVOUAC_WEB ? '' : `<label class="check"><input type="checkbox" id="n-tray" ${B.notifyPrefs().tray ? 'checked' : ''} /> ${tr("Quand je ferme la fenêtre, BIVOUAC-TECH reste ouvert près de l'horloge pour me prévenir")}</label>
+        <p class="muted small">${tr("Pour le fermer vraiment : clic droit sur son icône près de l'horloge → Quitter.")}</p>`}
+      </section>
+
+      <section class="card">
         <div class="card-head"><h2>${tr('Sons')}</h2></div>
         <p class="muted">${tr('Choisissez les sons que vous voulez entendre sur ce PC.')}</p>
         <div class="sound-list">
@@ -202,6 +214,16 @@ B.pages.settings = async (view) => {
         </div>
         <label class="check"><input type="checkbox" id="s-today" ${B.todayTasksEnabled() ? 'checked' : ''} /> ${tr("Afficher « Mes tâches du jour » à l'ouverture de l'app")}</label>
         <div class="actions"><button class="btn" id="s-tour">${icon('compass', 15)} ${tr('Revoir la visite guidée')}</button></div>
+      </section>
+
+      <section class="card">
+        <div class="card-head"><h2>${tr('Aide et contact')}</h2></div>
+        <p class="muted">${tr("Une question, un problème, une idée ? La réponse est peut-être dans les questions fréquentes, sinon écrivez-nous : c'est l'équipe qui répond.")}</p>
+        <div class="actions">
+          <a class="btn" id="help-faq" href="${B.SITE}/faq/" target="_blank" rel="noopener">${icon('compass', 15)} ${tr('Questions fréquentes')}</a>
+          <a class="btn" id="help-contact" href="${B.SITE}/contact/" target="_blank" rel="noopener">${icon('chat', 15)} ${tr('Nous contacter')}</a>
+          <button type="button" class="link small" id="help-mail">${B.CONTACT_EMAIL}</button>
+        </div>
       </section>
 
       <section class="card">
@@ -375,6 +397,15 @@ B.pages.settings = async (view) => {
     $('#gr-clear', view)?.addEventListener('click', () => { store.set('grammar:dict', []); showDict(); B.emit('grammar'); });
   };
   showDict();
+
+  // Aide : l'e-mail s'ouvre dans la messagerie du PC (open:external accepte mailto:)
+  const helpMail = $('#help-mail', view);
+  if (helpMail) helpMail.onclick = () => window.bivouac.openExternal(`mailto:${B.CONTACT_EMAIL}?subject=BIVOUAC-TECH`);
+
+  // Notifications (réglage de ce poste)
+  $$('[name="n-msg"]', view).forEach((r) => r.onchange = () => B.setNotifyPrefs({ messages: r.value }));
+  const nTray = $('#n-tray', view);
+  if (nTray) nTray.onchange = () => B.setNotifyPrefs({ tray: nTray.checked });
 
   // Sons : activés par type, volume (réglage de ce poste)
   $$('[data-sound]', view).forEach((c) => c.onchange = () => B.setSoundPrefs({ [c.dataset.sound]: c.checked }));

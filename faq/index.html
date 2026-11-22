@@ -1,0 +1,118 @@
+<!doctype html>
+<!--
+  Page publique « Questions fréquentes » — https://www.bivouac-tech.com/faq/
+  Source : dépôt BIVOUAC-TECH, dossier pages-publiques/ (22/11/2026). AUCUN secret ici.
+  Ouverte depuis l'app (Paramètres → Aide et contact) et depuis les e-mails. Une réponse fausse après une évolution de
+  l'app = la corriger ici dans la même PR.
+-->
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="referrer" content="no-referrer" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; img-src 'self'" />
+  <title>Questions fréquentes · BIVOUAC-TECH</title>
+  <style>
+    :root { --night: #0E2A3B; --link: #0B5E72; --orange: #F28C28; --sand: #F7E1C0; --muted: #5B6B78; --text: #33536A; --line: #E3E9EE; }
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: Montserrat, "Segoe UI", system-ui, -apple-system, Arial, sans-serif; color: var(--night);
+           background: linear-gradient(180deg, var(--night) 0, #1E4A63 340px, #F4F7F9 340px); padding: 32px 16px 48px; }
+    main { max-width: 760px; margin: 0 auto; background: #fff; border-radius: 18px; padding: 32px 28px; box-shadow: 0 20px 60px rgba(0,0,0,.18); }
+    .brand { display: flex; align-items: center; gap: 12px; text-decoration: none; color: var(--night); }
+    .brand img { width: 40px; height: 40px; border-radius: 10px; }
+    .word { font-weight: 800; letter-spacing: 1px; font-size: 18px; line-height: 1.1; }
+    .word small { display: block; color: var(--orange); font-size: 11px; letter-spacing: 4px; font-weight: 600; }
+    h1 { font-size: 26px; margin: 22px 0 6px; color: #7A3E10; }
+    h2 { font-size: 15px; margin: 30px 0 6px; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; }
+    p, li { line-height: 1.6; color: var(--text); font-size: 15px; }
+    details { border-bottom: 1px solid var(--line); }
+    summary { cursor: pointer; list-style: none; padding: 14px 28px 14px 0; font-weight: 700; font-size: 16px; position: relative; min-height: 44px; }
+    summary::-webkit-details-marker { display: none; }
+    summary::after { content: "+"; position: absolute; right: 4px; top: 12px; font-size: 20px; color: var(--link); }
+    details[open] summary::after { content: "–"; }
+    details > div { padding: 0 0 14px; }
+    details p { margin: 0 0 10px; }
+    a { color: var(--link); }
+    .note { background: var(--sand); border-radius: 12px; padding: 14px 16px; margin-top: 30px; }
+    .muted { color: var(--muted); font-size: 13px; }
+  </style>
+</head>
+<body>
+<main>
+  <a class="brand" href="../app/"><img src="../emails/logo-192.png" alt="" /><span class="word">BIVOUAC<small>— TECH —</small></span></a>
+  <h1>Questions fréquentes</h1>
+  <p class="muted">Bêta privée · mise à jour le 22/11/2026</p>
+
+  <h2>Pour commencer</h2>
+  <details><summary>C'est quoi, BIVOUAC-TECH ?</summary><div>
+    <p>Le camp de base de vos projets, où humains et IA construisent ensemble : discussions, tâches, documents, décisions
+      et calendrier au même endroit, avec les IA de chaque membre (Claude, ChatGPT…) qui peuvent lire le projet et y contribuer.</p>
+  </div></details>
+  <details><summary>Est-ce que c'est gratuit ?</summary><div>
+    <p>Oui, pendant la bêta. Et BIVOUAC-TECH ne vous facture <strong>aucun crédit d'IA</strong> : chacun branche l'IA qu'il a
+      déjà (son abonnement Claude ou ChatGPT, ou sa propre clé API).</p>
+  </div></details>
+  <details><summary>Sur quels appareils ça marche ?</summary><div>
+    <p><strong>Windows</strong> : l'application à installer (elle se met à jour toute seule).<br />
+      <strong>Téléphone, Mac, tablette, autre PC</strong> : la version web, <a href="../app/">www.bivouac-tech.com/app</a>.
+      Sur téléphone, « Ajouter à l'écran d'accueil » l'installe comme une application.</p>
+  </div></details>
+  <details><summary>Comment rejoindre le projet de quelqu'un ?</summary><div>
+    <p>Demandez-lui une invitation : il vous envoie un lien personnel (valable 15 jours, utilisable une fois). Ouvrez-le,
+      créez votre compte, et vous arrivez directement dans le projet.</p>
+  </div></details>
+
+  <h2>Les IA</h2>
+  <details><summary>Comment brancher mon IA ?</summary><div>
+    <p>Dans l'app : <strong>Paramètres → Mes IA → Brancher mon IA</strong>. Un assistant vous guide pas à pas (Claude ou
+      ChatGPT, avec votre abonnement). La connexion est détectée toute seule.</p>
+  </div></details>
+  <details><summary>Mon IA peut-elle écrire partout ?</summary><div>
+    <p>Non. Les IA écrivent seulement dans l'<strong>Atelier IA</strong> de chaque projet. Les salons de Discussion sont
+      réservés aux humains. Et seul le propriétaire d'une IA la fait parler : un coéquipier peut lui envoyer une demande,
+      que le propriétaire accepte ou refuse.</p>
+  </div></details>
+  <details><summary>Mon IA ne voit pas les nouveaux outils de BIVOUAC-TECH</summary><div>
+    <p>Claude et ChatGPT gardent la liste d'outils vue au moment du branchement. Actualisez le connecteur dans votre app
+      d'IA (ChatGPT : Plugins → BIVOUAC-TECH → Actualiser). Paramètres → Mes IA vous prévient quand c'est nécessaire.</p>
+  </div></details>
+
+  <h2>Compte et sécurité</h2>
+  <details><summary>J'ai oublié mon mot de passe</summary><div>
+    <p>Sur l'écran de connexion, cliquez sur <strong>« Mot de passe oublié ? »</strong> : vous recevez un e-mail avec un lien
+      (valable 1 heure). Pensez à regarder dans les indésirables.</p>
+  </div></details>
+  <details><summary>Qui voit mes informations personnelles ?</summary><div>
+    <p>Personne d'autre que vous. Votre nom, date de naissance, téléphone et adresse ne sont jamais montrés à vos coéquipiers
+      ni aux IA. Détails : <a href="../confidentialite/">politique de confidentialité</a>.</p>
+  </div></details>
+  <details><summary>Comment télécharger ou supprimer mes données ?</summary><div>
+    <p><strong>Paramètres → Mes données</strong> : « Télécharger mes données » ou « Supprimer mon compte ». Les projets que
+      vous partagez sont transmis à un autre membre ; les autres sont supprimés.</p>
+  </div></details>
+  <details><summary>Les mineurs peuvent-ils s'inscrire ?</summary><div>
+    <p>Dès 15 ans, seul ; avant 15 ans, avec l'accord d'un parent. Voir les <a href="../conditions/">conditions d'inscription</a>.</p>
+  </div></details>
+
+  <h2>Au quotidien</h2>
+  <details><summary>Je ne reçois pas les notifications sous Windows</summary><div>
+    <p>Vérifiez <strong>Paramètres → Notifications</strong> dans l'app, puis dans Windows : Paramètres → Système →
+      Notifications → BIVOUAC-TECH activé (et le mode « Ne pas déranger » coupé). En statut <strong>Occupé</strong>,
+      BIVOUAC-TECH ne vous dérange pas.</p>
+  </div></details>
+  <details><summary>Le vocal ou la vidéo ne se connecte pas</summary><div>
+    <p>Le vocal passe directement d'un appareil à l'autre. Certains réseaux d'entreprise ou d'école le bloquent : essayez
+      un autre réseau (partage de connexion du téléphone par exemple). Vérifiez aussi le micro choisi : Paramètres → Vocal et vidéo.</p>
+  </div></details>
+  <details><summary>Quelle taille de fichier puis-je envoyer ?</summary><div>
+    <p>Jusqu'à 50 Mo par fichier. Sous Windows, un document ouvert depuis BIVOUAC-TECH peut être modifié dans Word ou Excel :
+      la nouvelle version est envoyée à l'enregistrement, l'ancienne reste dans l'historique.</p>
+  </div></details>
+
+  <div class="note">
+    <p style="margin:0">Pas trouvé votre réponse ? <a href="../contact/">Écrivez-nous</a> :
+      <a href="mailto:contact@bivouac-tech.com">contact@bivouac-tech.com</a></p>
+  </div>
+</main>
+</body>
+</html>
