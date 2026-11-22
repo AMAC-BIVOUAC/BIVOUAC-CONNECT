@@ -56,7 +56,7 @@ B.personalFieldsHtml = (p, v = {}) => `
 // ---------------------------------------------------------------------
 /** Version des conditions affichée et acceptée (à changer quand pages-publiques/conditions change) */
 B.TERMS_VERSION = '2026-11-22';
-B.TERMS_PAGE = 'https://amac-bivouac.github.io/BIVOUAC-CONNECT/conditions/';
+B.TERMS_PAGE = 'https://www.bivouac-tech.com/conditions/';
 
 /** Âge en années révolues à une date « AAAA-MM-JJ » (null si inconnue) */
 B.ageOf = (birth) => {
@@ -197,7 +197,7 @@ B.changePassword = async (current, next) => {
 // Mes données (RGPD, migration 031) : télécharger, supprimer mon compte
 // ---------------------------------------------------------------------
 /** Page publique de la politique de confidentialité */
-B.PRIVACY_PAGE = 'https://amac-bivouac.github.io/BIVOUAC-CONNECT/confidentialite/';
+B.PRIVACY_PAGE = 'https://www.bivouac-tech.com/confidentialite/';
 
 /** Télécharge toutes mes données dans un fichier JSON */
 B.exportMyData = async () => {

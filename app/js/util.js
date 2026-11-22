@@ -148,12 +148,12 @@ const CONNECTOR_URL = () => `${(window.BIVOUAC_CONFIG || {}).SUPABASE_URL}/funct
 /** Statuts dans l'équipe d'un projet */
 const ROLE_LABEL = () => ({ owner: tr('Créateur'), admin: tr('Administrateur'), member: tr('Membre') });
 
-/** Adresse de la page « Rejoindre » (site public du dépôt BIVOUAC-CONNECT ; GitHub Pages respecte les majuscules) : le code suit le # */
-const INVITE_PAGE = 'https://amac-bivouac.github.io/BIVOUAC-CONNECT/rejoindre/';
+/** Adresse de la page « Rejoindre » (site public www.bivouac-tech.com = GitHub Pages du dépôt BIVOUAC-CONNECT) : le code suit le # */
+const INVITE_PAGE = 'https://www.bivouac-tech.com/rejoindre/';
 /** Page publique « Nouveau mot de passe » (lien de l'e-mail « mot de passe oublié ») */
-const RESET_PAGE = 'https://amac-bivouac.github.io/BIVOUAC-CONNECT/mot-de-passe/';
+const RESET_PAGE = 'https://www.bivouac-tech.com/mot-de-passe/';
 /** Page publique « Adresse confirmée » (lien de l'e-mail de confirmation, quand « Confirm email » est activé) */
-const CONFIRM_PAGE = 'https://amac-bivouac.github.io/BIVOUAC-CONNECT/confirmation/';
+const CONFIRM_PAGE = 'https://www.bivouac-tech.com/confirmation/';
 
 /** Retrouve un code d'invitation (K7QM-4TPX) dans un code tapé à la main ou un lien collé */
 function inviteCodeFrom(text) {

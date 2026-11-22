@@ -1,23 +1,28 @@
 <!doctype html>
+<!--
+  Page d'accueil du site public — https://www.bivouac-tech.com/
+  Source : dépôt BIVOUAC-TECH, dossier pages-publiques/ (22/11/2026). AUCUN secret ici.
+  Envoie tout de suite vers la version web (app/), en gardant ce qui suit le # (ex. #/rejoindre/<code>).
+  Remplace l'ancienne page « Connecteur BIVOUAC-TECH » : l'adresse du connecteur est affichée dans l'app
+  (Paramètres → Mes IA), la page d'autorisation reste oauth/consent.html.
+-->
 <html lang="fr">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Connecteur BIVOUAC-TECH</title>
+  <meta name="referrer" content="no-referrer" />
+  <meta http-equiv="Content-Security-Policy"
+        content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'" />
+  <meta http-equiv="refresh" content="0; url=app/" />
+  <title>BIVOUAC-TECH</title>
   <style>
-    body { margin:0; min-height:100vh; display:grid; place-items:center; padding:24px 16px; font-family:'Segoe UI',system-ui,sans-serif;
-           color:#0E2A3B; background:linear-gradient(180deg,#0E2A3B 0%,#29506A 55%,#F2A66A 100%); }
-    main { max-width:520px; background:#fff; border-radius:18px; padding:30px 28px; box-shadow:0 20px 60px rgba(14,42,59,.35); line-height:1.55; }
-    code { background:#EEF2F6; padding:2px 6px; border-radius:6px; word-break:break-all; }
+    body { margin: 0; min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 24px 16px;
+           font-family: Montserrat, "Segoe UI", system-ui, -apple-system, Arial, sans-serif; background: #0E2A3B; color: #fff; }
+    a { color: #5ECDB5; font-weight: 600; }
   </style>
+  <script>location.replace('app/' + location.hash);</script>
 </head>
 <body>
-  <main>
-    <h1>Connecteur BIVOUAC-TECH</h1>
-    <p>Cette page sert uniquement à <strong>autoriser votre application Claude</strong> à travailler dans BIVOUAC-TECH avec votre abonnement.</p>
-    <p>Adresse du connecteur à ajouter dans Claude (Paramètres → Connecteurs → Ajouter un connecteur personnalisé) :</p>
-    <p><code>https://cdcnwomszyovsebfdwmm.supabase.co/functions/v1/bivouac-mcp</code></p>
-    <p style="color:#6B7A8C;font-size:13px">Une création AMAC — Apollonius MANDON &amp; Amaury CHARRIER.</p>
-  </main>
+  <p>Ouverture de BIVOUAC-TECH… <a href="app/">Ouvrir l'application</a></p>
 </body>
 </html>
