@@ -1,7 +1,7 @@
 // =====================================================================
 // Aujourd'hui (remplace l'accueil ; refonte, livraison 2, revue pour le téléphone le 16/11 — voir REFONTE.md)
 //   bandeau discret (avec les tâches terminées de la semaine) → On vous attend (votes où je n'ai pas voté, mentions)
-//   → Votre prochain pas (UNE tâche, « N autres tâches » ouvre la liste) → Vos projets (une porte par projet).
+//   → Les prochains pas (UNE tâche par projet, sur un paysage animé ; 22/11) → Vos projets (une porte par projet).
 // Règle de clarté : un écran = une question (« que dois-je faire ? »), tient sans défiler sur téléphone.
 // Une seule carte teintée (« On vous attend »), une seule carte principale (« À faire de votre côté »).
 // Les actions rapides sont dans le bouton « Créer » de la barre du haut (steps.js).
@@ -106,21 +106,26 @@ B.pages.home = async (view) => {
           </div>`).join('')}
       </section>` : '';
 
-    // Votre prochain pas : UNE tâche, la carte principale ; les autres derrière « N autres tâches »
-    const [first, ...rest] = tasks;
+    // Les prochains pas (22/11, Amaury) : UNE tâche par projet (la plus pressée), sur un paysage animé (boucle de 5 min)
+    const byProject = new Map();
+    for (const t of tasks) if (B.project(t.project_id)) (byProject.get(t.project_id) || byProject.set(t.project_id, []).get(t.project_id)).push(t);
+    const groups = [...byProject.entries()];
     const todoHtml = `
-      <section class="card main-card" id="today-todo">
-        <div class="card-label mine"><span class="label-ico">${icon('route', 15)}</span>${tr('Votre prochain pas')}</div>
-        ${first ? `<div class="big-task todo-row" data-id="${first.id}">
-            <div class="big-text">
-              ${B.taskCodeHtml(first.title)}
-              <button class="big-title todo-title" translate="no">${esc(B.taskTitleText(first.title))}</button>
-              <span class="meta">${projDot(B.project(first.project_id))}</span>
-              <div class="big-actions"><button class="btn teal" data-done>${tr("C'est fait")}</button><button class="btn" data-snooze>${tr('Reporter')}</button>${B.dueHtml(first.due_date)}</div>
-            </div>
-          </div>
-          ${rest.length ? `<button class="more-link" data-all>${tr(rest.length > 1 ? '{n} autres tâches pour vous' : '{n} autre tâche pour vous', { n: rest.length })}${icon('chevron', 16)}</button>` : ''}`
+      <section class="card main-card next-card" id="today-todo">
+        <div class="card-label mine"><span class="label-ico">${icon('route', 15)}</span>${tr('Les prochains pas')}</div>
+        ${groups.length ? `<div class="next-list">${groups.map(([pid, list]) => {
+          const t = list[0];
+          return `<div class="next-row todo-row" data-id="${t.id}">
+            <span class="meta next-proj">${projDot(B.project(pid))}</span>
+            ${B.taskCodeHtml(t.title)}
+            <button class="todo-title next-title" translate="no">${esc(B.taskTitleText(t.title))}</button>
+            <div class="next-actions"><button class="btn small teal" data-done>${tr("C'est fait")}</button><button class="btn small" data-snooze>${tr('Reporter')}</button>${B.dueHtml(t.due_date)}
+              ${list.length > 1 ? `<button class="link small" data-proj-tasks="${pid}">${tr(list.length - 1 > 1 ? '+ {n} autres dans ce projet' : '+ {n} autre dans ce projet', { n: list.length - 1 })}</button>` : ''}</div>
+          </div>`;
+        }).join('')}</div>
+          ${tasks.length > groups.length ? `<button class="more-link" data-all>${tr('Toutes mes tâches ({n})', { n: tasks.length })}${icon('chevron', 16)}</button>` : ''}`
           : `<p class="muted calm">${tr("Rien à faire de votre côté pour l'instant. Dans un projet, prenez une tâche pour la retrouver ici.")}</p>`}
+        <div class="scene" aria-hidden="true">${B.sceneSvg(true)}</div>
       </section>`;
 
     // Vos projets : une porte par projet (où il en est, sa prochaine étape)
@@ -155,6 +160,8 @@ B.pages.home = async (view) => {
       return;
     }
     if (e.target.closest('[data-all]')) return B.openMyTasks(load);
+    const pt = e.target.closest('[data-proj-tasks]');
+    if (pt) return B.myTasksInProject(pt.dataset.projTasks);
     const row = e.target.closest('.todo-row');
     if (!row) return;
     const t = tasks.find((x) => x.id === row.dataset.id);

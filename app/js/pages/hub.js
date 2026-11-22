@@ -14,7 +14,8 @@ const ITEM_TYPES = {
 };
 
 B.pages.hub = async (el, p) => {
-  const CARDS = ['milestone', 'decision', 'idea']; // le sommet est en haut de la carte « Le chemin »
+  // Le sommet est en haut de la carte « Le chemin » ; dessous, Idées à gauche et Décisions à droite (22/11, Amaury)
+  const CARDS = ['milestone', 'idea', 'decision'];
   el.innerHTML = `<div class="hub-wrap"><div class="hub">${CARDS.map((type) => [type, ITEM_TYPES[type]]).map(([type, t]) => `
     <section class="card hub-card" data-type="${type}">
       <div class="card-head"><h2><span class="our-ico ${t.tone}">${icon(t.icon, 16)}</span>${tr(t.label)} <span class="count"></span></h2>

@@ -341,7 +341,9 @@ async function renderCampHome(el, p) {
 
 // ---------- Le chemin : toutes les étapes, et revenir en arrière ----------
 async function renderChemin(el, p) {
-  el.innerHTML = `<div class="subpage">${subHead(p, tr('Le chemin'))}<div id="chemin"></div></div>`;
+  // La montagne au pied de la page (fond calme, décoratif) : 22/11, demande d'Amaury
+  el.innerHTML = `<div class="chemin-wrap"><div class="subpage">${subHead(p, tr('Le chemin'))}<div id="chemin"></div></div>
+    <div class="chemin-scene" aria-hidden="true">${B.sceneSvg(false)}</div></div>`;
   let items = [];
   const manager = B.isManager(p.id);
 

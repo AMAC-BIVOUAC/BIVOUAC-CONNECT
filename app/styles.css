@@ -1403,7 +1403,7 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--teal); }
 .main-card .more-link { border-top: 0; padding-top: 0; }
 .calm { margin: var(--s-2) 0 var(--s-3); line-height: 1.5; }
 .meta { color: var(--muted); font-size: var(--fs-small); display: flex; flex-wrap: wrap; align-items: center; gap: 2px 6px; }
-.meta .dot { width: 9px; height: 9px; border-radius: var(--r-sm); display: inline-block; flex: none; }
+.meta .dot { position: static; width: 9px; height: 9px; border-radius: var(--r-sm); display: inline-block; flex: none; }
 .chip-late { background: var(--late-bg); color: var(--late-text); font-weight: var(--fw-strong); font-size: var(--fs-label); border-radius: var(--r-round); padding: 3px 10px; white-space: nowrap; }
 .chip-date { background: var(--column); color: var(--tag-neutral); font-weight: var(--fw-strong); font-size: var(--fs-label); border-radius: var(--r-round); padding: 3px 10px; white-space: nowrap; display: inline-flex; align-items: center; gap: 4px; }
 .btn.teal { background: var(--teal); border-color: var(--teal); color: var(--card); }
@@ -1866,9 +1866,9 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--teal); }
 
 /* Le chemin : une montée, du départ (en bas) au sommet (en haut) */
 .trail { list-style: none; margin: 0; padding: 0; position: relative; display: flex; flex-direction: column; gap: var(--s-1); }
-.trail::before { content: ''; position: absolute; left: 21px; top: 28px; bottom: 18px; border-left: 3px dotted var(--line-strong); }
+.trail::before { content: ''; position: absolute; left: 19.5px; /* axe du chemin à 21 px = centre des ronds */ top: 28px; bottom: 18px; border-left: 3px dotted var(--line-strong); }
 .trail-stop { position: relative; display: flex; align-items: center; gap: var(--s-3); min-height: 52px; }
-.trail-stop.done::before, .trail-stop.start::before, .trail-stop.here::before { content: ''; position: absolute; left: 21px; top: 0; bottom: 0; border-left: 3px solid var(--teal); }
+.trail-stop.done::before, .trail-stop.start::before, .trail-stop.here::before { content: ''; position: absolute; left: 19.5px; top: 0; bottom: 0; border-left: 3px solid var(--teal); }
 .trail-stop.start::before { bottom: 50%; }
 .trail-stop.here::before { top: 50%; }
 .trail-btn { display: flex; align-items: center; gap: var(--s-3); width: 100%; min-height: 56px; padding: var(--s-2) var(--s-1) var(--s-2) 8px;
@@ -1891,10 +1891,10 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--teal); }
 .trail-summit .summit-title { background: none; border: 0; padding: 0; text-align: left; cursor: pointer; display: block; margin: 2px 0 0;
   font: inherit; font-size: var(--fs-title-sm); font-weight: var(--fw-title); color: var(--title-page); line-height: 1.3; overflow-wrap: anywhere; }
 .trail-summit .summit-title:hover { text-decoration: underline; }
-.trail-stop.here { gap: var(--s-2); flex-wrap: wrap; padding-left: 9px; color: var(--action); min-height: 48px; }
-.trail-stop.here .here-dot { position: relative; z-index: 1; margin: 0 8px 0 0; }
+.trail-stop.here { gap: var(--s-2); flex-wrap: wrap; padding-left: 0; color: var(--action); min-height: 48px; }
+.trail-stop.here .here-dot { position: relative; z-index: 1; margin: 0 var(--s-2) 0 14px; flex: none; } /* centré sur le trait (axe à 21 px) */
 .trail-stop.here b { color: var(--action); }
-.start-mark { position: relative; z-index: 1; width: 18px; height: 18px; margin-left: 13px; border-radius: var(--r-sm); background: var(--teal); flex: none; }
+.start-mark { position: relative; z-index: 1; width: 18px; height: 18px; margin-left: 12px; border-radius: var(--r-sm); background: var(--teal); flex: none; }
 .trail-stop.start b { color: var(--muted); font-size: var(--fs-small); }
 
 /* « Tout le projet » : la carte « Le chemin » en entier, le sommet en haut, le départ en bas */
@@ -1915,26 +1915,27 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--teal); }
    « Lecteur réduit » = une vidéo flottante en bas à droite. Pastilles d'état du vocal en orange.
    ===================================================================== */
 #app.has-dock { grid-template-columns: 250px minmax(0, 1fr) clamp(280px, 27vw, 420px); }
-.video-dock { background: var(--navy); color: var(--on-navy); display: flex; flex-direction: column; gap: var(--s-2); min-width: 0; min-height: 0; }
-.video-dock.col { padding: var(--s-3); overflow-y: auto; border-left: 1px solid var(--navy-3); }
+.video-dock { background: var(--bg); color: var(--text); display: flex; flex-direction: column; gap: var(--s-2); min-width: 0; min-height: 0; overflow: hidden; }
+.video-dock.col { padding: var(--s-3); overflow-y: auto; border-left: 1px solid var(--line); }
 .video-dock.mini { position: fixed; right: var(--s-4); bottom: var(--s-4); width: min(340px, calc(100vw - 32px)); padding: var(--s-2);
-  border-radius: var(--r-lg); box-shadow: var(--shadow-pop); z-index: 60; }
+  background: var(--card); border: 1px solid var(--line); border-radius: var(--r-lg); box-shadow: var(--shadow-pop); z-index: 60; }
 .dock-head { display: flex; align-items: center; justify-content: space-between; gap: var(--s-2); min-height: 32px; }
-.dock-title { display: inline-flex; align-items: center; gap: 6px; font-size: var(--fs-small); font-weight: var(--fw-title); color: var(--on-navy); }
+.dock-title { display: inline-flex; align-items: center; gap: 6px; font-size: var(--fs-small); font-weight: var(--fw-title); color: var(--title-info); }
 .dock-title .ico { color: var(--orange); }
 .dock-n { background: var(--action); color: var(--card); border-radius: var(--r-round); padding: 0 7px; font-size: var(--fs-label); }
-.dock-head .icon-btn { color: var(--on-navy); }
-.dock-head .icon-btn:hover { background: var(--navy-2); color: var(--card); }
-.dock-tiles { display: flex; flex-direction: column; gap: var(--s-2); }
-.video-dock .video-tile { aspect-ratio: 16 / 9; border: 2px solid var(--navy-3); }
-.video-dock .video-tile.screen { border-color: var(--orange); }
-.video-dock .video-name { right: 44px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.video-full { position: absolute; top: 6px; right: 6px; z-index: 1; background: var(--overlay-strong); color: var(--card); }
-.video-full:hover { background: var(--navy); color: var(--card); }
+.dock-head .icon-btn { color: var(--muted); }
+.dock-head .icon-btn:hover { background: var(--column); color: var(--text); }
+.dock-tiles { display: flex; flex-direction: column; gap: var(--s-2); min-width: 0; }
+.video-dock .video-tile { aspect-ratio: 16 / 9; border: 1px solid var(--line); border-radius: var(--r-md); min-width: 0; }
+.video-dock .video-tile.screen { border: 2px solid var(--orange); }
+.video-dock .video-name { right: 86px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.video-full, .video-pip { position: absolute; top: 6px; right: 6px; z-index: 1; background: var(--overlay-strong); color: var(--card); }
+.video-pip { right: 46px; }
+.video-full:hover, .video-pip:hover { background: var(--navy); color: var(--card); }
 .video-tile:fullscreen { border: 0; border-radius: 0; background: var(--black); }
 .video-tile:fullscreen video { object-fit: contain; }
 .video-tile:fullscreen .video-full .ico { transform: rotate(180deg); }
-.dock-more { color: var(--on-navy); align-self: flex-start; }
+.dock-more { color: var(--link); align-self: flex-start; }
 @media (max-width: 760px) {
   .video-dock.mini { bottom: calc(76px + env(safe-area-inset-bottom)); right: var(--s-3); width: min(260px, 70vw); }
 }
@@ -2001,3 +2002,62 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--teal); }
 #t-reports .card-head h2 { display: flex; align-items: center; gap: var(--s-2); }
 #t-reports .n { background: var(--action); color: var(--card); border-radius: var(--r-round); padding: 1px 8px; font-size: var(--fs-label); }
 .seg.doc-views button { min-width: var(--touch); justify-content: center; }
+
+/* =====================================================================
+   Paysage de fond (22/11) : « Les prochains pas » (animé, boucle de 5 min) et bas de « Le chemin » (calme).
+   Décoratif : jamais sous du texte, s'efface vers le haut ; image fixe si .no-anim ou « réduire les animations ».
+   ===================================================================== */
+.scene-svg { display: block; width: 100%; height: 100%; }
+.sc-peak { fill: var(--land-peak); }
+.sc-hill { fill: var(--land-hill-1); }
+.sc-cloud-a { fill: var(--card); opacity: .85; }
+.sc-glow { opacity: .35; }
+.sc-walker-halo { fill: var(--orange); opacity: .25; }
+/* Positions de repos (image fixe) */
+.sc-sun { transform: translate(930px, 64px); }
+.sc-cloud { transform: translate(300px, 46px); }
+.sc-cloud.two { transform: translate(760px, 30px); }
+.sc-walker { transform: translate(560px, 128px); }
+.sc-still .sc-cloud, .sc-still .sc-walker { display: none; }
+/* La boucle de 5 minutes */
+.sc-anim .sc-sun { animation: sc-sun 300s ease-in-out infinite; }
+.sc-anim .sc-cloud { animation: sc-cloud 300s linear infinite; }
+.sc-anim .sc-cloud.two { animation: sc-cloud-2 300s linear infinite; animation-delay: -150s; }
+.sc-anim .sc-walker { animation: sc-walk 300s linear infinite; }
+.sc-anim .sc-walker-halo { transform-box: fill-box; transform-origin: center; animation: here-wave 2.8s ease-out infinite; }
+.sc-anim .sc-flag { transform-box: fill-box; transform-origin: left center; animation: sc-flag 4s ease-in-out infinite; }
+@keyframes sc-sun { 0% { transform: translate(640px, 210px); } 50% { transform: translate(900px, 52px); } 100% { transform: translate(1160px, 210px); } }
+@keyframes sc-cloud { from { transform: translate(-260px, 46px); } to { transform: translate(1360px, 46px); } }
+@keyframes sc-cloud-2 { from { transform: translate(-260px, 30px); } to { transform: translate(1360px, 30px); } }
+@keyframes sc-walk {
+  0% { transform: translate(60px, 184px); opacity: 0; } 2% { opacity: 1; }
+  10% { transform: translate(180px, 174px); } 20% { transform: translate(320px, 168px); } 30% { transform: translate(440px, 148px); }
+  42%, 47% { transform: translate(560px, 128px); } 57% { transform: translate(680px, 118px); } 66% { transform: translate(780px, 94px); }
+  74% { transform: translate(870px, 76px); } 82% { transform: translate(950px, 54px); }
+  88%, 96% { transform: translate(1000px, 34px); opacity: 1; } 100% { transform: translate(1000px, 34px); opacity: 0; }
+}
+@keyframes sc-flag { 0%, 100% { transform: scaleX(1); } 50% { transform: scaleX(.82); } }
+.no-anim .sc-anim *, .no-anim .sc-anim { animation: none !important; }
+@media (prefers-reduced-motion: reduce) { .sc-anim *, .sc-anim { animation: none !important; } }
+
+/* Fond en bas d'une carte ou d'une page : s'efface vers le haut, ne passe jamais sous le texte */
+.scene { position: absolute; left: 0; right: 0; bottom: 0; height: 150px; pointer-events: none; z-index: 0;
+  -webkit-mask-image: linear-gradient(to bottom, transparent, var(--black) 45%); mask-image: linear-gradient(to bottom, transparent, var(--black) 45%); }
+
+/* Le chemin : la montagne au pied de la page */
+.chemin-wrap { min-height: 100%; display: flex; flex-direction: column; }
+.chemin-scene { position: relative; margin: auto -28px -40px; height: 190px; flex: none; opacity: .75; pointer-events: none;
+  -webkit-mask-image: linear-gradient(to bottom, transparent, var(--black) 55%); mask-image: linear-gradient(to bottom, transparent, var(--black) 55%); }
+@media (max-width: 760px) { .chemin-scene { margin: auto 0 0; height: 140px; } }
+
+/* « Les prochains pas » (Aujourd'hui) : une ligne par projet, le paysage animé en dessous */
+.next-card { position: relative; overflow: hidden; padding-bottom: 132px; }
+.next-card > :not(.scene) { position: relative; z-index: 1; }
+.next-card .scene { height: 160px; opacity: .8; }
+.next-list { display: flex; flex-direction: column; }
+.next-row { display: flex; flex-direction: column; align-items: flex-start; gap: var(--s-1); padding: var(--s-3) 0; min-width: 0; }
+.next-row + .next-row { border-top: 1px solid var(--line); }
+.next-title { font-size: var(--fs-strong); font-weight: var(--fw-title); line-height: 1.3; overflow-wrap: anywhere; color: var(--text); }
+.next-actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-2); margin-top: var(--s-1); }
+.next-row.done { opacity: .5; }
+@media (max-width: 760px) { .next-card { padding-bottom: 76px; } .next-card .scene { height: 96px; } }

@@ -182,3 +182,28 @@ const openCreate = (e) => {
 };
 $('#create-btn')?.addEventListener('click', openCreate);
 $('#bottom-create')?.addEventListener('click', openCreate);
+
+// ---------------------------------------------------------------------
+// Paysage de fond (22/11, Amaury) : la montée vers le sommet, dans les couleurs du Camp de base (jetons --land-*).
+//   animated = true  : « Les prochains pas » (Aujourd'hui) ; boucle de 5 minutes : le soleil se lève et se couche,
+//                      les nuages passent, un petit marcheur orange part du camp, s'arrête à la tente du milieu
+//                      et arrive au drapeau du sommet.
+//   animated = false : fond calme en bas de la page « Le chemin ».
+// Purement décoratif (aria-hidden) ; « Animations » coupé (.no-anim) ou « réduire les animations » : image fixe.
+// ---------------------------------------------------------------------
+B.sceneSvg = (animated = false) => `<svg class="scene-svg ${animated ? 'sc-anim' : 'sc-still'}" viewBox="0 0 1200 200" preserveAspectRatio="xMidYMax meet" aria-hidden="true" focusable="false">
+  <g class="sc-sun"><circle class="l-sun sc-glow" r="90"/><circle class="l-sun" r="30"/></g>
+  <g class="sc-cloud"><ellipse class="sc-cloud-a" cx="0" cy="0" rx="46" ry="12"/><ellipse class="sc-cloud-a" cx="28" cy="-8" rx="26" ry="11"/></g>
+  <g class="sc-cloud two"><ellipse class="sc-cloud-a" cx="0" cy="0" rx="34" ry="9"/><ellipse class="sc-cloud-a" cx="-18" cy="-6" rx="20" ry="9"/></g>
+  <path class="l-far" d="M0,120 L90,98 L170,112 L260,84 L350,106 L450,76 L540,100 L640,70 L720,94 L800,66 L880,92 L960,64 L1040,88 L1120,70 L1200,84 V200 H0 Z"/>
+  <path class="l-mid" d="M0,152 L110,124 L200,140 L300,114 L410,138 L520,110 L620,134 L700,106 L790,128 L860,112 V200 H0 Z"/>
+  <path class="sc-peak" d="M860,200 L960,82 L985,94 L1000,30 L1040,88 L1065,76 L1100,96 L1200,120 V200 Z"/>
+  <path class="l-snow" d="M1000,30 L1016,52 L1008,48 L1001,56 L994,49 L987,52 Z"/>
+  <path class="sc-hill" d="M0,200 L0,180 C140,176 240,168 330,164 S480,146 570,138 S730,122 820,114 C860,110 885,130 905,200 Z"/>
+  <path class="l-dots" d="M60,186 L180,176 L320,170 L440,150 L560,130 L680,120 L780,96 L870,78 L950,56 L1000,36"/>
+  <g transform="translate(140 180)"><path class="l-tent" d="M-13,3 L0,-16 L13,3 Z"/><path class="l-tent-door" d="M0,-8 L-4.5,3 L4.5,3 Z"/></g>
+  <g transform="translate(560 132)"><path class="l-tent" d="M-10,3 L0,-13 L10,3 Z"/><path class="l-tent-door" d="M0,-6 L-3.5,3 L3.5,3 Z"/></g>
+  ${[[90, 196, 1], [108, 195, .8], [400, 182, .9], [720, 160, .8], [760, 156, .7]].map(([x, y, s]) => `<path class="l-tree" d="M${x},${y - 24 * s} l${7 * s},${24 * s} h${-14 * s} z"/>`).join('')}
+  <g transform="translate(1000 34)"><path class="l-flag sc-flag" d="M0,0 v-24 M0,-24 l18,6 l-18,6"/></g>
+  ${animated ? '<g class="sc-walker"><circle class="sc-walker-halo" r="15"/><circle class="l-here-dot" r="8"/></g>' : ''}
+</svg>`;

@@ -1482,7 +1482,9 @@ const EN = {
   "Type de document": "Document type",
   "Une étape du chemin…": "A step on the path…",
   "Vidéos du vocal": "Voice call videos",
-  "Votre écran (ce que voient les autres)": "Your screen (what others see)",
+  "Votre écran partagé": "Your shared screen",
+  "Ouvrir dans une autre fenêtre": "Open in another window",
+  "Impossible d’ouvrir la vidéo dans une autre fenêtre.": "Could not open the video in another window.",
   "Vous avez moins de 15 ans : votre parent ou tuteur légal doit accepter votre inscription.": "You are under 15: your parent or legal guardian must agree to your registration.",
   "concerne {who}": "about {who}",
   "conditions d’utilisation": "terms of use",
@@ -1516,7 +1518,11 @@ const EN = {
   "Autres": "Other",
   "Du départ (en bas) jusqu'au sommet (en haut). Une étape majeure est un grand pas.": "From the start (bottom) up to the summit (top). A major step is a big step forward.",
   "L'objectif final…": "The final goal…",
-  "le sommet": "the summit"
+  "le sommet": "the summit",
+  "Les prochains pas": "Next steps",
+  "+ {n} autres dans ce projet": "+ {n} more in this project",
+  "+ {n} autre dans ce projet": "+ {n} more in this project",
+  "Toutes mes tâches ({n})": "All my tasks ({n})"
 };
 // ---- fin du dictionnaire
 
