@@ -1,6 +1,66 @@
 // =====================================================================
 // Équipe — les humains du projet et leurs IA, réglages du projet
+// Signalements (migration 034) : « Signaler » sur un message ; les responsables (Créateur, Administrateurs)
+// les voient ici et les marquent « Traité ». La personne signalée n'est pas prévenue.
 // =====================================================================
+
+const REPORT_REASONS = () => [tr('Propos blessants ou harcèlement'), tr('Contenu inapproprié'), tr('Comportement inquiétant envers un mineur'), tr('Spam ou arnaque'), tr('Autre')];
+
+/** Fenêtre « Signaler » : raison + précisions, puis les responsables du projet sont prévenus */
+B.reportContent = ({ projectId, type = 'message', targetId = null, targetUser = null, excerpt = '' }) => {
+  const m = B.modal(`
+    <h2>${tr('Signaler ce message')}</h2>
+    <p class="muted small">${tr('Les responsables du projet (Créateur et Administrateurs) le verront. La personne signalée n’est pas prévenue.')}</p>
+    ${excerpt ? `<blockquote class="small report-quote" translate="no">${esc(String(excerpt).slice(0, 300))}</blockquote>` : ''}
+    <label>${tr('Pourquoi ?')}</label>
+    <div class="report-reasons">${REPORT_REASONS().map((r, i) => `<label class="check"><input type="radio" name="rp-why" value="${i}" ${i === 0 ? 'checked' : ''} /> ${esc(r)}</label>`).join('')}</div>
+    <label for="rp-details">${tr('Précisions (facultatif)')}</label><textarea id="rp-details" rows="3" maxlength="800"></textarea>
+    <p class="msg" id="rp-msg"></p>
+    <div class="actions"><button class="btn" data-close>${tr('Annuler')}</button><button class="btn primary" id="rp-go">${icon('flag', 14)} ${tr('Signaler')}</button></div>`);
+  $('[data-close]', m).onclick = B.closeModal;
+  $('#rp-go', m).onclick = async (e) => {
+    const why = REPORT_REASONS()[Number($('input[name=rp-why]:checked', m).value)];
+    const details = $('#rp-details', m).value.trim();
+    e.target.disabled = true;
+    const { error } = await B.sb.from('reports').insert({ project_id: projectId, target_type: type, target_id: targetId, target_user: targetUser,
+      excerpt: excerpt ? String(excerpt).slice(0, 500) : null, reason: (details ? `${why} — ${details}` : why).slice(0, 1000) });
+    if (error) {
+      e.target.disabled = false;
+      $('#rp-msg', m).textContent = /reports|schema cache/i.test(error.message || '') ? tr('Le signalement n’est pas encore installé sur le serveur (migration 034).') : errText(error);
+      return;
+    }
+    B.closeModal();
+    const p = B.project(projectId);
+    for (const mem of B.projectMembers(projectId).filter((x) => ['owner', 'admin'].includes(x.role))) {
+      B.notify(mem.id, { projectId, type: 'report', link: `#/p/${projectId}/equipe`,
+        text: tr('Nouveau signalement dans « {project} » : à regarder dans Équipe.', { project: p?.name || '' }) });
+    }
+    B.toast(tr('Merci : le signalement est transmis aux responsables du projet.'), { type: 'success' });
+  };
+};
+
+/** Liste des signalements d'un projet (responsables seulement) */
+async function renderReports(box, p) {
+  const { data, error } = await B.sb.from('reports').select('*').eq('project_id', p.id).order('created_at', { ascending: false }).limit(50);
+  if (error || !box.isConnected) { box.classList.add('hidden'); return; }
+  const list = (data || []).filter((r) => r.project_id === p.id);
+  const open = list.filter((r) => !r.handled_at);
+  box.classList.remove('hidden');
+  box.innerHTML = `
+    <div class="card-head"><h2>${icon('flag', 16)} ${tr('Signalements')} ${open.length ? `<span class="n">${open.length}</span>` : ''}</h2></div>
+    ${list.length ? list.map((r) => `<div class="report-row ${r.handled_at ? 'done' : ''}">
+        <div class="report-text"><b>${esc(r.reason)}</b>
+          ${r.excerpt ? `<blockquote class="small report-quote" translate="no">${esc(r.excerpt)}</blockquote>` : ''}
+          <span class="muted small">${tr('Signalé par {who}', { who: esc(B.person(r.reporter_id).display_name) })}${r.target_user ? ` · ${tr('concerne {who}', { who: esc(B.person(r.target_user).display_name) })}` : ''} · ${timeAgo(r.created_at)}${r.handled_at ? ` · ${tr('traité par {who}', { who: esc(B.person(r.handled_by).display_name) })}` : ''}</span></div>
+        ${r.handled_at ? `<span class="tag">${tr('Traité')}</span>` : `<button class="btn small" data-handle="${r.id}">${icon('check', 14)} ${tr('Traité')}</button>`}
+      </div>`).join('')
+      : `<p class="muted small">${tr('Aucun signalement. Chacun peut signaler un message (menu ⋯ du message) : vous le verrez ici.')}</p>`}`;
+  $$('[data-handle]', box).forEach((b) => (b.onclick = async () => {
+    const { error: err } = await B.sb.rpc('handle_report', { p_report: b.dataset.handle });
+    if (err) return B.error(err);
+    renderReports(box, p);
+  }));
+}
 
 B.pages.team = async (el, p) => {
   const members = B.projectMembers(p.id);
@@ -44,6 +104,7 @@ B.pages.team = async (el, p) => {
         <p class="muted small">${tr("Chaque IA appartient à un membre et tourne sur sa clé API ou son abonnement. Pour la solliciter dans l'Atelier IA, écrivez la commande indiquée : son propriétaire devra accepter.")}</p>
       </section>
 
+      ${B.isManager(p.id) ? '<section class="card hidden" id="t-reports"></section>' : ''}
       <section class="card">
         <div class="card-head"><h2>${tr('Réglages du projet')}</h2></div>
         ${isOwner ? `
@@ -58,6 +119,7 @@ B.pages.team = async (el, p) => {
     </div>`;
 
   $('#t-invite', el)?.addEventListener('click', () => B.openInvite(p.id));
+  if ($('#t-reports', el)) renderReports($('#t-reports', el), p);
   B.paintDmBadges?.(); // pastille « messages privés non lus » sur la photo de chacun
 
   $$('.role-select', el).forEach((s) => (s.onchange = async () => {

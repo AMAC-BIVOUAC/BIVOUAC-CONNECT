@@ -180,7 +180,11 @@ function errText(err) {
     'invite:interdit': 'Seuls le créateur et les administrateurs du projet peuvent inviter.',
     'invite:trop': "Trop d'invitations en attente (20). Annulez-en avant d'en créer d'autres.",
     'equipe:interdit': "Vous n'avez pas le droit de faire ça dans cette équipe.",
-    'equipe:introuvable': 'Cette personne ne fait plus partie du projet.'
+    'equipe:introuvable': 'Cette personne ne fait plus partie du projet.',
+    'mineur:referent': "Ce projet n'a pas encore de référent adulte : un membre de moins de 18 ans ne peut le rejoindre que si le Créateur ou un Administrateur est majeur. Demandez au Créateur de nommer un adulte Administrateur.",
+    'inscription:conditions': "Acceptez les conditions d'utilisation et la politique de confidentialité.",
+    'inscription:age': 'Cochez « Je certifie avoir 15 ans ou plus ».',
+    'inscription:parent': "Moins de 15 ans : il faut l'accord de votre parent ou tuteur légal (case à cocher)."
   };
   const key = Object.keys(team).find((k) => m.includes(k));
   if (key) return tr(team[key]);
@@ -194,7 +198,8 @@ function errText(err) {
     'limite:salons': 'Ce projet a déjà 50 salons. Supprimez-en un avant d\'en créer un autre.',
     'limite:invitations': "Trop d'invitations créées aujourd'hui (50 par jour). Réessayez demain.",
     'limite:fichiers': "Limite d'envoi de fichiers atteinte (100 par heure, 300 Mo par jour). Réessayez plus tard.",
-    'limite:inscriptions': 'Trop d\'inscriptions en ce moment. Réessayez dans une heure.'
+    'limite:inscriptions': 'Trop d\'inscriptions en ce moment. Réessayez dans une heure.',
+    'limite:signalements': "Trop de signalements aujourd'hui (20 par jour). Écrivez directement aux responsables du projet."
   };
   if (m.includes('compte:confirmation')) return tr('Écrivez SUPPRIMER pour confirmer.');
   const lim = Object.keys(limits).find((k) => m.includes(k));

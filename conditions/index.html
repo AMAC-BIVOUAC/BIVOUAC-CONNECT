@@ -1,0 +1,106 @@
+<!doctype html>
+<!--
+  Page publique « Conditions d'inscription et accès des mineurs » — https://amac-bivouac.github.io/BIVOUAC-CONNECT/conditions/
+  Source : document « Conditions inscription et acces mineurs.md » d'Apo (projet Création application, 22/11/2026),
+  repris tel quel (sections 1 à 8). PROJET DE TEXTE : à faire relire avant tout lancement public.
+  Version acceptée à l'inscription : B.TERMS_VERSION (src/js/account.js). Changer ce texte = nouvelle version, les deux ensemble.
+-->
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="referrer" content="no-referrer" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; img-src data:" />
+  <title>Conditions d'utilisation · BIVOUAC-TECH</title>
+  <style>
+    :root { --night: #0E2A3B; --teal: #12809A; --orange: #F28C28; --sand: #F7E1C0; --muted: #5B6B78; }
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: Montserrat, "Segoe UI", system-ui, -apple-system, Arial, sans-serif; color: var(--night);
+           background: linear-gradient(180deg, var(--night) 0, #1E4A63 340px, #F4F7F9 340px); padding: 32px 16px 48px; }
+    main { max-width: 760px; margin: 0 auto; background: #fff; border-radius: 18px; padding: 32px 28px; box-shadow: 0 20px 60px rgba(0,0,0,.18); }
+    .word { font-weight: 800; letter-spacing: 1px; font-size: 18px; }
+    .word small { color: var(--orange); font-size: 11px; letter-spacing: 4px; font-weight: 600; margin-left: 6px; }
+    h1 { font-size: 26px; margin: 18px 0 6px; }
+    h2 { font-size: 18px; margin: 30px 0 8px; color: var(--teal); }
+    p, li { line-height: 1.6; color: #33475A; font-size: 15px; }
+    ul { padding-left: 20px; }
+    .note { background: var(--sand); border-radius: 12px; padding: 12px 14px; font-size: 14px; }
+    table { width: 100%; border-collapse: collapse; font-size: 14px; margin: 8px 0; }
+    th, td { text-align: left; vertical-align: top; padding: 8px; border-bottom: 1px solid #E3E9EE; }
+    th { color: var(--muted); font-weight: 700; }
+    .table-wrap { overflow-x: auto; }
+    a { color: var(--teal); }
+    .muted { color: var(--muted); font-size: 13px; }
+  </style>
+</head>
+<body>
+<main>
+  <div class="word">BIVOUAC <small>— tech —</small></div>
+  <h1>Conditions d'inscription et accès des mineurs</h1>
+  <p class="muted">Version 2026-11-22 · bêta privée</p>
+  <p class="note">Projet de texte, en cours de relecture. Il décrit qui peut s'inscrire et comment les mineurs utilisent
+    BIVOUAC-TECH. Voir aussi la <a href="../confidentialite/">politique de confidentialité</a>.</p>
+
+  <h2>1. Objet</h2>
+  <p>BIVOUAC-TECH est une application (version web, téléphone et Windows) qui permet à des étudiants, des associations et des
+    porteurs de projets de collaborer sur des projets. Ces conditions précisent qui peut s'inscrire et comment les
+    utilisateurs mineurs peuvent accéder au service.</p>
+
+  <h2>2. Âge minimum</h2>
+  <ul>
+    <li>L'inscription est ouverte aux personnes âgées de <strong>15 ans et plus</strong>.</li>
+    <li>Les personnes de <strong>moins de 15 ans</strong> ne peuvent s'inscrire qu'avec l'accord de leur représentant légal
+      (parent ou tuteur).</li>
+    <li>Les utilisateurs de 15 à 17 ans peuvent s'inscrire seuls, mais sont invités à informer leurs parents de leur
+      utilisation de l'application.</li>
+  </ul>
+
+  <h2>3. Principe déclaratif</h2>
+  <p>L'âge et, le cas échéant, l'accord parental sont <strong>déclarés par l'utilisateur</strong> lors de l'inscription.
+    BIVOUAC-TECH ne procède à aucune vérification d'identité ni de pièce justificative.</p>
+  <p>En s'inscrivant, l'utilisateur certifie sur l'honneur l'exactitude des informations fournies. Toute fausse déclaration
+    engage la seule responsabilité de son auteur ou de son représentant légal.</p>
+  <p>Si BIVOUAC-TECH apprend qu'un compte a été créé en violation de ces règles, il peut suspendre ou supprimer ce compte et
+    les données associées.</p>
+
+  <h2>4. Écran d'inscription</h2>
+  <p>Lors de la création du compte, l'utilisateur doit :</p>
+  <ol>
+    <li>indiquer sa <strong>date de naissance</strong> ;</li>
+    <li>cocher « Je certifie avoir 15 ans ou plus », ou, s'il a moins de 15 ans : « Je certifie que mon parent ou tuteur
+      légal a lu ces conditions et accepte mon inscription » ;</li>
+    <li>cocher « J'ai lu et j'accepte les conditions d'utilisation et la politique de confidentialité ».</li>
+  </ol>
+  <p>L'inscription n'est pas possible sans ces cases cochées.</p>
+
+  <h2>5. Déclaration de consentement parental (moins de 15 ans)</h2>
+  <p class="note">« Je soussigné(e), représentant légal de l'utilisateur mineur, déclare avoir pris connaissance des conditions
+    d'utilisation de BIVOUAC-TECH et autorise mon enfant à créer un compte et à participer à des projets sur l'application.
+    Je reconnais être responsable de l'utilisation qu'il en fait. »</p>
+  <p>Cette déclaration est acceptée par simple case à cocher, éventuellement accompagnée de l'adresse e-mail du parent, pour
+    information.</p>
+
+  <h2>6. Protection des mineurs</h2>
+  <ul>
+    <li><strong>Données minimales</strong> : seules les informations nécessaires au fonctionnement sont demandées.</li>
+    <li><strong>Profil discret</strong> : les coordonnées personnelles (téléphone, adresse, e-mail) ne sont jamais montrées
+      aux autres utilisateurs, mineurs ou majeurs.</li>
+    <li><strong>Échanges encadrés</strong> : les échanges ont lieu dans les espaces de projet ; on ne peut écrire en privé qu'à
+      une personne avec qui l'on partage un projet. Tout comportement inapproprié peut être signalé et entraîner une suspension.</li>
+    <li><strong>Référent adulte</strong> : un mineur ne peut rejoindre un projet que si celui-ci a un référent adulte (le
+      Créateur ou un Administrateur majeur).</li>
+    <li><strong>Signalement</strong> : chaque message a un bouton « Signaler » ; les responsables du projet reçoivent le
+      signalement.</li>
+    <li><strong>Suppression</strong> : un mineur ou son représentant légal peut supprimer à tout moment le compte et ses
+      données (Paramètres → Mes données → « Supprimer mon compte »).</li>
+  </ul>
+
+  <h2>7. Responsabilités</h2>
+  <p>BIVOUAC-TECH met en place des mesures raisonnables de protection mais ne peut garantir l'exactitude des âges déclarés.
+    Les représentants légaux restent responsables de l'usage que font leurs enfants de l'application.</p>
+
+  <h2>8. Contact</h2>
+  <p>Pour toute question ou demande de suppression : <strong>[adresse de contact à compléter]</strong>.</p>
+</main>
+</body>
+</html>

@@ -60,6 +60,14 @@ B.openTask = (task, after) => {
   });
 };
 
+/** « Mes tâches » (Camp de base) : l'onglet Tâches, filtré sur moi (réglage de ce poste, comme le filtre par personne) */
+B.myTasksInProject = (pid) => {
+  store.set(`tasks-who:${pid}`, B.me.id);
+  const key = B.isPhone() ? 'tasks-view-phone' : 'tasks-view';
+  if (['people', 'calendar'].includes(store.get(key, ''))) store.set(key, B.isPhone() ? 'list' : 'kanban'); // ces vues n'ont pas de filtre
+  location.hash = `#/p/${pid}/taches`;
+};
+
 B.pages.tasks = async (el, p, sub) => {
   // Quatre vues : Tableau · Liste · Calendrier · Par personne. Le Calendrier a sa propre adresse
   // (…/taches/calendrier) : il vit dans calendar.js et s'abonne à d'autres tables.
@@ -85,7 +93,6 @@ B.pages.tasks = async (el, p, sub) => {
           <button data-v="people">${icon('users', 15)} ${tr('Par personne')}</button>
         </div>
         <button class="btn primary small" id="new-task">${icon('plus', 15)} ${tr('Tâche')}</button>
-        <a class="btn small" id="all-project" href="#/p/${p.id}/projet/tout" title="${tr('Tout le projet : objectifs, étapes, décisions, idées, activité')}">${icon('list', 15)} ${tr('Tout le projet')}</a>
         <div class="tasks-phone-bar">
           <label class="sr-only" for="view-select">${tr('Vue')}</label>
           <select id="view-select" class="pill-select">

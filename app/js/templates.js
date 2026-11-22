@@ -156,6 +156,10 @@ function npDetails(t) {
       <p class="muted small">${tr('Les étapes seront placées toutes seules dans le calendrier à partir de cette date.')}</p>` : `
       <label for="np-desc">${tr('En une phrase (facultatif)')}</label>
       <input id="np-desc" maxlength="300" placeholder="${tr('ex. Préparer la sortie de la v1 au printemps')}" />`}
+    <label for="np-summit">${tr('Le sommet : l’objectif final (facultatif)')}</label>
+    <input id="np-summit" maxlength="200" placeholder="${tr('ex. 10 testeurs actifs avant fin novembre')}" />
+    ${t ? '' : `<label for="np-summit-date">${tr('Date du sommet (facultatif)')}</label><input id="np-summit-date" type="date" />`}
+    <p class="muted small">${tr('Le chemin mène au sommet : vous y ajouterez les étapes, de la plus proche à la plus lointaine.')}</p>
     <label>${tr('Couleur')}</label>
     <div class="color-pick">${swatches.map((c) => `<button type="button" class="swatch ${c === color ? 'on' : ''}" data-c="${c}" style="background:${c}"></button>`).join('')}</div>
     ${t ? `<p class="tpl-summary">${icon('spark', 14)} ${tr('Ajouté au projet : {c} salons, {s} étapes et {n} tâches de départ.', { c: t.channels.length, s: t.milestones.length, n: t.tasks.length })}</p>` : ''}
@@ -181,6 +185,13 @@ function npDetails(t) {
     e.target.textContent = tr('Création…');
     try {
       const id = await B.createProject(name, t ? '' : $('#np-desc', m).value.trim(), color);
+      // Le sommet (22/11) : l'objectif final du projet, au bout du chemin
+      const summit = $('#np-summit', m).value.trim();
+      if (summit) {
+        const { error } = await B.sb.from('items').insert({ project_id: id, type: 'objective', title: summit,
+          due_date: t ? keyDay : ($('#np-summit-date', m).value || null) });
+        if (error) console.warn('Sommet', error);
+      }
       if (!t) { B.closeModal(); location.hash = `#/p/${id}`; return; }
       let counts = null;
       try { counts = await B.applyTemplate(id, t, keyDay); } catch (err) { console.warn('Modèle', err); }

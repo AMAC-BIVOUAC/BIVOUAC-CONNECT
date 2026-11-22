@@ -6,7 +6,7 @@
 // ne suffit pas (sinon les mentions disparaîtraient de « On vous attend » sans avoir été traitées).
 // =====================================================================
 
-const NOTIF_ICONS = { mention: 'at', ai_request: 'spark', ai_answer: 'spark', task: 'checksq', vote: 'decision' };
+const NOTIF_ICONS = { mention: 'at', ai_request: 'spark', ai_answer: 'spark', task: 'checksq', vote: 'decision', report: 'flag' };
 
 /** Remplit un bloc avec la liste des notifications ; renvoie la fonction qui la recharge */
 B.renderNotifications = (box) => {

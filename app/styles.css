@@ -387,7 +387,7 @@ textarea { resize: vertical; }
 .tabs a.on { color: var(--navy); border-bottom-color: var(--orange); }
 .tab { flex: 1; min-height: 0; overflow-y: auto; }
 .tab-discussion, .tab-atelier { overflow: hidden; }
-.tab-projet, .tab-taches, .tab-documents, .tab-equipe { padding: 22px 28px 40px; }
+.tab-projet, .tab-taches, .tab-tout, .tab-documents, .tab-equipe { padding: 22px 28px 40px; }
 
 .guide { display: flex; align-items: center; gap: 14px; margin: 14px 28px 0; padding: 12px 16px; border-radius: var(--r-md); background: linear-gradient(90deg, var(--wait-bg), var(--card)); border: 1px solid var(--wait-line); }
 .guide-ico { width: 36px; height: 36px; border-radius: var(--r-round); background: var(--action); color: var(--card); display: grid; place-items: center; flex: none; }
@@ -1370,8 +1370,8 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--teal); }
   select, textarea, input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]):not([type="file"]) { min-height: var(--touch); }
   .btn:not(.tiny):not(.link), .composer .send { min-width: var(--touch); }
   h1 { font-size: var(--fs-title-sm); }
-  :where(.icon-btn, .tick, .btn.tiny, .link, .toast-close, .read-indicator, .menu-btn, .avatar-link, .pill, .who-chip, .cal-chip, .crumb, .mytask-title, .pin-last, .team-row > a, .reaction, .notif small a) { position: relative; }
-  :where(.icon-btn, .tick, .btn.tiny, .link, .toast-close, .read-indicator, .menu-btn, .avatar-link, .pill, .who-chip, .cal-chip, .crumb, .mytask-title, .pin-last, .team-row > a, .reaction, .notif small a)::after {
+  :where(.icon-btn, .tick, .btn.tiny, .link, .toast-close, .read-indicator, .menu-btn, .avatar-link, .pill, .who-chip, .cal-chip, .crumb, .mytask-title, .pin-last, .team-row > a, .reaction, .notif small a, .summit-title, .major-check) { position: relative; }
+  :where(.icon-btn, .tick, .btn.tiny, .link, .toast-close, .read-indicator, .menu-btn, .avatar-link, .pill, .who-chip, .cal-chip, .crumb, .mytask-title, .pin-last, .team-row > a, .reaction, .notif small a, .summit-title, .major-check)::after {
     content: ''; position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
     width: max(100%, var(--touch)); height: max(100%, var(--touch));
   }
@@ -1835,7 +1835,7 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--teal); }
 
   /* Tâches : la vue dans une liste déroulante, le filtre derrière un bouton, « + Tâche » flottant */
   .tasks { position: relative; }
-  .tasks-head h2, .tasks-head .seg, .tasks-head #new-task, .tasks-head #all-project { display: none; }
+  .tasks-head h2, .tasks-head .seg, .tasks-head #new-task { display: none; }
   .tasks-phone-bar { display: flex; gap: var(--s-2); flex-wrap: wrap; }
   .who-filter:not(.open) { display: none; }
   .fab { display: inline-flex; align-items: center; gap: var(--s-2); position: sticky; bottom: var(--s-4); float: right; margin: 0 0 var(--s-4);
@@ -1844,3 +1844,160 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--teal); }
   .tasks-body.in-calendar ~ .fab { display: none; }
   .tasks-body:not(.in-calendar) { padding-bottom: 76px; } /* le « + Tâche » flottant ne cache jamais la dernière ligne */
 }
+
+/* =====================================================================
+   Le chemin et le sommet (22/11) : étapes majeures, montée de bas en haut ; « Votre prochain pas » harmonisé
+   ===================================================================== */
+/* « Votre prochain pas » : même famille que les portes à côté (carte blanche, icône carrée, titre ardoise) */
+.camp .main-card { border: 1px solid var(--line); border-radius: var(--r-lg); display: flex; flex-direction: column; gap: var(--s-3); padding: var(--s-4); }
+.camp-grid { align-items: stretch; }
+.next-head { display: flex; align-items: center; gap: var(--s-3); }
+.next-head .door-ico { width: 36px; height: 36px; flex: none; }
+.camp .big-task { padding: var(--s-1) 0 0; }
+.camp .big-title { color: var(--text); font-size: var(--fs-strong); font-weight: var(--fw-title); }
+.camp .big-actions { margin-top: auto; }
+.big-due { display: flex; }
+
+/* Étape majeure */
+.major-tag { display: inline-block; width: max-content; font-size: var(--fs-label); font-weight: var(--fw-label); letter-spacing: var(--ls-label);
+  text-transform: uppercase; color: var(--title-decide); background: var(--orange-soft); border-radius: var(--r-sm); padding: 1px 6px; margin: 0 0 2px; }
+.l-step.major { stroke: var(--orange); stroke-width: 4; opacity: 1; }
+.land-lab.major { color: var(--navy); }
+
+/* Le chemin : une montée, du départ (en bas) au sommet (en haut) */
+.trail { list-style: none; margin: 0; padding: 0; position: relative; display: flex; flex-direction: column; gap: var(--s-1); }
+.trail::before { content: ''; position: absolute; left: 21px; top: 28px; bottom: 18px; border-left: 3px dotted var(--line-strong); }
+.trail-stop { position: relative; display: flex; align-items: center; gap: var(--s-3); min-height: 52px; }
+.trail-stop.done::before, .trail-stop.start::before, .trail-stop.here::before { content: ''; position: absolute; left: 21px; top: 0; bottom: 0; border-left: 3px solid var(--teal); }
+.trail-stop.start::before { bottom: 50%; }
+.trail-stop.here::before { top: 50%; }
+.trail-btn { display: flex; align-items: center; gap: var(--s-3); width: 100%; min-height: 56px; padding: var(--s-2) var(--s-1) var(--s-2) 8px;
+  background: none; border: 0; border-radius: var(--r-md); font: inherit; color: inherit; text-align: left; cursor: pointer; }
+.trail-btn:hover { background: var(--column); }
+.trail-btn > .ico:last-child { color: var(--muted); flex: none; }
+.trail-mark { position: relative; z-index: 1; width: 26px; height: 26px; border-radius: var(--r-round); border: 2px solid var(--muted); background: var(--card);
+  flex: none; display: grid; place-items: center; }
+.trail-stop.next .trail-mark { border: 3px solid var(--navy); }
+.trail-stop.done .trail-mark { border: 0; background: var(--done); color: var(--card); }
+.trail-stop.major .trail-mark { width: 34px; height: 34px; margin-left: -4px; border-color: var(--orange); border-width: 4px; }
+.trail-stop.major.done .trail-mark { background: var(--done); }
+.trail-stop.major b { font-size: var(--fs-strong); }
+.trail-stop .tap-text { display: flex; flex-direction: column; min-width: 0; flex: 1; }
+.trail-stop .tap-text b { overflow-wrap: anywhere; }
+.trail-stop .tap-text > span:last-child { font-size: var(--fs-small); color: var(--muted); }
+.trail-stop.summit { align-items: flex-start; padding-bottom: var(--s-3); }
+.trail-stop.summit .summit-ico { position: relative; z-index: 1; }
+.trail-summit { min-width: 0; }
+.trail-summit .summit-title { background: none; border: 0; padding: 0; text-align: left; cursor: pointer; display: block; margin: 2px 0 0;
+  font: inherit; font-size: var(--fs-title-sm); font-weight: var(--fw-title); color: var(--title-page); line-height: 1.3; overflow-wrap: anywhere; }
+.trail-summit .summit-title:hover { text-decoration: underline; }
+.trail-stop.here { gap: var(--s-2); flex-wrap: wrap; padding-left: 9px; color: var(--action); min-height: 48px; }
+.trail-stop.here .here-dot { position: relative; z-index: 1; margin: 0 8px 0 0; }
+.trail-stop.here b { color: var(--action); }
+.start-mark { position: relative; z-index: 1; width: 18px; height: 18px; margin-left: 13px; border-radius: var(--r-sm); background: var(--teal); flex: none; }
+.trail-stop.start b { color: var(--muted); font-size: var(--fs-small); }
+
+/* « Tout le projet » : la carte « Le chemin » en entier, le sommet en haut, le départ en bas */
+.hub-card[data-type="milestone"] { grid-column: 1 / -1; }
+.hub-summit .summit-item { display: flex; align-items: center; gap: var(--s-3); padding: var(--s-3); margin: var(--s-2) 0; background: var(--wait-bg);
+  border: 1px solid var(--wait-line); border-radius: var(--r-md); }
+.hub-summit .summit-ico { width: 38px; height: 38px; background: var(--card); }
+.hub-summit .item-title { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; cursor: default; }
+.hub-summit .item-title b { color: var(--title-page); font-size: var(--fs-strong); overflow-wrap: anywhere; }
+.hub-summit .summit-item.done b { text-decoration: none; }
+.hub-card[data-type="milestone"] .item.major .item-title { font-weight: var(--fw-title); }
+.path-start { display: flex; align-items: center; gap: var(--s-2); font-size: var(--fs-small); color: var(--muted); font-weight: var(--fw-strong); padding: var(--s-1) var(--s-2); }
+.add-item .major-check { margin: 0; display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; color: var(--muted); }
+.add-item input.major { flex: none; padding: 0; }
+
+/* =====================================================================
+   Colonne vidéo (22/11) : caméras et écrans partagés à droite, visibles partout pendant le vocal ;
+   « Lecteur réduit » = une vidéo flottante en bas à droite. Pastilles d'état du vocal en orange.
+   ===================================================================== */
+#app.has-dock { grid-template-columns: 250px minmax(0, 1fr) clamp(280px, 27vw, 420px); }
+.video-dock { background: var(--navy); color: var(--on-navy); display: flex; flex-direction: column; gap: var(--s-2); min-width: 0; min-height: 0; }
+.video-dock.col { padding: var(--s-3); overflow-y: auto; border-left: 1px solid var(--navy-3); }
+.video-dock.mini { position: fixed; right: var(--s-4); bottom: var(--s-4); width: min(340px, calc(100vw - 32px)); padding: var(--s-2);
+  border-radius: var(--r-lg); box-shadow: var(--shadow-pop); z-index: 60; }
+.dock-head { display: flex; align-items: center; justify-content: space-between; gap: var(--s-2); min-height: 32px; }
+.dock-title { display: inline-flex; align-items: center; gap: 6px; font-size: var(--fs-small); font-weight: var(--fw-title); color: var(--on-navy); }
+.dock-title .ico { color: var(--orange); }
+.dock-n { background: var(--action); color: var(--card); border-radius: var(--r-round); padding: 0 7px; font-size: var(--fs-label); }
+.dock-head .icon-btn { color: var(--on-navy); }
+.dock-head .icon-btn:hover { background: var(--navy-2); color: var(--card); }
+.dock-tiles { display: flex; flex-direction: column; gap: var(--s-2); }
+.video-dock .video-tile { aspect-ratio: 16 / 9; border: 2px solid var(--navy-3); }
+.video-dock .video-tile.screen { border-color: var(--orange); }
+.video-dock .video-name { right: 44px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.video-full { position: absolute; top: 6px; right: 6px; z-index: 1; background: var(--overlay-strong); color: var(--card); }
+.video-full:hover { background: var(--navy); color: var(--card); }
+.video-tile:fullscreen { border: 0; border-radius: 0; background: var(--black); }
+.video-tile:fullscreen video { object-fit: contain; }
+.video-tile:fullscreen .video-full .ico { transform: rotate(180deg); }
+.dock-more { color: var(--on-navy); align-self: flex-start; }
+@media (max-width: 760px) {
+  .video-dock.mini { bottom: calc(76px + env(safe-area-inset-bottom)); right: var(--s-3); width: min(260px, 70vw); }
+}
+
+/* Pastilles d'état d'une personne dans le vocal : écran (orange plein), caméra (contour orange), micro */
+.vs-badges { display: inline-flex; align-items: center; gap: 3px; flex: none; margin-left: auto; }
+.vs-badge { width: 20px; height: 20px; border-radius: var(--r-round); display: inline-grid; place-items: center; flex: none; }
+.vs-badge .ico { width: 12px; height: 12px; }
+.vs-screen { background: var(--orange); color: var(--navy); }
+.vs-cam { background: var(--orange-soft); color: var(--action); box-shadow: inset 0 0 0 1.5px var(--orange); }
+.vs-mic { background: var(--orange-soft); color: var(--action); }
+.vs-off { background: var(--danger-soft); color: var(--danger); }
+.voice-person .vs-badges { margin-left: 2px; }
+
+/* =====================================================================
+   Documents (22/11) : recherche, filtre par type, affichage liste ou icônes
+   ===================================================================== */
+.docs-tools { display: flex; align-items: center; gap: var(--s-2); flex-wrap: wrap; margin: 0 2px var(--s-3); }
+.docs-search { flex: 1 1 220px; min-width: 0; display: flex; align-items: center; gap: var(--s-2); margin: 0; padding: 0 var(--s-3);
+  background: var(--card); border: 1px solid var(--line-strong); border-radius: var(--r-md); color: var(--muted); }
+.docs-search:focus-within { outline: 2px solid var(--focus); outline-offset: 1px; }
+.docs-search input { border: 0; background: none; flex: 1; min-width: 0; padding: 9px 0; outline: none; box-shadow: none; }
+#doc-type { flex: none; }
+.seg.doc-views .ico { display: block; }
+.doc-view { overflow-x: auto; }
+.doc-found { display: flex; align-items: center; gap: var(--s-3); margin: 0 0 var(--s-2); }
+.doc-where { display: flex; align-items: center; gap: 4px; font-size: var(--fs-label); color: var(--muted); margin-top: 2px; }
+.doc-empty { padding: var(--s-4); margin: 0; }
+.doc-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 170px), 1fr)); gap: var(--s-3); }
+.doc-card { position: relative; display: flex; flex-direction: column; min-width: 0; border: 1px solid var(--line); border-radius: var(--r-md); background: var(--card); }
+.doc-card:hover { border-color: var(--line-strong); }
+.doc-card.drop-over { border-color: var(--teal); background: var(--teal-soft); }
+.doc-card-main { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: var(--s-4) var(--s-3) var(--s-2); min-width: 0;
+  background: none; border: 0; font: inherit; color: inherit; text-align: center; cursor: pointer; }
+.doc-card-main b { font-weight: var(--fw-strong); font-size: var(--fs-small); overflow-wrap: anywhere; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.doc-card-ico { position: relative; width: 64px; height: 64px; border-radius: var(--r-md); display: grid; place-items: center; background: var(--column); color: var(--title-info); }
+.folder-card .doc-card-ico { background: var(--orange-soft); color: var(--action); }
+.doc-card-ico.k-image { background: var(--teal-soft); color: var(--link); }
+.doc-card-ico.k-pdf { background: var(--danger-soft); color: var(--danger); }
+.doc-card-ico.k-sheet { background: var(--mint-soft); color: var(--done-text); }
+.doc-card-ico.k-slides { background: var(--orange-soft); color: var(--action); }
+.doc-card-ico.k-text { background: var(--task-soft); color: var(--task-text); }
+.doc-ext { position: absolute; bottom: -6px; right: -8px; font-size: var(--fs-label); font-weight: var(--fw-label); background: var(--card); color: var(--text);
+  border: 1px solid var(--line-strong); border-radius: var(--r-sm); padding: 0 4px; line-height: 1.4; }
+.doc-card .doc-where { justify-content: center; }
+.doc-card-actions { display: flex; justify-content: center; align-items: center; gap: 2px; padding: 0 var(--s-2) var(--s-2); flex-wrap: wrap; }
+
+/* =====================================================================
+   Inscription : âge déclaré et conditions (22/11) ; signalements
+   ===================================================================== */
+.consent { display: flex; flex-direction: column; gap: var(--s-2); margin: var(--s-3) 0 var(--s-2); }
+.consent .check { display: flex; align-items: flex-start; gap: var(--s-2); margin: 0; font-size: var(--fs-small); color: var(--text); font-weight: var(--fw-strong); }
+.consent .check input { margin-top: 3px; flex: none; }
+.consent a { color: var(--link); }
+.parent-box { border: 1px solid var(--wait-line); background: var(--wait-bg); border-radius: var(--r-md); padding: var(--s-3); display: flex; flex-direction: column; gap: var(--s-2); }
+.parent-box p { margin: 0; color: var(--title-decide); font-weight: var(--fw-strong); }
+.parent-box blockquote, .report-quote { margin: 0; padding: var(--s-2) var(--s-3); border-left: 3px solid var(--line-strong); background: var(--card); color: var(--text);
+  border-radius: var(--r-sm); font-style: italic; overflow-wrap: anywhere; }
+.parent-box label { margin: var(--s-1) 0 0; }
+.report-reasons { display: flex; flex-direction: column; gap: var(--s-1); }
+.report-reasons .check { margin: 0; display: flex; align-items: center; gap: var(--s-2); color: var(--text); font-size: var(--fs-small); }
+.report-row { display: flex; align-items: flex-start; gap: var(--s-3); padding: var(--s-3) 0; border-top: 1px solid var(--line); }
+.report-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: var(--s-1); }
+#t-reports .card-head h2 { display: flex; align-items: center; gap: var(--s-2); }
+#t-reports .n { background: var(--action); color: var(--card); border-radius: var(--r-round); padding: 1px 8px; font-size: var(--fs-label); }
+.seg.doc-views button { min-width: var(--touch); justify-content: center; }

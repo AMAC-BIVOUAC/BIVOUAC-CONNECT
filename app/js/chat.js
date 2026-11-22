@@ -241,6 +241,7 @@ B.chat = async (root, { project, channel, mode }) => {
         ${st.pinsReady ? `<button class="icon-btn ${m.pinned_at ? 'on' : ''}" data-pin title="${m.pinned_at ? tr('Désépingler') : tr('Épingler en haut du salon')}">${icon('pin', 16)}</button>` : ''}
         ${mine && !m.is_ai && !editing ? `<button class="icon-btn" data-edit title="${tr('Modifier')}">${icon('edit', 16)}</button>` : ''}
         ${mine || B.isManager(project.id) ? `<button class="icon-btn" data-del title="${mine ? tr('Supprimer') : tr('Supprimer (modération)')}">${icon('trash', 16)}</button>` : ''}
+        ${mine ? '' : `<button class="icon-btn" data-report title="${tr('Signaler ce message')}" aria-label="${tr('Signaler ce message')}">${icon('flag', 16)}</button>`}
       </div></div>
     </div>`;
   }
@@ -314,6 +315,11 @@ B.chat = async (root, { project, channel, mode }) => {
     }
 
     if (e.target.closest('[data-pin]')) return togglePin(st.messages.find((m) => m.id === id));
+    if (e.target.closest('[data-report]')) {
+      const target = st.messages.find((m) => m.id === id);
+      if (target) B.reportContent({ projectId: project.id, type: 'message', targetId: id, targetUser: target.author_id, excerpt: target.content });
+      return;
+    }
 
     if (e.target.closest('[data-edit]')) return startEdit(id);
     if (e.target.closest('[data-edit-cancel]')) return stopEdit();

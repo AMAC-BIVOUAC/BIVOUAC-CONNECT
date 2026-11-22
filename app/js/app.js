@@ -61,6 +61,14 @@ $('#auth-toggle').addEventListener('click', () => {
   $('#forgot').classList.toggle('hidden', signupMode);
   ['#pass2-input', '#su-first', '#su-last', '#su-birth'].forEach((s) => ($(s).required = signupMode));
   $('#su-birth').max = new Date().toISOString().slice(0, 10);
+  // Âge déclaré et conditions (migration 034) : cases sous la date de naissance, bouton actif seulement quand elles sont cochées
+  const box = $('#su-consent');
+  if (signupMode && !box.dataset.ready) {
+    box.dataset.ready = '1';
+    box.innerHTML = B.consentFieldsHtml('su');
+    B.bindConsent($('#signup-fields'), 'su', (ok) => { if (signupMode) $('#auth-submit').disabled = !ok; });
+  }
+  $('#auth-submit').disabled = signupMode && Boolean(B.checkConsent(B.readConsent($('#signup-fields'), 'su', $('#su-birth').value)));
   loginMsg('');
 });
 
@@ -85,8 +93,12 @@ $('#email-form').addEventListener('submit', async (e) => {
   let personal = null;
   if (signupMode) {
     personal = B.readPersonal($('#signup-fields'), 'su');
-    const bad = B.checkPersonal(personal) || (password !== $('#pass2-input').value ? tr('Les deux mots de passe ne sont pas identiques.') : '');
+    const consent = B.readConsent($('#signup-fields'), 'su', personal.birth_date);
+    const bad = B.checkPersonal(personal) || B.checkConsent(consent) || (password !== $('#pass2-input').value ? tr('Les deux mots de passe ne sont pas identiques.') : '');
     if (bad) { e.submitter.disabled = false; return loginMsg(bad, true); }
+    // La base range ces cases avec la date et l'heure du serveur (handle_new_user, migration 034)
+    const { birth_date, ...cases } = consent;
+    personal = { ...personal, ...cases };
   }
   const { data, error } = signupMode
     ? await B.sb.auth.signUp({ email, password, options: { data: personal, emailRedirectTo: CONFIRM_PAGE } })

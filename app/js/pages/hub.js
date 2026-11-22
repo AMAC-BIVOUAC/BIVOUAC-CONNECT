@@ -1,28 +1,33 @@
 // =====================================================================
-// « Tout le projet » — idées, objectifs, décisions, feuille de route, activité
+// « Tout le projet » — le chemin (sommet + étapes), décisions, idées, activité
+// 22/11 (Amaury) : « Objectifs » et « Feuille de route » fusionnent en « Le chemin » : le sommet = l'objectif final
+// (un seul objectif par projet, migration 033), les étapes se lisent de bas en haut, « étape majeure » = items.major.
 // Ancien onglet « Notre projet ». Depuis la refonte (livraison 2), il s'ouvre à la demande
 // en bas du Camp de base (pages/camp.js) : c'est ici qu'on modifie, archive, donne suite, lance un vote.
 // =====================================================================
 
 const ITEM_TYPES = {
   idea: { label: 'Idées', one: 'idée', icon: 'bulb', tone: 'yellow', placeholder: 'Une nouvelle idée…', hint: 'Tout ce qui vous passe par la tête. Transformez-les ensuite en tâches.', empty: 'Aucune idée pour l\'instant.' },
-  objective: { label: 'Objectifs', one: 'objectif', icon: 'target', tone: 'red', placeholder: 'Un objectif mesurable…', hint: 'À quoi verra-t-on que le projet est réussi ?', empty: 'Aucun objectif pour l\'instant.' },
+  objective: { label: 'Le sommet', one: 'le sommet', icon: 'flag', tone: 'orange', placeholder: 'L\'objectif final…', hint: 'À quoi verra-t-on que le projet est réussi ?', empty: '' },
   decision: { label: 'Décisions', one: 'décision', icon: 'decision', tone: 'green', placeholder: 'Une décision prise…', hint: 'Gardez la trace de ce qui a été tranché, et pourquoi.', empty: 'Aucune décision pour l\'instant.' },
-  milestone: { label: 'Feuille de route', one: 'étape', icon: 'route', tone: 'orange', placeholder: 'Une grande étape…', hint: 'Les jalons du projet, avec une date.', empty: 'Aucune étape pour l\'instant.' }
+  milestone: { label: 'Le chemin', one: 'étape', icon: 'route', tone: 'orange', placeholder: 'Une étape du chemin…', hint: 'Du départ (en bas) jusqu\'au sommet (en haut). Une étape majeure est un grand pas.', empty: 'Aucune étape pour l\'instant.' }
 };
 
 B.pages.hub = async (el, p) => {
-  el.innerHTML = `<div class="hub-wrap"><div class="hub">${Object.entries(ITEM_TYPES).map(([type, t]) => `
+  const CARDS = ['milestone', 'decision', 'idea']; // le sommet est en haut de la carte « Le chemin »
+  el.innerHTML = `<div class="hub-wrap"><div class="hub">${CARDS.map((type) => [type, ITEM_TYPES[type]]).map(([type, t]) => `
     <section class="card hub-card" data-type="${type}">
       <div class="card-head"><h2><span class="our-ico ${t.tone}">${icon(t.icon, 16)}</span>${tr(t.label)} <span class="count"></span></h2>
         ${type === 'idea' ? `<button class="btn small tidy hidden" data-tidy title="${tr('Ranger les idées déjà transformées en tâches')}">${icon('check', 14)} <span></span></button>` : ''}</div>
       <p class="muted small">${tr(t.hint)}</p>
+      ${type === 'milestone' ? '<div class="hub-summit"></div>' : ''}
       <ul class="items"></ul>
-      ${type !== 'milestone' ? '<details class="archived hidden"><summary></summary><ul class="items archived-list"></ul></details>' : ''}
+      ${type === 'milestone' ? `<div class="path-start">${icon('flag', 14).replace('<svg', '<svg aria-hidden="true"')} ${tr('Départ')}</div>` : ''}
+      <details class="archived hidden"><summary></summary><ul class="items archived-list"></ul></details>
       <form class="add-item">
-        <input placeholder="${tr(t.placeholder)}" maxlength="200" />
-        ${type === 'milestone' ? '<input type="date" class="date" />' : ''}
-        <button class="btn small primary">${icon('plus', 14)}</button>
+        <input placeholder="${tr(t.placeholder)}" maxlength="200" aria-label="${tr(t.placeholder)}" />
+        ${type === 'milestone' ? `<input type="date" class="date" aria-label="${tr('Date (facultatif)')}" /><label class="check small major-check" title="${tr('Étape majeure')}"><input type="checkbox" class="major" /> ${tr('Majeure')}</label>` : ''}
+        <button class="btn small primary" aria-label="${tr('Ajouter')}">${icon('plus', 14)}</button>
       </form>
       ${type === 'decision' ? `<button class="link small new-vote" data-new-vote>${icon('users', 14)} ${tr('…ou soumettre une décision au vote')}</button>` : ''}
     </section>`).join('')}</div>
@@ -106,17 +111,37 @@ B.pages.hub = async (el, p) => {
   const followLink = (i) => `<div class="follow-done">${icon('check', 13)} ${tr('Suite donnée')} :
     <a href="#/p/${p.id}/${i.followup_type === 'task' ? 'taches' : 'projet'}">${FOLLOW_LABEL()[i.followup_type] || ''}</a></div>`;
 
+  /** Le sommet, en haut de la carte « Le chemin » */
+  const renderSummit = () => {
+    const box = $('.hub-summit', el);
+    if (!box) return;
+    const top = B.summitOf(items);
+    const reached = top && (top.done || top.archived_at);
+    box.innerHTML = top
+      ? `<div class="item summit-item ${reached ? 'done' : ''}" data-id="${top.id}">
+          <span class="summit-ico">${icon('flag', 18)}</span>
+          <span class="item-title"><span class="eyebrow">${reached ? tr('Sommet atteint') : tr('Le sommet')}${top.due_date ? ` · ${esc(B.longDate(top.due_date))}` : ''}</span>
+            <b translate="no">${esc(top.title)}</b></span>
+          <button class="btn tiny" data-edit-summit>${icon('edit', 13)} ${tr('Modifier')}</button></div>`
+      : `<div class="summit-item empty"><span class="summit-ico">${icon('flag', 18)}</span>
+          <span class="item-title"><span class="eyebrow">${tr('Le sommet')}</span><span class="muted small">${tr("L'objectif final du projet : à quoi verra-t-on qu'il est réussi ?")}</span></span>
+          <button class="btn small primary" data-edit-summit>${icon('plus', 13)} ${tr('Fixer le sommet')}</button></div>`;
+  };
+
   const render = () => {
-    for (const [type, t] of Object.entries(ITEM_TYPES)) {
+    renderSummit();
+    for (const type of CARDS) {
+      const t = ITEM_TYPES[type];
       const card = $(`.hub-card[data-type="${type}"]`, el);
-      if (!card) return;
+      if (!card) continue;
       let list = items.filter((i) => i.type === type && !i.archived_at);
-      if (type === 'milestone') list = list.sort((a, b) => (a.due_date || '9999').localeCompare(b.due_date || '9999'));
+      // Le chemin se lit de bas en haut : la première étape en bas, la plus proche du sommet en haut
+      if (type === 'milestone') list = B.pathOf(items).steps.slice().reverse();
       $('.count', card).textContent = list.length ? `(${list.length})` : '';
       $('.items', card).innerHTML = list.map((i) => `
-        <li class="item ${i.done ? 'done' : ''}" data-id="${i.id}">
-          ${type === 'idea' ? `<span class="bullet"></span>` : `<input type="checkbox" ${i.done ? 'checked' : ''} title="${type === 'decision' ? tr('Appliquée') : tr('Atteint')}" />`}
-          <span class="item-title">${esc(i.title)}${i.body ? `<small>${esc(i.body.slice(0, 120))}</small>` : ''}${i.vote_options ? voteHtml(i) : ''}</span>
+        <li class="item ${i.done ? 'done' : ''} ${i.major ? 'major' : ''}" data-id="${i.id}">
+          ${type === 'idea' ? `<span class="bullet"></span>` : `<input type="checkbox" ${i.done ? 'checked' : ''} title="${type === 'decision' ? tr('Appliquée') : tr('Étape franchie')}" aria-label="${type === 'decision' ? tr('Appliquée') : tr('Étape franchie')}" />`}
+          <span class="item-title">${type === 'milestone' && i.major ? `<span class="major-tag">${tr('Étape majeure')}</span>` : ''}${esc(i.title)}${i.body ? `<small>${esc(i.body.slice(0, 120))}</small>` : ''}${i.vote_options ? voteHtml(i) : ''}</span>
           ${i.due_date ? `<span class="due">${icon('calendar', 13)} ${fmtDate(i.due_date)}</span>` : ''}
           <span class="item-meta">${avatar(B.person(i.author_id), 20)}</span>
           ${type === 'idea' && !i.done ? `<button class="btn tiny" data-to-task title="${tr('Transformer en tâche')}">${tr('→ tâche')}</button>` : ''}
@@ -136,12 +161,12 @@ B.pages.hub = async (el, p) => {
         const n = archived.length;
         box.classList.toggle('hidden', !n);
         $('summary', box).textContent = type === 'idea' ? tr(n > 1 ? '{n} idées rangées' : '{n} idée rangée', { n })
-          : type === 'objective' ? tr(n > 1 ? '{n} objectifs atteints archivés' : '{n} objectif atteint archivé', { n })
+          : type === 'milestone' ? tr(n > 1 ? '{n} étapes abandonnées' : '{n} étape abandonnée', { n })
           : tr(n > 1 ? '{n} décisions archivées' : '{n} décision archivée', { n });
         $('.archived-list', box).innerHTML = archived.map((i) => `
           <li class="item done" data-id="${i.id}"><span class="bullet"></span>
             <span class="item-title">${esc(i.title)}${i.vote_options ? voteHtml(i) : ''}</span>
-            <button class="link small" data-unarchive>${tr('Ressortir')}</button></li>`).join('');
+            ${type !== 'milestone' || B.isManager(p.id) ? `<button class="link small" data-unarchive>${tr(type === 'milestone' ? 'Reprendre' : 'Ressortir')}</button>` : ''}</li>`).join('');
       }
     }
   };
@@ -153,7 +178,7 @@ B.pages.hub = async (el, p) => {
     const title = $('input', f).value.trim();
     if (!title) return;
     const due = $('.date', f)?.value || null;
-    const { error } = await B.sb.from('items').insert({ project_id: p.id, type, title, due_date: due });
+    const { error } = await B.sb.from('items').insert({ project_id: p.id, type, title, due_date: due, ...(type === 'milestone' ? { major: $('.major', f).checked } : {}) });
     if (error) return B.error(error);
     f.reset();
     load();
@@ -220,6 +245,10 @@ B.pages.hub = async (el, p) => {
 
   // Cocher / éditer / transformer en tâche / voter
   el.addEventListener('click', async (e) => {
+    if (e.target.closest('[data-edit-summit]')) {
+      const top = B.summitOf(items);
+      return top ? openItem(top) : summitForm();
+    }
     const li = e.target.closest('.item[data-id]');
     if (!li) return;
     const item = items.find((i) => i.id === li.dataset.id);
@@ -241,10 +270,9 @@ B.pages.hub = async (el, p) => {
       return render();
     }
     if (e.target.matches('input[type=checkbox]')) {
-      await B.sb.from('items').update({ done: e.target.checked }).eq('id', item.id);
-      await load();
-      if (items.find((i) => i.id === item.id)?.archived_at && !item.archived_at) B.toast(tr('Objectif atteint : il est archivé en bas de la liste.'), { type: 'success' });
-      return;
+      const { error } = await B.sb.from('items').update({ done: e.target.checked }).eq('id', item.id);
+      if (error) B.error(new Error(/responsables|Administrateurs/i.test(error.message || '') ? tr('Seuls le Créateur et les Administrateurs peuvent revenir en arrière sur une étape.') : errText(error)));
+      return load();
     }
     if (e.target.closest('[data-archive]') || e.target.closest('[data-unarchive]')) {
       const { error } = await B.sb.from('items').update({ archived_at: e.target.closest('[data-archive]') ? new Date().toISOString() : null }).eq('id', item.id);
@@ -285,7 +313,7 @@ B.pages.hub = async (el, p) => {
       <p class="muted small" translate="no">${esc(title)}</p>
       <label>${tr('En faire…')}</label>
       <div class="follow-types">
-        ${[['task', tr('une tâche'), 'checksq'], ['objective', tr('un objectif'), 'target'], ['milestone', tr('une étape de la feuille de route'), 'route'], ['idea', tr('une idée'), 'bulb']]
+        ${[['task', tr('une tâche'), 'checksq'], ['milestone', tr('une étape du chemin'), 'route'], ['idea', tr('une idée'), 'bulb']]
           .map(([k, label, ic], n) => `<label class="follow-type ${n === 0 ? 'on' : ''}"><input type="radio" name="fu-type" value="${k}" ${n === 0 ? 'checked' : ''} />${icon(ic, 15)} ${label}</label>`).join('')}
       </div>
       <label>${tr('Titre')}</label><input id="fu-title" maxlength="200" value="${esc(title.slice(0, 200))}" />
@@ -331,6 +359,27 @@ B.pages.hub = async (el, p) => {
     };
   }
 
+  /** Fixer le sommet (aucun encore) : titre et date */
+  function summitForm() {
+    const m = B.modal(`
+      <h2>${tr('Fixer le sommet')}</h2>
+      <p class="muted small">${tr("L'objectif final du projet : à quoi verra-t-on qu'il est réussi ?")}</p>
+      <label for="sm-title">${tr('Titre')}</label><input id="sm-title" maxlength="200" placeholder="${tr('ex. 10 testeurs actifs avant fin novembre')}" />
+      <label for="sm-date">${tr('Date (facultatif)')}</label><input id="sm-date" type="date" />
+      <p class="msg" id="sm-msg"></p>
+      <div class="actions"><button class="btn" data-close>${tr('Annuler')}</button><button class="btn primary" id="sm-go">${tr('Enregistrer')}</button></div>`);
+    $('[data-close]', m).onclick = B.closeModal;
+    $('#sm-title', m).focus();
+    $('#sm-go', m).onclick = async () => {
+      const title = $('#sm-title', m).value.trim();
+      if (!title) return ($('#sm-msg', m).textContent = tr('Écrivez un titre.'));
+      const { error } = await B.sb.from('items').insert({ project_id: p.id, type: 'objective', title, due_date: $('#sm-date', m).value || null });
+      if (error) return ($('#sm-msg', m).textContent = errText(error));
+      B.closeModal();
+      load();
+    };
+  }
+
   function openItem(item) {
     const t = ITEM_TYPES[item.type];
     const m = B.modal(`
@@ -338,6 +387,7 @@ B.pages.hub = async (el, p) => {
       <label>${tr('Titre')}</label><input id="it-title" maxlength="200" value="${esc(item.title)}" />
       <label>${tr('Détails')}</label><textarea id="it-body" class="long-text" rows="10" maxlength="5000">${esc(item.body || '')}</textarea>
       <label>${tr('Date (facultatif)')}</label><input id="it-date" type="date" value="${item.due_date || ''}" />
+      ${item.type === 'milestone' ? `<label class="check"><input type="checkbox" id="it-major" ${item.major ? 'checked' : ''} /> ${tr('Étape majeure')} <span class="muted small">${tr('(un grand pas : plus visible sur le chemin)')}</span></label>` : ''}
       <p class="muted small">${tr('Ajouté par {who}', { who: esc(B.person(item.author_id).display_name) })} · ${timeAgo(item.created_at)}</p>
       <div class="actions">
         ${B.canDelete(p.id, item.author_id, { voted: Boolean(item.vote_options) }) ? `<button class="btn danger-ghost" id="it-del">${icon('trash', 15)} ${tr('Supprimer')}</button>` : ''}
@@ -352,7 +402,8 @@ B.pages.hub = async (el, p) => {
       const { error } = await B.sb.from('items').update({
         title: $('#it-title', m).value.trim() || item.title,
         body: $('#it-body', m).value.trim() || null,
-        due_date: $('#it-date', m).value || null
+        due_date: $('#it-date', m).value || null,
+        ...(item.type === 'milestone' ? { major: $('#it-major', m).checked } : {})
       }).eq('id', item.id);
       if (error) return B.error(error);
       B.closeModal();

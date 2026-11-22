@@ -662,14 +662,29 @@ B.voiceSpeaking = (uid) => Boolean(B.voice?.meters.get(uid)?.speaking);
 // Affichage
 // ---------------------------------------------------------------------
 
-/** Une personne du vocal : avatar (anneau quand elle parle) + nom + micro coupé */
+/**
+ * État d'une personne du vocal en petites pastilles (22/11, demande d'Amaury : mieux distinguer, orange de la charte) :
+ * écran partagé (pastille orange pleine), caméra (contour orange), micro (orange ; coupé = rouge barré), son coupé.
+ */
+B.voiceStateIcons = (info = {}, size = 12) => {
+  const out = [];
+  if (info.screen) out.push(`<span class="vs-badge vs-screen" title="${esc(tr('Partage son écran'))}" aria-label="${esc(tr('Partage son écran'))}">${icon('screen', size)}</span>`);
+  if (info.cam) out.push(`<span class="vs-badge vs-cam" title="${esc(tr('Caméra allumée'))}" aria-label="${esc(tr('Caméra allumée'))}">${icon('video', size)}</span>`);
+  if (info.deafened) out.push(`<span class="vs-badge vs-off" title="${esc(tr('Son coupé'))}" aria-label="${esc(tr('Son coupé'))}">${icon('headoff', size)}</span>`);
+  else if (info.muted || info.noMic) out.push(`<span class="vs-badge vs-off" title="${esc(tr('Micro coupé'))}" aria-label="${esc(tr('Micro coupé'))}">${icon('micoff', size)}</span>`);
+  else out.push(`<span class="vs-badge vs-mic" title="${esc(tr('Micro ouvert'))}" aria-label="${esc(tr('Micro ouvert'))}">${icon('mic', size)}</span>`);
+  return `<span class="vs-badges">${out.join('')}</span>`;
+};
+
+/** Une personne du vocal : avatar (anneau quand elle parle) + nom + écran / caméra / micro */
 function voicePersonHtml(uid, info = {}, size = 26) {
   const person = B.person(uid);
-  const icons = info.deafened ? icon('headoff', 13) : info.muted ? icon('micoff', 13) : '';
+  const me = uid === B.me.id && B.voice;
+  const icons = B.voiceStateIcons(me ? { ...info, screen: Boolean(B.voice.screen), cam: Boolean(B.voice.cam), muted: B.voice.muted, deafened: B.voice.deafened } : info);
   const title = (person.display_name || info.name || '') + (info.noMic ? ` · ${tr('sans micro')}` : '');
   return `<span class="voice-person" data-person="${esc(uid)}" title="${esc(title)}">
     <span class="voice-ring ${B.voiceSpeaking(uid) ? 'speaking' : ''}" data-voice-uid="${esc(uid)}">${avatar(person.display_name ? person : { id: uid, display_name: info.name }, size)}</span>
-    <span class="voice-name">${esc(person.display_name || info.name || '')}</span>${icons ? `<span class="voice-state">${icons}</span>` : ''}
+    <span class="voice-name">${esc(person.display_name || info.name || '')}</span>${icons}
   </span>`;
 }
 
@@ -726,31 +741,73 @@ function videoEl(uid, stream, mine) {
   return el;
 }
 
-/** Mosaïque des caméras allumées, dans le salon où je suis en vocal */
-function videoStage(v, holder) {
+/**
+ * Colonne vidéo (22/11, demande d'Amaury) : caméras et écrans partagés de chacun, à droite de l'app,
+ * visible depuis n'importe quelle page tant qu'on est dans un vocal avec au moins une vidéo.
+ * Mon propre écran partagé y apparaît aussi (« ce que voient les autres »).
+ * Deux tailles (réglage de ce poste, store 'video:dock') : « col » = colonne à droite, « mini » = petit lecteur
+ * flottant (une seule vidéo : un écran partagé d'abord). Chaque vidéo a son bouton « Plein écran ».
+ * Téléphone : toujours le petit lecteur (la place manque pour une colonne).
+ */
+function videoTiles(v) {
   const tiles = [];
   if (sentVideo(v)) tiles.push({ uid: B.me.id, mine: true, screen: Boolean(v.screen) });
   for (const [uid, info] of v.people) {
     const p = v.peers.get(uid);
     if (uid !== B.me.id && hasVideo(info) && p?.videoStream) tiles.push({ uid, stream: p.videoStream, screen: Boolean(info.screen) });
   }
-  for (const uid of [...videoEls.keys()]) if (!tiles.some((t) => t.uid === uid)) { videoEls.get(uid).srcObject = null; videoEls.delete(uid); }
-  if (!tiles.length) { holder.innerHTML = ''; holder.classList.add('hidden'); return; }
-  holder.classList.remove('hidden');
-  holder.dataset.n = tiles.length;
-  const label = (t) => (t.screen
-    ? (t.mine ? tr('Votre écran') : tr('Écran de {name}', { name: B.person(t.uid).display_name }))
-    : (t.mine ? tr('Vous') : B.person(t.uid).display_name));
-  holder.innerHTML = tiles.map((t) => `<div class="video-tile ${t.screen ? 'screen' : ''}" data-vid="${esc(t.uid)}" data-person="${esc(t.uid)}"
-    ${t.screen ? `title="${esc(tr('Double-clic : plein écran'))}"` : ''}>
-    <span class="video-name">${t.screen ? icon('screen', 12) : ''} ${esc(label(t))}</span></div>`).join('');
-  for (const t of tiles) {
-    const tile = $(`.video-tile[data-vid="${CSS.escape(t.uid)}"]`, holder);
-    // mon image : je la garde (aperçu) ; celle des autres
-    const el = t.mine ? videoEl(t.uid, mineStream(v), !t.screen) : videoEl(t.uid, t.stream);
-    tile.prepend(el);
-  }
+  // Les écrans des autres d'abord, puis le mien, puis les caméras
+  const rank = (t) => (t.screen ? (t.mine ? 1 : 0) : 2);
+  return tiles.sort((a, b) => rank(a) - rank(b));
 }
+const dockNarrow = () => innerWidth < 1000; // téléphone, petite fenêtre : la colonne mangerait la page
+const dockMode = () => (dockNarrow() ? 'mini' : store.get('video:dock', 'col') === 'mini' ? 'mini' : 'col');
+
+B.renderVideoDock = () => {
+  const v = B.voice;
+  let dock = $('#video-dock');
+  const tiles = v ? videoTiles(v) : [];
+  for (const uid of [...videoEls.keys()]) if (!tiles.some((t) => t.uid === uid)) { videoEls.get(uid).srcObject = null; videoEls.delete(uid); }
+  const app = $('#app');
+  if (!tiles.length || !app) {
+    dock?.remove();
+    app?.classList.remove('has-dock');
+    return;
+  }
+  if (!dock) {
+    dock = document.createElement('aside');
+    dock.id = 'video-dock';
+    dock.setAttribute('aria-label', tr('Vidéos du vocal'));
+    app.appendChild(dock);
+  }
+  const mode = dockMode();
+  const shown = mode === 'mini' ? tiles.slice(0, 1) : tiles;
+  dock.className = `video-dock ${mode}`;
+  app.classList.toggle('has-dock', mode === 'col');
+  const label = (t) => (t.screen
+    ? (t.mine ? tr('Votre écran (ce que voient les autres)') : tr('Écran de {name}', { name: B.person(t.uid).display_name }))
+    : (t.mine ? tr('Vous') : B.person(t.uid).display_name));
+  const key = shown.map((t) => `${t.uid}:${t.screen}`).join('|') + mode + tiles.length;
+  if (dock.dataset.key !== key) {
+    dock.dataset.key = key;
+    dock.innerHTML = `
+      <div class="dock-head">
+        <span class="dock-title">${icon('video', 15)} ${tr('En vidéo')} <span class="dock-n">${tiles.length}</span></span>
+        ${dockNarrow() ? '' : `<button class="icon-btn" data-dock="${mode === 'col' ? 'mini' : 'col'}" title="${mode === 'col' ? tr('Lecteur réduit') : tr('Agrandir en colonne')}" aria-label="${mode === 'col' ? tr('Lecteur réduit') : tr('Agrandir en colonne')}">${icon(mode === 'col' ? 'shrink' : 'dock', 17)}</button>`}
+      </div>
+      <div class="dock-tiles">${shown.map((t) => `<div class="video-tile ${t.screen ? 'screen' : ''} ${t.mine ? 'mine' : ''}" data-vid="${esc(t.uid)}" data-person="${esc(t.uid)}">
+        <span class="video-name">${icon(t.screen ? 'screen' : 'video', 12)} <span translate="no">${esc(label(t))}</span></span>
+        <button class="icon-btn video-full" data-vfull title="${tr('Plein écran')}" aria-label="${tr('Plein écran')}">${icon('expand', 16)}</button></div>`).join('')}</div>
+      ${mode === 'mini' && tiles.length > 1 && !dockNarrow() ? `<button class="link small dock-more" data-dock="col">${tr(tiles.length - 1 > 1 ? '+ {n} autres vidéos' : '+ {n} autre vidéo', { n: tiles.length - 1 })}</button>` : ''}`;
+  }
+  for (const t of shown) {
+    const tile = $(`.video-tile[data-vid="${CSS.escape(t.uid)}"]`, dock);
+    if (!tile) continue;
+    const el = t.mine ? videoEl(t.uid, mineStream(v), !t.screen) : videoEl(t.uid, t.stream);
+    if (el.parentNode !== tile) tile.prepend(el);
+  }
+};
+
 /** Flux de mon aperçu, gardé tant que la caméra est la même */
 function mineStream(v) {
   const track = sentVideo(v);
@@ -768,11 +825,23 @@ document.addEventListener('click', (e) => {
   if (action === 'screen') B.voiceToggleScreen().catch(B.error);
   if (action === 'leave') B.voiceLeave();
 });
-B.on('voice', () => B.renderVoiceBar());
+B.on('voice', () => { B.renderVoiceBar(); B.renderVideoDock(); });
+addEventListener('resize', debounce(() => B.renderVideoDock(), 300));
 
-// Double-clic sur un écran partagé : plein écran (Échap pour sortir)
+// Colonne vidéo : agrandir / réduire, plein écran d'une vidéo
+document.addEventListener('click', (e) => {
+  const d = e.target.closest('[data-dock]');
+  if (d) { store.set('video:dock', d.dataset.dock); return B.renderVideoDock(); }
+  const f = e.target.closest('[data-vfull]');
+  if (!f) return;
+  const tile = f.closest('.video-tile');
+  if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
+  else tile?.requestFullscreen?.().catch(() => {});
+});
+
+// Double-clic sur une vidéo : plein écran (Échap pour sortir)
 document.addEventListener('dblclick', (e) => {
-  const tile = e.target.closest('.video-tile.screen');
+  const tile = e.target.closest('.video-tile');
   if (!tile) return;
   if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
   else tile.requestFullscreen?.().catch(() => {});
@@ -883,9 +952,8 @@ B.voiceStrip = (el, project, channel) => {
            ${B.canShareScreen() ? `<button class="btn small ${B.voice.screen ? 'primary' : ''}" data-voice="screen">${icon(B.voice.screen ? 'screenoff' : 'screen', 15)} ${B.voice.screen ? tr('Arrêter le partage') : tr('Partager l\'écran')}</button>` : ''}
            <button class="btn small danger-ghost" data-voice="leave">${icon('hangup', 15)} ${tr('Quitter le vocal')}</button>`
         : `<button class="btn small primary" id="voice-join" ${full || busy ? 'disabled' : ''}>${icon('mic', 15)} ${busy ? tr('Connexion…') : tr('Rejoindre le vocal')}</button>`}
-      <div class="video-stage hidden"></div>`;
+`;
     $('#voice-join', el)?.addEventListener('click', join);
-    if (inRoom()) videoStage(B.voice, $('.video-stage', el));
   };
 
   const startPeek = async () => {

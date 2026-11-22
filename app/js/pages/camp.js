@@ -6,7 +6,7 @@
 //   …/projet/decider  À décider : votes ouverts, décisions
 //   …/projet/idees    Idées : une ligne par idée ; en faire une tâche, la ranger
 //   …/projet/absence  Pendant votre absence (resume.js)
-//   …/projet/tout     Tout le projet : l'ancien écran complet (hub.js), pour modifier en détail
+//   …/projet/tout     Tout le projet (hub.js) : aussi un onglet du projet depuis le 22/11 (…/tout)
 // Mêmes données qu'avant : items (objective, milestone, decision, idea), item_votes, tasks, activity.
 // =====================================================================
 
@@ -83,9 +83,9 @@ function landscape(path, W, H) {
     <path class="l-dots" d="${line(ahead)}"/>
     <path class="l-dots up" d="${line(climb)}"/>
     ${path.done || slots === 1 ? `<path class="l-walk-under" pathLength="1" d="${line(walked)}"/><path class="l-walk" pathLength="1" d="${line(walked)}"/>` : ''}
-    ${steps.map(({ pt: [x, y], done, next }) => done
-      ? `<g transform="translate(${x.toFixed(1)} ${y.toFixed(1)})"><path class="l-tent" d="M-12,3 L0,-15 L12,3 Z"/><path class="l-tent-door" d="M0,-8 L-4.5,3 L4.5,3 Z"/><path class="l-ground" d="M-16,3 H16"/></g>`
-      : `<circle class="l-step ${next ? 'next' : ''}" cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${next ? 9 : 6.5}"/>`).join('')}
+    ${steps.map(({ s, pt: [x, y], done, next }) => done
+      ? `<g transform="translate(${x.toFixed(1)} ${y.toFixed(1)}) scale(${s.major ? 1.35 : 1})"><path class="l-tent" d="M-12,3 L0,-15 L12,3 Z"/><path class="l-tent-door" d="M0,-8 L-4.5,3 L4.5,3 Z"/><path class="l-ground" d="M-16,3 H16"/></g>`
+      : `<circle class="l-step ${next ? 'next' : ''} ${s.major ? 'major' : ''}" cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${s.major ? 11 : next ? 9 : 6.5}"/>`).join('')}
     <g transform="translate(${top[0].toFixed(1)} ${top[1].toFixed(1)})"><path class="l-flag" d="M0,0 v-26 M0,-26 l20,7 l-20,7"/></g>
     <g class="l-here" transform="translate(${here.pt[0].toFixed(1)} ${here.pt[1].toFixed(1)})"><circle class="l-here-wave" r="20"/><circle class="l-here-ring" r="10.6"/><circle class="l-here-dot" r="9"/></g>
   </svg>`;
@@ -95,11 +95,11 @@ function landscape(path, W, H) {
   // Sur ordinateur : toutes les étapes si elles ont la place, sinon la prochaine seulement.
   const gap = slots > 1 ? (total / (slots - 1)) : total;
   const phone = W < 560 || gap < 150;
-  const shown = steps.filter(({ s, next }) => phone ? (next && s.due_date) : (gap >= 230 || next));
+  const shown = steps.filter(({ s, next }) => phone ? (next && s.due_date) : (gap >= 230 || next || (s.major && gap >= 150)));
   const labels = shown.map(({ s, pt: [x, y], next }) => {
     const side = x < 130 ? 'l' : x > W - 140 ? 'r' : '';
     const date = s.due_date ? esc(fmtDate(s.due_date)) : '';
-    return `<span class="land-lab ${next ? 'next' : ''} ${side}" style="left:${x.toFixed(0)}px;top:${(y + 16).toFixed(0)}px">${phone ? `<i>${date}</i>` : `<span translate="no">${esc(s.title)}</span>${date ? `<i>· ${date}</i>` : ''}`}</span>`;
+    return `<span class="land-lab ${next ? 'next' : ''} ${s.major ? 'major' : ''} ${side}" style="left:${x.toFixed(0)}px;top:${(y + 16).toFixed(0)}px">${phone ? `<i>${date}</i>` : `<span translate="no">${esc(s.title)}</span>${date ? `<i>· ${date}</i>` : ''}`}</span>`;
   }).join('');
   const bx = Math.max(64, Math.min(W - 64, here.pt[0]));
   const bubble = `<span class="land-here" style="left:${bx.toFixed(0)}px;top:${(here.pt[1] - 22).toFixed(0)}px">${tr('Vous êtes ici')}<i style="left:calc(50% + ${(here.pt[0] - bx).toFixed(0)}px)"></i></span>`;
@@ -126,26 +126,35 @@ const door = (href, ic, title, line, { tint = false, badge = 0 } = {}) => `<a cl
 const tapRow = (attrs, lead, title, line = '', side = '') => `<button type="button" class="tap-row" ${attrs}>
   ${lead}<span class="tap-text"><b translate="no">${title}</b>${line ? `<span>${line}</span>` : ''}</span>${side}${icon('chevron', 16)}</button>`;
 
+/** Les éléments du projet ouvert (pour retrouver le sommet existant) */
+let campItems = [];
+/** Le sommet : l'objectif encore ouvert, sinon le dernier atteint */
+B.summitOf = (items) => (items || []).find((i) => i.type === 'objective' && !i.archived_at && !i.done)
+  || (items || []).filter((i) => i.type === 'objective').pop() || null;
+
 const openVotesOf = (items) => items.filter((i) => i.type === 'decision' && i.vote_options && i.vote_until && new Date(i.vote_until) > new Date() && !i.archived_at);
 
 /** Une petite fenêtre : un titre et une date (noter une idée, fixer l'objectif, ajouter ou modifier une étape) */
 function itemForm(p, type, item, done) {
+  // Le sommet est unique : « Fixer le sommet » modifie celui qui existe déjà
+  if (type === 'objective' && !item) item = B.summitOf?.(campItems) || null;
   const T = {
     idea: [tr('Noter une idée'), tr('Une nouvelle idée…'), false],
-    objective: [tr("Fixer l'objectif"), tr('À quoi verra-t-on que le projet est réussi ?'), true],
-    milestone: [item ? tr("Modifier l'étape") : tr('Ajouter une étape'), tr('Une grande étape…'), true]
+    objective: [item ? tr('Modifier le sommet') : tr('Fixer le sommet'), tr("L'objectif final : à quoi verra-t-on que le projet est réussi ?"), true],
+    milestone: [item ? tr("Modifier l'étape") : tr('Ajouter une étape'), tr('Une étape du chemin…'), true]
   }[type];
   const m = B.modal(`
     <h2>${esc(T[0])}</h2>
     <label for="ci-title">${tr('Titre')}</label><input id="ci-title" maxlength="200" placeholder="${esc(T[1])}" value="${esc(item?.title || '')}" />
     ${T[2] ? `<label for="ci-date">${tr('Date (facultatif)')}</label><input id="ci-date" type="date" value="${esc(item?.due_date || '')}" />` : ''}
+    ${type === 'milestone' ? `<label class="check"><input type="checkbox" id="ci-major" ${item?.major ? 'checked' : ''} /> ${tr('Étape majeure')} <span class="muted small">${tr('(un grand pas : plus visible sur le chemin)')}</span></label>` : ''}
     <p class="msg" id="ci-msg"></p>
     <div class="actions"><button class="btn" data-close>${tr('Annuler')}</button><button class="btn primary" id="ci-go">${item ? tr('Enregistrer') : tr('Ajouter')}</button></div>`);
   $('[data-close]', m).onclick = B.closeModal;
   const go = async () => {
     const title = $('#ci-title', m).value.trim();
     if (!title) return ($('#ci-msg', m).textContent = tr('Écrivez un titre.'));
-    const row = { title, due_date: $('#ci-date', m)?.value || null };
+    const row = { title, due_date: $('#ci-date', m)?.value || null, ...(type === 'milestone' ? { major: $('#ci-major', m).checked } : {}) };
     const { error } = item
       ? await B.sb.from('items').update(row).eq('id', item.id)
       : await B.sb.from('items').insert({ project_id: p.id, type, ...row });
@@ -198,6 +207,7 @@ async function renderCampHome(el, p) {
     ]);
     if (it.error) return B.error(it.error);
     items = (it.data || []).filter((i) => i.project_id === p.id);
+    campItems = items;
     tasks = B.orderMyTasks((tk.data || []).filter((t) => t.project_id === p.id && t.assignee_id === B.me.id && t.status !== 'done'));
     const ids = openVotesOf(items).map((i) => i.id);
     votes = ids.length ? ((await B.sb.from('item_votes').select('*').in('item_id', ids)).data || []).filter((v) => ids.includes(v.item_id)) : [];
@@ -217,7 +227,7 @@ async function renderCampHome(el, p) {
     const box = $('#camp-land', el);
     if (!box) return;
     const path = B.pathOf(items);
-    const goal = items.find((i) => i.type === 'objective' && !i.archived_at && !i.done) || items.filter((i) => i.type === 'objective').pop() || null;
+    const goal = B.summitOf(items);
     const lastStep = path.steps[path.steps.length - 1];
     const summitDay = goal?.due_date || (lastStep?.due_date && !lastStep.done ? lastStep.due_date : null);
     const reached = goal && (goal.done || goal.archived_at);
@@ -232,7 +242,7 @@ async function renderCampHome(el, p) {
     const head = `<div class="land-head">
           <div class="eyebrow">${reached ? tr('Sommet atteint') : tr('Le sommet')}${summitDay ? ` · ${esc(B.longDate(summitDay))}` : ''}</div>
           ${goal ? `<h2 class="land-title" translate="no" title="${esc(goal.title)}">${esc(goal.title)}</h2>`
-            : `<h2 class="land-title">${tr('Quel sommet visez-vous ?')}</h2><button class="btn small" data-add="objective">${icon('plus', 14)} ${tr("Fixer l'objectif")}</button>`}
+            : `<h2 class="land-title">${tr('Quel sommet visez-vous ?')}</h2><button class="btn small" data-add="objective">${icon('plus', 14)} ${tr('Fixer le sommet')}</button>`}
         </div>`;
     const next = path.next;
     box.innerHTML = `
@@ -263,17 +273,18 @@ async function renderCampHome(el, p) {
     const [first, ...rest] = tasks;
     // (plus de « Prépare … » : rien ne relie une tâche à une étape, une date proche ne suffit pas)
     box.innerHTML = `
-      <div class="card-label mine"><span class="label-ico">${icon('checksq', 15)}</span>${tr('Votre prochain pas')}</div>
+      <div class="next-head"><span class="door-ico">${icon('checksq', 20)}</span>
+        <span class="door-text"><b>${tr('Votre prochain pas')}</b><span>${first
+          ? (rest.length ? tr(rest.length > 1 ? 'puis {n} autres tâches pour vous' : 'puis {n} autre tâche pour vous', { n: rest.length }) : tr('votre seule tâche ici'))
+          : tr('Rien à faire de votre côté dans ce projet.')}</span></span></div>
       ${first ? `<div class="big-task" data-id="${first.id}">
           <div class="big-text">
             ${B.taskCodeHtml(first.title)}
             <button class="big-title" translate="no">${esc(B.taskTitleText(first.title))}</button>
-            <div class="big-actions"><button class="btn teal" data-done>${tr("C'est fait")}</button><button class="btn" data-snooze>${tr('Reporter')}</button>${B.dueHtml(first.due_date)}</div>
+            ${first.due_date ? `<div class="big-due">${B.dueHtml(first.due_date)}</div>` : ''}
           </div>
-        </div>
-        ${rest.length ? `<a class="more-link" href="#/p/${p.id}/taches">${tr(rest.length > 1 ? '{n} autres tâches pour vous' : '{n} autre tâche pour vous', { n: rest.length })}${icon('chevron', 16)}</a>` : ''}`
-        : `<p class="muted calm">${tr('Rien à faire de votre côté dans ce projet.')}</p>
-           <a class="more-link" href="#/p/${p.id}/taches">${tr('Voir les tâches')}${icon('chevron', 16)}</a>`}`;
+        </div>` : ''}
+      <div class="big-actions"><button class="btn primary" data-mine>${icon('checksq', 15)} ${tr('Mes tâches')}</button>${first ? `<button class="btn" data-snooze>${tr('Reporter')}</button>` : ''}</div>`;
   };
 
   // ---------- Les portes ----------
@@ -296,7 +307,7 @@ async function renderCampHome(el, p) {
         missing ? tr('Votre vote manque') : open.length ? tr(open.length > 1 ? '{n} votes ouverts' : '{n} vote ouvert', { n: open.length }) : tr('Rien à trancher'),
         { tint: tintDecide, badge: missing }),
       door(campHref(p, 'idees'), 'bulb', tr('Idées'), ideas ? tr(ideas > 1 ? '{n} idées' : '{n} idée', { n: ideas }) : tr('Notez la première')),
-      door(campHref(p, 'tout'), 'list', tr('Tout le projet'), tr('Objectifs, décisions, activité'))
+      door(campHref(p, 'chemin'), 'route', tr('Le chemin'), tr('Les étapes jusqu’au sommet'))
     ].join('');
   };
 
@@ -313,11 +324,9 @@ async function renderCampHome(el, p) {
   el.addEventListener('click', (e) => {
     const add = e.target.closest('[data-add]');
     if (add) return itemForm(p, add.dataset.add, null, load);
-    const row = e.target.closest('.big-task');
-    if (!row) return;
-    const t = tasks.find((x) => x.id === row.dataset.id);
+    if (e.target.closest('[data-mine]')) return B.myTasksInProject(p.id);
+    const t = tasks[0];
     if (!t) return;
-    if (e.target.closest('[data-done]')) return B.completeTask(t, load);
     if (e.target.closest('[data-snooze]')) return B.snoozeTask(t, e.target.closest('[data-snooze]'), load);
     if (e.target.closest('.big-title')) B.openTask(t, load);
   });
@@ -340,39 +349,48 @@ async function renderChemin(el, p) {
     const { data, error } = await B.sb.from('items').select('*').eq('project_id', p.id).order('created_at');
     if (error) return B.error(error);
     items = (data || []).filter((i) => i.project_id === p.id);
+    campItems = items;
     render();
   };
 
-  const stepRow = (s, state) => {
-    const mark = state === 'done' ? `<span class="step-mark done">${icon('check', 14)}</span>`
-      : state === 'gone' ? `<span class="step-mark gone"></span>`
-        : `<span class="step-mark ${state === 'next' ? 'next' : ''}"></span>`;
-    const line = state === 'done' ? tr('Franchie') + (s.due_date ? ` · ${tr('prévue le {date}', { date: fmtDate(s.due_date) })}` : '')
-      : state === 'gone' ? tr('Abandonnée')
-        : s.due_date ? `${esc(B.longDate(s.due_date))} · ${esc(B.daysUntil(s.due_date) < 0 ? B.plannedText(s.due_date) : B.daysText(s.due_date))}` : tr('pas encore de date');
-    return tapRow(`data-step="${s.id}"`, mark, esc(s.title), line);
-  };
-
+  /**
+   * Le chemin se lit comme une montée (22/11, demande d'Amaury) : le départ en bas, le sommet en haut.
+   * De haut en bas : le sommet, les étapes à venir (la plus lointaine en haut), « Vous êtes ici »,
+   * les étapes franchies (la plus récente juste sous « Vous êtes ici »), puis le départ.
+   */
   const render = () => {
     const box = $('#chemin', el);
     if (!box) return;
     const path = B.pathOf(items);
     const gone = items.filter((i) => i.type === 'milestone' && i.archived_at);
-    const goal = items.find((i) => i.type === 'objective' && !i.archived_at && !i.done) || null;
-    const done = path.steps.slice(0, path.done), ahead = path.steps.slice(path.done);
+    const goal = B.summitOf(items);
+    const reached = goal && (goal.done || goal.archived_at);
+    const done = path.steps.slice(0, path.done).reverse(), ahead = path.steps.slice(path.done).reverse();
+    const stop = (s, state) => {
+      const line = state === 'done' ? tr('Franchie') + (s.due_date ? ` · ${esc(fmtDate(s.due_date))}` : '')
+        : s.due_date ? `${esc(B.longDate(s.due_date))} · ${esc(B.daysUntil(s.due_date) < 0 ? B.plannedText(s.due_date) : B.daysText(s.due_date))}` : tr('pas encore de date');
+      return `<li class="trail-stop ${state} ${s.major ? 'major' : ''}">
+        <button type="button" class="trail-btn" data-step="${s.id}">
+          <span class="trail-mark">${state === 'done' ? icon('check', s.major ? 16 : 13) : ''}</span>
+          <span class="tap-text">${s.major ? `<span class="major-tag">${tr('Étape majeure')}</span>` : ''}<b translate="no">${esc(s.title)}</b><span>${line}</span></span>
+          ${icon('chevron', 16)}</button></li>`;
+    };
     box.innerHTML = `
-      <section class="summit">
-        <span class="summit-ico">${icon('flag', 22)}</span>
-        <div><div class="eyebrow">${tr('Le sommet')}${goal?.due_date ? ` · ${esc(B.longDate(goal.due_date))}` : ''}</div>
-        ${goal ? `<p class="summit-title" translate="no">${esc(goal.title)}</p>` : `<button class="btn small" data-add="objective">${icon('plus', 14)} ${tr("Fixer l'objectif")}</button>`}</div>
-      </section>
-      ${done.length ? `<section class="list-block"><h3>${tr('Franchies')}</h3>${done.map((s) => stepRow(s, 'done')).join('')}</section>` : ''}
-      <div class="here-mark"><span class="here-dot" aria-hidden="true"></span>${tr('Vous êtes ici')}</div>
-      <section class="list-block"><h3>${tr('À venir')}</h3>
-        ${ahead.length ? ahead.map((s) => stepRow(s, s === path.next ? 'next' : 'later')).join('') : `<p class="muted calm">${tr('Plus aucune étape à venir.')}</p>`}
-        <button class="btn dashed" data-add="milestone">${icon('plus', 16)} ${tr('Ajouter une étape')}</button>
-      </section>
-      ${gone.length ? `<details class="list-block gone"><summary>${tr(gone.length > 1 ? '{n} étapes abandonnées' : '{n} étape abandonnée', { n: gone.length })}</summary>${gone.map((s) => stepRow(s, 'gone')).join('')}</details>` : ''}`;
+      <button class="btn dashed" data-add="milestone">${icon('plus', 16)} ${tr('Ajouter une étape')}</button>
+      <ol class="trail" aria-label="${tr('Du sommet (en haut) au départ (en bas)')}">
+        <li class="trail-stop summit ${reached ? 'done' : ''}">
+          <span class="summit-ico">${icon('flag', 22)}</span>
+          <div class="trail-summit"><div class="eyebrow">${reached ? tr('Sommet atteint') : tr('Le sommet')}${goal?.due_date ? ` · ${esc(B.longDate(goal.due_date))}` : ''}</div>
+            ${goal ? `<button type="button" class="summit-title" data-add="objective" translate="no">${esc(goal.title)}</button>`
+              : `<button class="btn small" data-add="objective">${icon('plus', 14)} ${tr('Fixer le sommet')}</button>`}</div>
+        </li>
+        ${ahead.map((s) => stop(s, s === path.next ? 'next' : 'later')).join('')}
+        <li class="trail-stop here"><span class="here-dot" aria-hidden="true"></span><b>${tr('Vous êtes ici')}</b>
+          <span class="muted small">${path.total ? tr(path.done > 1 ? '{n} étapes sur {m} franchies' : '{n} étape sur {m} franchie', { n: path.done, m: path.total }) : tr("Pas encore d'étape sur le chemin")}</span></li>
+        ${done.map((s) => stop(s, 'done')).join('')}
+        <li class="trail-stop start"><span class="start-mark" aria-hidden="true"></span><b>${tr('Départ')}</b></li>
+      </ol>
+      ${gone.length ? `<details class="list-block gone"><summary>${tr(gone.length > 1 ? '{n} étapes abandonnées' : '{n} étape abandonnée', { n: gone.length })}</summary>${gone.map((s) => tapRow(`data-step="${s.id}"`, '<span class="step-mark gone"></span>', esc(s.title), tr('Abandonnée'))).join('')}</details>` : ''}`;
     paintIcons(box);
   };
 
@@ -387,7 +405,7 @@ async function renderChemin(el, p) {
         : `<button class="btn link danger-ghost" data-act="drop">${tr('Abandonner cette étape')}</button>`) : '';
     const m = B.modal(`
       <h2 translate="no">${esc(s.title)}</h2>
-      <p class="muted">${status}</p>
+      <p class="muted">${s.major ? `<span class="major-tag">${tr('Étape majeure')}</span> ` : ''}${status}</p>
       ${s.body ? `<p translate="no">${esc(s.body)}</p>` : ''}
       <div class="sheet-actions">
         ${state === 'todo' ? `<button class="btn teal" data-act="reach">${icon('flag', 15)} ${tr('Étape franchie')}</button>` : ''}

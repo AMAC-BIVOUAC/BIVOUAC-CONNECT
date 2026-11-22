@@ -1,6 +1,7 @@
 // =====================================================================
 // Projet — en-tête + 5 onglets (refonte, livraison 3) :
-//   Camp de base · Discussion · Tâches · Documents · Équipe
+//   Camp de base · Discussion · Tâches · Tout le projet · Documents · Équipe
+// (« Tout le projet » est un onglet depuis le 22/11, demande d'Amaury ; sur téléphone il reste dans le menu ⋯)
 // L'Atelier IA est une rubrique de Discussion (« Avec les IA »), le Calendrier une vue de Tâches.
 // Les anciennes adresses …/atelier et …/calendrier restent valables (liens des notifications, du connecteur).
 // =====================================================================
@@ -9,6 +10,7 @@ const TABS = [
   ['projet', 'compass', 'Camp de base'],
   ['discussion', 'chat', 'Discussion'],
   ['taches', 'checksq', 'Tâches'],
+  ['tout', 'list', 'Tout le projet'],
   ['documents', 'file', 'Documents'],
   ['equipe', 'users', 'Équipe']
 ];
@@ -32,6 +34,8 @@ B.projectCounts = async (pid) => {
 B.pages.project = async (view, [pid, tab = 'projet', sub]) => {
   // Onglet à souligner : l'Atelier est dans Discussion, le Calendrier dans Tâches
   if (tab === 'calendrier') { tab = 'taches'; sub = 'calendrier'; }
+  // …/projet/tout (ancienne adresse, menu ⋯ du téléphone) = l'onglet « Tout le projet » sur ordinateur
+  if (tab === 'projet' && sub === 'tout' && !B.isPhone()) { tab = 'tout'; sub = null; }
   const shownTab = tab === 'atelier' ? 'discussion' : tab;
   const p = B.project(pid);
   if (!p) {
@@ -81,6 +85,13 @@ B.pages.project = async (view, [pid, tab = 'projet', sub]) => {
   if (tab === 'atelier') return renderDiscussion(el, p, null, { atelier: true });
   if (tab === 'projet') return B.pages.camp(el, p, sub);
   if (tab === 'taches') return B.pages.tasks(el, p, sub);
+  if (tab === 'tout') {
+    if (B.isPhone()) return B.pages.camp(el, p, 'tout'); // téléphone : sous-page avec « ← Tout le projet »
+    await B.pages.hub(el, p);
+    paintIcons(el);
+    if (B.pendingNewVote) { B.pendingNewVote = false; $('[data-new-vote]', el)?.click(); }
+    return;
+  }
   if (tab === 'documents') return B.pages.docs(el, p);
   if (tab === 'equipe') return B.pages.team(el, p);
 };
@@ -187,11 +198,10 @@ async function renderDiscussion(el, p, channelId, { atelier = false } = {}) {
     const people = B.voiceIn(p.id, box.dataset.chVoice);
     box.innerHTML = people.map((x) => {
       const person = B.person(x.id);
-      const state = x.deafened ? icon('headoff', 12) : x.muted ? icon('micoff', 12) : '';
       return `<a class="ch-voice-person" href="#/p/${p.id}/discussion/${box.dataset.chVoice}" title="${esc(person.display_name)}">
         <span class="voice-ring ${B.voice && B.voiceSpeaking(x.id) ? 'speaking' : ''}" data-voice-uid="${esc(x.id)}">${avatar(person, 20)}</span>
         <span class="ch-voice-name" translate="no">${esc(person.display_name)}</span>
-        ${x.screen ? `<span class="ch-voice-state" title="${esc(tr('Partage son écran'))}">${icon('screen', 12)}</span>` : ''}${x.cam ? `<span class="ch-voice-state">${icon('video', 12)}</span>` : ''}${state ? `<span class="ch-voice-state">${state}</span>` : ''}</a>`;
+        ${B.voiceStateIcons(x)}</a>`;
     }).join('');
     box.classList.toggle('hidden', !people.length);
     paintIcons(box);
