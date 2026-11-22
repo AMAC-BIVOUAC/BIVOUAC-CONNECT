@@ -57,44 +57,6 @@
       : `${trunk}<path class="amb-pine" d="${dark}"/><path class="amb-pine-light" d="${light}"/>`;
   }
 
-  /** Grand sapin du premier plan : tronc qui monte hors du cadre, branches tombantes sur la partie haute */
-  function bigTree(x, w, groundY, rnd, side) {
-    const trunk = `M${f(x - w / 2)},-20 L${f(x - w * 0.62)},${f(groundY - 30)} C${f(x - w * 0.9)},${f(groundY - 6)} ${f(x - w * 1.3)},${f(groundY)} ${f(x - w * 1.5)},${f(groundY + 6)}
-      L${f(x + w * 1.5)},${f(groundY + 6)} C${f(x + w * 1.3)},${f(groundY)} ${f(x + w * 0.9)},${f(groundY - 6)} ${f(x + w * 0.62)},${f(groundY - 30)} L${f(x + w / 2)},-20 Z`;
-    // l'écorce : quelques fentes verticales
-    let bark = '';
-    for (let i = 0; i < 5; i++) {
-      const bx = x - w * 0.35 + (w * 0.7 * i) / 4 + (rnd() - 0.5) * 4;
-      const y0 = rnd() * 200, y1 = y0 + 120 + rnd() * 260;
-      bark += `M${f(bx)},${f(y0)} C${f(bx + 3)},${f(y0 + (y1 - y0) / 3)} ${f(bx - 3)},${f(y0 + (2 * (y1 - y0)) / 3)} ${f(bx + 1)},${f(y1)} `;
-    }
-    // branches : de chaque côté, de plus en plus longues vers le bas
-    let br = '', brLight = '';
-    const nb = 9;
-    for (let i = 0; i < nb; i++) {
-      const by = -10 + i * 42 + rnd() * 14;
-      for (const s of [-1, 1]) {
-        if (rnd() < 0.18) continue;
-        const L = (70 + i * 16 + rnd() * 40) * (s === side ? 1.25 : 0.8);
-        const x0 = x + (s * w) / 2, tipX = x0 + s * L, tipY = by + 26 + rnd() * 16;
-        let fringe = '';
-        const k = 6;
-        for (let j = k; j >= 0; j--) {
-          const px = x0 + (s * L * j) / k, py = by + 8 + (tipY - by - 8) * (j / k) ** 1.3;
-          fringe += ` L${f(px)},${f(py + 9 + rnd() * 7)} L${f(px - s * (L / k) * 0.5)},${f(py + 2)}`;
-        }
-        br += `M${f(x0)},${f(by)} C${f(x0 + s * L * 0.4)},${f(by - 14)} ${f(x0 + s * L * 0.8)},${f(by - 4)} ${f(tipX)},${f(tipY)}${fringe} Z `;
-        brLight += `M${f(x0 + s * 6)},${f(by - 2)} C${f(x0 + s * L * 0.4)},${f(by - 15)} ${f(x0 + s * L * 0.8)},${f(by - 5)} ${f(tipX)},${f(tipY)} C${f(x0 + s * L * 0.7)},${f(by + 2)} ${f(x0 + s * L * 0.35)},${f(by - 3)} ${f(x0 + s * 6)},${f(by + 5)} Z `;
-      }
-    }
-    return `<g class="amb-bigtree">
-      <path class="amb-trunk" d="${trunk}"/>
-      <path class="amb-trunk-shade" d="M${f(x + w * 0.1)},-20 L${f(x + w / 2)},-20 L${f(x + w * 0.62)},${f(groundY - 30)} C${f(x + w * 0.9)},${f(groundY - 6)} ${f(x + w * 1.3)},${f(groundY)} ${f(x + w * 1.5)},${f(groundY + 6)} L${f(x + w * 0.3)},${f(groundY + 6)} Z"/>
-      <path class="amb-bark" d="${bark}"/>
-      <g class="amb-sway slow" style="--d:${f(8 + rnd() * 4)}s;--dl:-${f(rnd() * 6)}s"><path class="amb-pine" d="${br}"/><path class="amb-pine-light" d="${brLight}"/></g>
-    </g>`;
-  }
-
   /** Sapin réutilisable ailleurs (paysage du Camp de base) : mêmes formes, hasard reproductible */
   B.scenePine = (x, y, h, seed = 1, tone = 'mid') => pine(x, y, h, seeded(seed), tone);
   B.sceneSeeded = seeded;
@@ -219,46 +181,8 @@
       <circle class="amb-ink" cx="2" cy="-48" r="1.8"/>
     </g>`;
 
-  /** Tente canadienne (ouverture vers nous), pied du centre en 0,0 */
-  const tent = (w = 130) => `
-    <g class="amb-tent">
-      <ellipse class="amb-shadow" cx="20" cy="4" rx="${w * 1.2}" ry="12"/>
-      <path class="amb-tent-side" d="M0,${-w * 1.15} L${w * 0.5},${-w * 1.32} L${w * 1.65},${-w * 0.1} L${w},0 Z"/>
-      <path class="amb-tent-front" d="M${-w},0 L0,${-w * 1.15} L${w},0 Z"/>
-      <path class="amb-tent-seam" d="M0,${-w * 1.15} L0,${-w * 0.25} M${-w * 0.5},${-w * 0.56} L${-w * 0.4},${-w * 0.52}"/>
-      <path class="amb-tent-in" d="M0,${-w * 0.95} C${-w * 0.18},${-w * 0.6} ${-w * 0.36},${-w * 0.3} ${-w * 0.42},0 L${w * 0.42},0 C${w * 0.36},${-w * 0.3} ${w * 0.18},${-w * 0.6} 0,${-w * 0.95} Z"/>
-      <path class="amb-tent-glow" d="M0,${-w * 0.95} C${-w * 0.18},${-w * 0.6} ${-w * 0.36},${-w * 0.3} ${-w * 0.42},0 L${w * 0.42},0 C${w * 0.36},${-w * 0.3} ${w * 0.18},${-w * 0.6} 0,${-w * 0.95} Z"/>
-      <path class="amb-tent-flap" d="M0,${-w * 0.95} C${w * 0.1},${-w * 0.6} ${w * 0.3},${-w * 0.3} ${w * 0.5},${-w * 0.02} L${w * 0.62},0 C${w * 0.44},${-w * 0.4} ${w * 0.22},${-w * 0.72} 0,${-w * 0.95} Z"/>
-      <path class="amb-rope" d="M0,${-w * 1.15} L${-w * 1.4},${-6} M${w * 0.5},${-w * 1.32} L${w * 2},${-w * 0.05}"/>
-    </g>`;
-
-  /** Lanterne posée au sol, pied en 0,0 */
-  const lantern = `
-    <g class="amb-lantern">
-      <circle class="amb-lantern-glow" cx="0" cy="-30" r="70"/>
-      <rect class="amb-metal" x="-15" y="-6" width="30" height="6" rx="2"/>
-      <rect class="amb-glass" x="-11" y="-46" width="22" height="40" rx="5"/>
-      <path class="amb-flame-small" d="M0,-16 C-5,-22 -3,-30 0,-34 C3,-30 5,-22 0,-16 Z"/>
-      <path class="amb-metal-line" d="M-12,-46 v40 M12,-46 v40 M0,-46 v40"/>
-      <path class="amb-metal" d="M-14,-46 L14,-46 L8,-56 L-8,-56 Z"/>
-      <path class="amb-metal-line" d="M-10,-58 C-10,-74 10,-74 10,-58"/>
-    </g>`;
-
-  /** Rondin couché (vu un peu de côté) de x0 à x1, axe à la hauteur y */
-  const log = (x0, x1, y, r = 22) => `
-    <g class="amb-log">
-      <ellipse class="amb-shadow" cx="${(x0 + x1) / 2}" cy="${y + r}" rx="${(x1 - x0) / 2 + 20}" ry="9"/>
-      <rect class="amb-log-bark" x="${x0}" y="${y - r}" width="${x1 - x0}" height="${2 * r}" rx="6"/>
-      <rect class="amb-log-shade" x="${x0}" y="${y + r * 0.2}" width="${x1 - x0}" height="${r * 0.8}" rx="5"/>
-      <path class="amb-log-line" d="M${x0 + 20},${y - r * 0.4} h${(x1 - x0) * 0.4} M${x0 + (x1 - x0) * 0.5},${y + r * 0.1} h${(x1 - x0) * 0.35}"/>
-      <ellipse class="amb-log-end" cx="${x0}" cy="${y}" rx="${r * 0.55}" ry="${r}"/>
-      <ellipse class="amb-log-ring" cx="${x0}" cy="${y}" rx="${r * 0.3}" ry="${r * 0.55}"/>
-    </g>`;
-
   /** Le feu de camp, centre du foyer en 0,0 */
   const fire = () => {
-    const stones = [[-62, -2, 20], [-40, 10, 18], [-12, 16, 19], [18, 15, 18], [46, 9, 19], [64, -4, 17], [-50, -16, 14], [52, -18, 14]]
-      .map(([x, y, r]) => `<ellipse class="amb-stone" cx="${x}" cy="${y}" rx="${r}" ry="${r * 0.62}"/><ellipse class="amb-stone-light" cx="${x - r * 0.25}" cy="${y - r * 0.25}" rx="${r * 0.45}" ry="${r * 0.22}"/>`).join('');
     const sparks = Array.from({ length: 14 }, (_, i) => `<circle class="amb-spark" cx="${(i % 5) * 10 - 20}" cy="-60" r="${1.6 + (i % 3) * 0.6}" style="--dl:-${(i * 0.37).toFixed(2)}s;--dx:${((i * 29) % 70) - 35}px;--dur:${(2 + (i % 4) * 0.4).toFixed(1)}s"/>`).join('');
     const smoke = Array.from({ length: 5 }, (_, i) => `<circle class="amb-smoke" cx="0" cy="-140" r="${18 + i * 3}" style="--dl:-${i * 1.8}s"/>`).join('');
     return `
@@ -266,10 +190,6 @@
         <ellipse class="amb-ground-light" cx="0" cy="0" rx="300" ry="80"/>
         <circle class="amb-glow" cx="0" cy="-50" r="300"/>
         <g class="amb-smokes">${smoke}</g>
-        <ellipse class="amb-embers" cx="0" cy="0" rx="46" ry="12"/>
-        <rect class="amb-wood" x="-50" y="-12" width="100" height="14" rx="6" transform="rotate(-16)"/>
-        <rect class="amb-wood" x="-50" y="-12" width="100" height="14" rx="6" transform="rotate(14)"/>
-        <rect class="amb-wood-end" x="44" y="-20" width="10" height="14" rx="4" transform="rotate(14)"/>
         <g class="amb-flames">
           <path class="amb-flame f1" d="M-46,0 C-62,-40 -34,-66 -28,-104 C-12,-78 -6,-136 6,-170 C14,-122 32,-110 34,-142 C52,-92 64,-40 46,0 Z"/>
           <path class="amb-flame f2" d="M-32,0 C-42,-30 -18,-52 -14,-88 C-2,-62 4,-110 12,-126 C20,-92 36,-70 30,0 Z"/>
@@ -277,162 +197,72 @@
           <path class="amb-flame f4" d="M-30,-60 C-36,-80 -26,-96 -22,-112 C-14,-96 -12,-80 -18,-62 Z"/>
           <path class="amb-flame f5" d="M28,-70 C24,-90 32,-104 36,-118 C42,-100 42,-84 36,-70 Z"/>
         </g>
-        ${stones}
         <g class="amb-sparks">${sparks}</g>
       </g>`;
   };
 
   // ---------- La scène complète ----------
 
-  B.ambianceScene = () => {
-    const rnd = seeded(1123);
-    // étoiles (nuit) : beaucoup, quelques-unes qui scintillent
-    const stars = Array.from({ length: 150 }, (_, i) => {
-      const x = rnd() * 1600, y = rnd() * 470, r = rnd() < 0.12 ? 1.9 : 0.7 + rnd() * 0.9;
-      return `<circle class="amb-star${i % 5 === 0 ? ' tw' : ''}" cx="${f(x)}" cy="${f(y)}" r="${f(r)}" style="--dl:-${f(rnd() * 4)}s"/>`;
-    }).join('');
-    // forêt du fond (deux rangées, la plus lointaine plus claire)
-    let far1 = '', far2 = '';
-    for (let x = -20; x < 1640; x += 16 + rnd() * 18) far1 += pine(x, 540 + rnd() * 8, 50 + rnd() * 50, rnd, 'far');
-    for (let x = -10; x < 1640; x += 22 + rnd() * 22) far2 += pine(x, 566 + rnd() * 6, 70 + rnd() * 70, rnd, 'far');
-    // sapins moyens sur les rives
-    let mid = '';
-    for (const [x, h] of [[90, 260], [170, 210], [460, 180], [520, 230], [1120, 200], [1180, 250], [1330, 190], [1500, 240]]) mid += pine(x, 640 + rnd() * 10, h, rnd);
-    // touffes d'herbe et fougères du premier plan
-    const tufts = [];
-    for (let i = 0, x = 20; x < 1600; i++, x += 46 + rnd() * 60) {
-      const y = 810 + rnd() * 80;
-      if (x > 900 && x < 1420 && y < 870) continue; // place libre autour du feu
-      const s = 0.8 + rnd() * 0.7;
-      tufts.push(`<g class="amb-sway" style="--d:${f(4 + rnd() * 3)}s;--dl:-${f(rnd() * 5)}s" transform="translate(${f(x)} ${f(y)}) scale(${f(s)})">
-        <path class="amb-grass" d="M0,0 Q-8,-16 -16,-24 M0,0 Q-2,-20 -4,-34 M0,0 Q3,-18 9,-30 M0,0 Q8,-12 18,-18 M0,0 Q-5,-9 -20,-11"/></g>`);
+  // ---------- La scène : le campement peint d'Apo + nos personnages et le feu animés ----------
+  // Images : src/assets/scenes/camp-jour.webp / camp-nuit.webp (2000 × 1116). En attendant les animaux détourés
+  // (même style que les images), les personnages sont nos dessins. Coordonnées = pixels de l'image.
+  const PLACES = {
+    day: {
+      img: 'camp-jour', fire: [1135, 905], bear: [1392, 858, 0.95], marmot: [600, 992, 1.25], chamois: [688, 730, 0.85],
+      fox: [270, 850, 1], owl: [1262, 438, 0.9], squirrel: [322, 600, 1.2], lantern: null,
+      rays: [1660, 250], lake: [700, 690, 1280, 790], sky: null
+    },
+    night: {
+      img: 'camp-nuit', fire: [1160, 905], bear: [1612, 852, 0.95], marmot: [470, 995, 1.25], chamois: [692, 690, 0.85],
+      fox: [275, 790, 1], owl: [1262, 438, 0.9], squirrel: [322, 600, 1.2], lantern: [285, 905],
+      rays: null, lake: [800, 680, 1250, 780], sky: [660, 10, 1220, 250]
     }
-    const pebbles = Array.from({ length: 26 }, () => {
-      const x = rnd() * 1600, y = 720 + rnd() * 170, r = 3 + rnd() * 8;
-      return `<ellipse class="amb-pebble" cx="${f(x)}" cy="${f(y)}" rx="${f(r)}" ry="${f(r * 0.55)}"/>`;
-    }).join('');
-    const flies = Array.from({ length: 18 }, (_, i) => `<circle class="amb-fly" cx="${f(120 + rnd() * 1360)}" cy="${f(560 + rnd() * 300)}" r="2.6" style="--d:${f(4 + rnd() * 5)}s;--dl:-${f(rnd() * 6)}s;--fx:${f(rnd() * 60 - 30)}px;--fy:${f(-rnd() * 40)}px"/>`).join('');
-    const ripples = Array.from({ length: 16 }, () => `<path class="amb-ripple" d="M${f(240 + rnd() * 1100)},${f(575 + rnd() * 60)} h${f(20 + rnd() * 50)}" style="--d:${f(5 + rnd() * 5)}s;--dl:-${f(rnd() * 6)}s"/>`).join('');
+  };
 
-    const mountain = `
-      <path class="amb-mtn" d="M520,570 L610,470 L650,430 L700,360 L745,300 L775,250 L800,196 L826,240 L862,280 L900,330 L955,400 L1010,470 L1090,570 Z"/>
-      <path class="amb-mtn-shade" d="M800,196 L826,240 L862,280 L900,330 L955,400 L1010,470 L1090,570 L880,570 L850,470 L830,360 L812,260 Z"/>
-      <path class="amb-snow" d="M800,196 L775,250 L752,290 L764,288 L770,306 L784,292 L792,322 L806,300 L818,330 L830,300 L846,322 L858,296 L874,312 L862,280 L826,240 Z"/>
-      <path class="amb-snow-shade" d="M800,196 L826,240 L862,280 L874,312 L858,296 L846,322 L830,300 L818,330 L812,260 Z"/>
-      <path class="amb-snow-line" d="M760,330 L742,380 M790,350 L780,410 M840,350 L850,420 M880,340 L905,390 M720,380 L700,420"/>`;
+  B.ambianceScene = (moment = 'day') => {
+    const P = PLACES[moment === 'night' ? 'night' : 'day'];
+    const rnd = seeded(1123);
+    const at = ([x, y, k = 1], inner) => `<g transform="translate(${x} ${y}) scale(${k})">${inner}</g>`;
+    const stars = P.sky ? Array.from({ length: 70 }, (_, i) => {
+      const x = P.sky[0] + rnd() * (P.sky[2] - P.sky[0]), y = P.sky[1] + rnd() * (P.sky[3] - P.sky[1]);
+      return `<circle class="amb-star tw" cx="${f(x)}" cy="${f(y)}" r="${f(1 + rnd() * 1.4)}" style="--dl:-${f(rnd() * 4)}s"/>`;
+    }).join('') : '';
+    const flies = moment === 'night' ? Array.from({ length: 22 }, () => `<circle class="amb-fly" cx="${f(200 + rnd() * 1650)}" cy="${f(640 + rnd() * 380)}" r="3.4" style="--d:${f(4 + rnd() * 5)}s;--dl:-${f(rnd() * 6)}s;--fx:${f(rnd() * 70 - 35)}px;--fy:${f(-rnd() * 50)}px"/>`).join('') : '';
+    const ripples = Array.from({ length: 14 }, () => `<path class="amb-ripple" d="M${f(P.lake[0] + rnd() * (P.lake[2] - P.lake[0] - 60))},${f(P.lake[1] + rnd() * (P.lake[3] - P.lake[1]))} h${f(20 + rnd() * 50)}" style="--d:${f(5 + rnd() * 5)}s;--dl:-${f(rnd() * 6)}s"/>`).join('');
+    const [rx, ry] = P.rays || [0, 0];
+    const src = `assets/scenes/${P.img}`;
 
-    return `<svg class="amb-svg" viewBox="0 0 1600 900" preserveAspectRatio="xMidYMax slice" aria-hidden="true" focusable="false">
+    return `<svg class="amb-svg photo" viewBox="0 0 2000 1116" preserveAspectRatio="xMidYMax slice" aria-hidden="true" focusable="false">
   <defs>
-    <linearGradient id="amb-sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" class="amb-s-sky1"/><stop offset=".55" class="amb-s-sky2"/><stop offset="1" class="amb-s-sky3"/></linearGradient>
-    <radialGradient id="amb-sun-g"><stop offset="0" class="amb-s-sun" stop-opacity=".95"/><stop offset=".25" class="amb-s-sun" stop-opacity=".45"/><stop offset="1" class="amb-s-sun" stop-opacity="0"/></radialGradient>
-    <linearGradient id="amb-ray-g" x1="0" y1="0" x2="0" y2="1"><stop offset="0" class="amb-s-ray" stop-opacity=".55"/><stop offset="1" class="amb-s-ray" stop-opacity="0"/></linearGradient>
-    <linearGradient id="amb-mtn-g" x1="0" y1="0" x2="0" y2="1"><stop offset="0" class="amb-s-mtn1"/><stop offset="1" class="amb-s-mtn2"/></linearGradient>
-    <linearGradient id="amb-far-g" x1="0" y1="0" x2="0" y2="1"><stop offset="0" class="amb-s-far1"/><stop offset="1" class="amb-s-far2"/></linearGradient>
-    <linearGradient id="amb-lake-g" x1="0" y1="0" x2="0" y2="1"><stop offset="0" class="amb-s-lake1"/><stop offset="1" class="amb-s-lake2"/></linearGradient>
-    <linearGradient id="amb-ground-g" x1="0" y1="0" x2="0" y2="1"><stop offset="0" class="amb-s-ground1"/><stop offset="1" class="amb-s-ground2"/></linearGradient>
+    <linearGradient id="amb-ray-g" x1="0" y1="0" x2="0" y2="1"><stop offset="0" class="amb-s-ray" stop-opacity=".5"/><stop offset="1" class="amb-s-ray" stop-opacity="0"/></linearGradient>
     <radialGradient id="amb-glow-g"><stop offset="0" class="amb-s-glow" stop-opacity=".6"/><stop offset=".35" class="amb-s-glow" stop-opacity=".22"/><stop offset="1" class="amb-s-glow" stop-opacity="0"/></radialGradient>
-    <radialGradient id="amb-moon-g"><stop offset="0" class="amb-s-moon" stop-opacity=".5"/><stop offset="1" class="amb-s-moon" stop-opacity="0"/></radialGradient>
     <radialGradient id="amb-smoke-g"><stop offset="0" class="amb-s-smoke" stop-opacity=".5"/><stop offset="1" class="amb-s-smoke" stop-opacity="0"/></radialGradient>
-    <radialGradient id="amb-mist-g"><stop offset="0" class="amb-s-mist" stop-opacity=".55"/><stop offset="1" class="amb-s-mist" stop-opacity="0"/></radialGradient>
+    <radialGradient id="amb-mist-g"><stop offset="0" class="amb-s-mist" stop-opacity=".5"/><stop offset="1" class="amb-s-mist" stop-opacity="0"/></radialGradient>
     <radialGradient id="amb-fly-g"><stop offset="0" class="amb-s-fly"/><stop offset="1" class="amb-s-fly" stop-opacity="0"/></radialGradient>
     <linearGradient id="amb-flame1-g" x1="0" y1="1" x2="0" y2="0"><stop offset="0" class="amb-s-fire2"/><stop offset="1" class="amb-s-fire1"/></linearGradient>
     <linearGradient id="amb-flame2-g" x1="0" y1="1" x2="0" y2="0"><stop offset="0" class="amb-s-fire3"/><stop offset="1" class="amb-s-fire2"/></linearGradient>
     <linearGradient id="amb-rim-g" x1="0" y1="0" x2="1" y2="0"><stop offset="0" class="amb-s-glow" stop-opacity=".75"/><stop offset="1" class="amb-s-glow" stop-opacity="0"/></linearGradient>
-    <filter id="amb-blur" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="22"/></filter>
-    <radialGradient id="amb-clear-g"><stop offset="0" class="amb-s-clearing" stop-opacity=".75"/><stop offset=".7" class="amb-s-clearing" stop-opacity=".3"/><stop offset="1" class="amb-s-clearing" stop-opacity="0"/></radialGradient>
-    <clipPath id="amb-lake-clip"><rect x="0" y="560" width="1600" height="110"/></clipPath>
   </defs>
+  <image class="amb-photo" href="${src}.webp" x="0" y="0" width="2000" height="1116" preserveAspectRatio="none"/>
 
-  <!-- Ciel -->
-  <rect class="amb-sky" width="1600" height="900"/>
-  <g class="amb-night-only">
-    <g filter="url(#amb-blur)"><ellipse class="amb-milky" cx="820" cy="170" rx="560" ry="80" transform="rotate(-24 820 170)"/>
-    <ellipse class="amb-milky core" cx="820" cy="170" rx="360" ry="30" transform="rotate(-24 820 170)"/></g>
-    ${stars}
-    <path class="amb-shooting" d="M560,60 l-150,60"/>
-    <circle class="amb-moon-halo" cx="1300" cy="140" r="120"/>
-    <circle class="amb-moon" cx="1300" cy="140" r="34"/>
-    <circle class="amb-crater" cx="1290" cy="132" r="7"/><circle class="amb-crater" cx="1312" cy="152" r="5"/><circle class="amb-crater" cx="1304" cy="124" r="3"/>
+  ${stars}
+  ${P.rays ? `<g class="amb-rays">
+    <path class="amb-ray" d="M${rx},${ry} L${rx - 520},880 L${rx - 400},880 Z" style="--dl:0s"/>
+    <path class="amb-ray" d="M${rx},${ry} L${rx - 300},900 L${rx - 220},900 Z" style="--dl:-3s"/>
+    <path class="amb-ray" d="M${rx},${ry} L${rx - 120},860 L${rx - 40},860 Z" style="--dl:-6s"/>
   </g>
-  <g class="amb-day-only">
-    <circle class="amb-sun-halo" cx="1380" cy="250" r="300"/>
-    <circle class="amb-sun" cx="1380" cy="250" r="42"/>
-    <g class="amb-birds">
-      <path class="amb-bird" d="M0,0 q8,-8 16,0 q8,-8 16,0"/>
-      <path class="amb-bird" d="M30,14 q6,-6 12,0 q6,-6 12,0"/>
-      <path class="amb-bird" d="M-22,18 q6,-6 12,0 q6,-6 12,0"/>
-    </g>
-  </g>
-
-  <!-- Montagnes et forêt du fond -->
-  <path class="amb-far" d="M0,560 L0,470 L90,430 L170,452 L260,392 L340,428 L430,380 L520,430 L600,452 L1040,452 L1120,400 L1200,430 L1290,372 L1380,418 L1470,388 L1600,430 L1600,560 Z"/>
-  <path class="amb-far-snow" d="M260,392 L280,404 L270,402 L262,410 L250,400 Z M430,380 L452,394 L440,392 L432,400 L418,390 Z M1290,372 L1312,388 L1298,384 L1290,394 L1276,384 Z"/>
-  ${mountain}
-  <g class="amb-forest-1">${far1}</g>
-  <g class="amb-forest-2">${far2}</g>
-
-  <!-- Le lac, avec le reflet du sommet -->
-  <rect class="amb-lake" x="0" y="560" width="1600" height="110"/>
-  <g class="amb-reflect" clip-path="url(#amb-lake-clip)"><g transform="translate(0 1136) scale(1 -1)">${mountain}</g></g>
+  <g class="amb-mists"><ellipse class="amb-mist" cx="900" cy="680" rx="380" ry="34" style="--d:70s;--dl:-10s"/><ellipse class="amb-mist" cx="1300" cy="700" rx="320" ry="28" style="--d:90s;--dl:-40s"/></g>` : ''}
   <g class="amb-ripples">${ripples}</g>
-  <g class="amb-mists">
-    <ellipse class="amb-mist" cx="500" cy="572" rx="320" ry="26" style="--d:70s;--dl:-10s"/>
-    <ellipse class="amb-mist" cx="1100" cy="590" rx="380" ry="30" style="--d:90s;--dl:-40s"/>
-  </g>
+  ${P.lantern ? `<circle class="amb-lantern-glow on" cx="${P.lantern[0]}" cy="${P.lantern[1] - 30}" r="110"/>` : ''}
 
-  <!-- Rives, sapins moyens, clairière -->
-  <path class="amb-shore" d="M0,640 C120,624 260,632 380,640 C520,650 640,628 760,636 C900,646 1040,630 1180,640 C1320,650 1460,632 1600,640 L1600,660 L0,660 Z"/>
-  <g class="amb-mid-pines">${mid}</g>
-  <path class="amb-ground" d="M0,668 C200,650 420,660 600,676 C780,690 1000,664 1200,672 C1380,680 1500,664 1600,670 L1600,900 L0,900 Z"/>
-  <ellipse class="amb-clearing" cx="1060" cy="810" rx="420" ry="80"/>
-  <path class="amb-path" d="M720,900 C760,840 860,800 960,790 C1010,786 1040,790 1060,796 C980,800 860,830 820,900 Z"/>
-  ${pebbles}
-
-  <!-- Rayons de soleil (jour), entre les arbres -->
-  <g class="amb-day-only amb-rays">
-    <path class="amb-ray" d="M1380,250 L1060,820 L1160,820 Z" style="--dl:0s"/>
-    <path class="amb-ray" d="M1380,250 L1200,860 L1260,860 Z" style="--dl:-2s"/>
-    <path class="amb-ray" d="M1380,250 L1300,820 L1390,820 Z" style="--dl:-4s"/>
-    <path class="amb-ray" d="M1380,250 L960,700 L1010,720 Z" style="--dl:-6s"/>
-  </g>
-
-  <!-- Le chamois sur son rocher, le renard dans son buisson -->
-  <g transform="translate(640 646)">
-    <path class="amb-rock" d="M-80,40 C-90,10 -70,-14 -30,-18 C10,-24 60,-14 76,8 C90,24 84,40 70,46 Z"/>
-    <path class="amb-rock-shade" d="M20,-20 C56,-14 80,4 82,26 C84,38 78,44 70,46 L10,46 C40,20 40,-4 20,-20 Z"/>
-    <g transform="translate(-6 -16)">${chamois}</g>
-  </g>
-  <g transform="translate(340 716) scale(.85)">
-    <circle class="amb-bush" cx="-50" cy="-20" r="44"/><circle class="amb-bush" cx="30" cy="-26" r="50"/><circle class="amb-bush" cx="-6" cy="-50" r="44"/>
-    <g transform="translate(0 -22)">${fox}</g>
-    <circle class="amb-bush-light" cx="-60" cy="-6" r="34"/><circle class="amb-bush-light" cx="44" cy="-8" r="36"/>
-  </g>
-
-  <!-- Grands sapins qui encadrent la scène -->
-  ${bigTree(70, 50, 760, rnd, 1)}${bigTree(250, 36, 720, rnd, 1)}
-  ${bigTree(1270, 40, 720, rnd, -1)}${bigTree(1470, 60, 770, rnd, -1)}
-  <g transform="translate(1252 430)">${squirrel}</g>
-  <g transform="translate(1420 300)"><path class="amb-trunk" d="M-80,6 L50,-6 L50,6 L-80,14 Z"/><g transform="translate(-20 4)">${owl}</g></g>
-
-  <!-- La tente, la lanterne, la marmotte -->
-  <g transform="translate(500 800)">${tent(118)}</g>
-  <g transform="translate(680 814)">${lantern}</g>
-  <g transform="translate(300 872)">${marmot}</g>
-
-  <!-- Le campement : feu, rondins, ours (déplacé vers le centre sur téléphone) -->
-  <g class="amb-camp">
-    <g transform="translate(1330 742) scale(.55)">${tent(128)}</g>
-    ${log(860, 1000, 806, 20)}
-    ${log(1130, 1350, 826, 24)}
-    <g transform="translate(1240 812)">${bear}</g>
-    <g transform="translate(1070 800)">${fire()}</g>
-  </g>
-
-  <!-- Premier plan -->
-  <path class="amb-fore" d="M0,900 L0,840 C40,820 90,830 130,850 C170,868 200,890 230,900 Z"/>
-  <path class="amb-fore" d="M1600,900 L1600,830 C1560,814 1510,826 1480,846 C1450,866 1430,886 1420,900 Z"/>
-  <g class="amb-tufts">${tufts.join('')}</g>
-  <g class="amb-night-only">${flies}</g>
+  ${at(P.chamois, chamois)}
+  ${at(P.fox, `<circle class="amb-bush" cx="-50" cy="-18" r="44"/><circle class="amb-bush" cx="34" cy="-24" r="48"/><g transform="translate(0 -22)">${fox}</g><circle class="amb-bush-light" cx="-58" cy="-4" r="32"/><circle class="amb-bush-light" cx="46" cy="-6" r="34"/>`)}
+  ${at(P.squirrel, squirrel)}
+  ${at(P.owl, `<path class="amb-trunk" d="M-60,4 L40,-6 L40,6 L-60,12 Z"/><g transform="translate(-14 4)">${owl}</g>`)}
+  ${at(P.marmot, marmot)}
+  ${at(P.bear, bear)}
+  ${at([P.fire[0], P.fire[1], 0.95], fire())}
+  <g class="amb-flies">${flies}</g>
 </svg>`;
   };
 })();

@@ -155,7 +155,7 @@
     let moment = B.ambianceMoment();
     layer.className = `amb ${moment}`;
     layer.setAttribute('aria-hidden', 'true');
-    layer.innerHTML = B.ambianceScene();
+    layer.innerHTML = B.ambianceScene(moment);
     view.prepend(layer);
     // Le bouton du son flotte AU-DESSUS du contenu (le calque, lui, est dessous)
     const btn = document.createElement('button');
@@ -191,6 +191,7 @@
       if (now === moment) return;
       moment = now;
       layer.className = `amb ${moment}${still() ? ' still' : ''}`;
+      layer.innerHTML = B.ambianceScene(moment); // l'image du jour ou de la nuit
       if (S.on) { stopSound(); setTimeout(sync, 950); }
     }, 60000);
     btn.onclick = () => { store.set('ambiance:sound', !soundWanted()); paintBtn(); sync(); };
