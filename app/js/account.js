@@ -55,7 +55,7 @@ B.personalFieldsHtml = (p, v = {}) => `
 // La base refuse les informations privées sans ces cases (private_guard).
 // ---------------------------------------------------------------------
 /** Version des conditions affichée et acceptée (à changer quand pages-publiques/conditions change) */
-B.TERMS_VERSION = '2026-11-22';
+B.TERMS_VERSION = '2026-11-22-2'; // 22/11 soir : adresse de contact ajoutée (tout le monde réaccepte)
 B.TERMS_PAGE = 'https://www.bivouac-tech.com/conditions/';
 
 /** Âge en années révolues à une date « AAAA-MM-JJ » (null si inconnue) */
@@ -149,7 +149,9 @@ B.savePersonal = async (x, consent = null) => {
 B.ensurePersonal = async () => {
   const cur = await B.loadPersonal().catch(() => ({ missing: true }));
   if (cur?.missing) return; // table pas encore installée sur le serveur
-  if (cur && (cur.terms_accepted_at || !('terms_accepted_at' in cur))) return; // déjà rempli (ou migration 034 pas encore passée)
+  // Déjà rempli ET conditions de la version en cours acceptées (ou migration 034 pas encore passée) : rien à demander.
+  // Conditions changées (B.TERMS_VERSION) : on redemande l'âge et l'accord, à la connexion suivante.
+  if (cur && (!('terms_accepted_at' in cur) || (cur.terms_accepted_at && cur.terms_version === B.TERMS_VERSION))) return;
   const [first, ...rest] = (B.me.display_name || '').trim().split(/\s+/);
   await new Promise((resolve) => {
     const screen = document.createElement('div');

@@ -10,36 +10,48 @@
 // Mêmes données qu'avant : items (objective, milestone, decision, idea), item_votes, tasks, activity.
 // =====================================================================
 
-// Le chemin, dans le repère du dessin (1100 × 220, origine en haut à -20) : 4 courbes, puis la montée au sommet
-const LAND = { w: 1100, h: 220, top: -20 };
-const TRAIL = [
-  [[40, 164], [120, 160], [180, 152], [240, 149]],
-  [[240, 149], [300, 146], [320, 142], [360, 140]],
-  [[360, 140], [430, 134], [500, 127], [560, 122]],
-  [[560, 122], [650, 114], [730, 104], [790, 98]]
-];
-const CLIMB = [[790, 98], [860, 90], [940, 70], [1000, 30]];
+// Le paysage du chemin (22/11, Apo) : SES images de montagne, de jour ou de nuit selon l'heure (B.ambianceMoment),
+// src/assets/scenes/chemin-jour.webp / chemin-nuit.webp (2000 × 848, même cadrage). Le sentier de l'image devient le
+// chemin du projet : tentes détourées = étapes franchies, points = étapes à venir, drapeau orange au sommet.
+// Coordonnées ci-dessous = pixels de l'image d'origine.
+const PHOTO = { w: 2000, h: 848 };
+const PHOTO_TRAIL = [[150, 848], [240, 800], [330, 760], [420, 722], [500, 700], [600, 682], [700, 652], [780, 622], [860, 584],
+  [950, 574], [1040, 574], [1110, 552], [1160, 534], [1205, 520]];
+const PHOTO_CLIMB = [[1205, 520], [1300, 470], [1400, 380], [1490, 290], [1560, 232], [1606, 196]];
+const TENTS = ['tente-orange', 'tente-grise', 'tente-rouge'];
 
-/** Points d'une courbe de Bézier (pour mesurer le chemin sans dépendre du navigateur) */
-function bezier([a, b, c, d], n = 24) {
-  const pts = [];
-  for (let k = 0; k <= n; k++) {
-    const t = k / n, u = 1 - t;
-    pts.push([u * u * u * a[0] + 3 * u * u * t * b[0] + 3 * u * t * t * c[0] + t * t * t * d[0],
-      u * u * u * a[1] + 3 * u * u * t * b[1] + 3 * u * t * t * c[1] + t * t * t * d[1]]);
+/** Courbe douce qui passe par tous les points (Catmull-Rom), pour mesurer et tracer le chemin */
+function smooth(pts, n = 8) {
+  const out = [];
+  for (let i = 0; i < pts.length - 1; i++) {
+    const p0 = pts[i - 1] || pts[i], p1 = pts[i], p2 = pts[i + 1], p3 = pts[i + 2] || p2;
+    for (let k = 0; k < n; k++) {
+      const t = k / n, t2 = t * t, t3 = t2 * t;
+      out.push([0, 1].map((j) => 0.5 * ((2 * p1[j]) + (-p0[j] + p2[j]) * t + (2 * p0[j] - 5 * p1[j] + 4 * p2[j] - p3[j]) * t2 + (-p0[j] + 3 * p1[j] - 3 * p2[j] + p3[j]) * t3)));
+    }
   }
-  return pts;
+  out.push(pts[pts.length - 1]);
+  return out;
+}
+
+/** Cadrage « cover » : tout le sentier et le sommet restent visibles autant que possible */
+function photoFit(W, H) {
+  const s = Math.max(W / PHOTO.w, H / PHOTO.h);
+  const iw = PHOTO.w * s, ih = PHOTO.h * s;
+  const ox = Math.min(0, Math.max(W - iw, (W - (100 + 1720) * s) / 2));
+  const oy = Math.min(0, Math.max(H - ih, 44 - 196 * s)); // le drapeau du sommet garde de la place au-dessus
+  return { s, ox, oy, iw, ih };
 }
 
 /**
- * Le paysage, dessiné à la taille réelle de la carte (rien n'est déformé dans le tracé ni les repères).
- * `path` vient de B.pathOf ; `W` × `H` = taille en pixels.
+ * Le paysage, à la taille réelle de la carte. `path` vient de B.pathOf ; `W` × `H` = taille en pixels.
  */
 function landscape(path, W, H) {
-  const sx = W / LAND.w, sy = H / LAND.h;
-  const px = ([x, y]) => [x * sx, (y - LAND.top) * sy];
-  const trail = TRAIL.flatMap((seg, k) => bezier(seg).slice(k ? 1 : 0)).map(px);
-  const climb = bezier(CLIMB).map(px);
+  const night = (B.ambianceMoment?.() || 'day') === 'night';
+  const { s, ox, oy, iw, ih } = photoFit(W, H);
+  const px = ([x, y]) => [ox + x * s, oy + y * s];
+  const trail = smooth(PHOTO_TRAIL).map(px);
+  const climb = smooth(PHOTO_CLIMB, 6).map(px);
   // longueur cumulée, pour poser les repères à intervalles réguliers
   const len = [0];
   for (let k = 1; k < trail.length; k++) len.push(len[k - 1] + Math.hypot(trail[k][0] - trail[k - 1][0], trail[k][1] - trail[k - 1][1]));
@@ -51,55 +63,53 @@ function landscape(path, W, H) {
     const r = (target - len[k - 1]) / (len[k] - len[k - 1] || 1);
     return { pt: [trail[k - 1][0] + (trail[k][0] - trail[k - 1][0]) * r, trail[k - 1][1] + (trail[k][1] - trail[k - 1][1]) * r], k };
   };
-  // Emplacements : les étapes franchies, puis « Vous êtes ici », puis les étapes à venir
+  // Emplacements : les étapes franchies, puis « Vous êtes ici », puis les étapes à venir (le départ reste dans l'image)
   const slots = path.total + 1;
-  const spot = (n) => at(slots > 1 ? n / (slots - 1) : 0.12);
+  const spot = (n) => at(0.12 + 0.86 * (slots > 1 ? n / (slots - 1) : 0.1));
   const here = spot(path.done);
-  const steps = path.steps.map((s, n) => ({ s, ...spot(n < path.done ? n : n + 1), done: n < path.done, next: s === path.next }));
+  const steps = path.steps.map((s2, n) => ({ s: s2, ...spot(n < path.done ? n : n + 1), done: n < path.done, next: s2 === path.next }));
   const line = (pts) => pts.map(([x, y], k) => `${k ? 'L' : 'M'}${x.toFixed(1)},${y.toFixed(1)}`).join(' ');
   const walked = [...trail.slice(0, here.k), here.pt];
   const ahead = [here.pt, ...trail.slice(here.k)];
   const top = climb[climb.length - 1];
-  const sun = px([930, 80]);
+  const big = W >= 560;
+  const tentW = big ? 56 : 34;
+  const img = (name) => `assets/scenes/${name}.webp`;
+  const scene = night ? 'chemin-nuit' : 'chemin-jour';
+  // étoiles qui scintillent (nuit), dans le ciel à gauche
+  const stars = night ? Array.from({ length: 26 }, (_, i) => {
+    const [x, y] = px([((i * 397) % 1250) + 30, ((i * 151) % 300) + 12]);
+    return `<circle class="lp-star" cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${(1 + (i % 3) * 0.5).toFixed(1)}" style="--dl:-${(i * 0.37).toFixed(2)}s"/>`;
+  }).join('') : '';
+  const [sx, sy] = px([1940, 300]);
 
-  const svg = `<svg class="land-svg" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" aria-hidden="true">
-    <defs>
-      <linearGradient id="land-sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" class="l-sky-1"/><stop offset=".55" class="l-sky-2"/><stop offset="1" class="l-sky-3"/></linearGradient>
-      <radialGradient id="land-glow"><stop offset="0" class="l-sun" stop-opacity=".9"/><stop offset=".35" class="l-sun" stop-opacity=".4"/><stop offset="1" class="l-sun" stop-opacity="0"/></radialGradient>
-      <linearGradient id="land-peak" x1="0" y1="0" x2="0" y2="1"><stop offset="0" class="l-peak-1"/><stop offset="1" class="l-peak-2"/></linearGradient>
-      <linearGradient id="land-hill" x1="0" y1="0" x2="0" y2="1"><stop offset="0" class="l-hill-1"/><stop offset="1" class="l-hill-2"/></linearGradient>
-    </defs>
-    <rect width="${W}" height="${H}" fill="url(#land-sky)"/>
-    <circle cx="${sun[0]}" cy="${sun[1]}" r="${Math.min(150, W * .3)}" fill="url(#land-glow)"/>
-    <circle cx="${sun[0]}" cy="${sun[1]}" r="${Math.min(34, W * .07)}" class="l-sun" opacity=".9"/>
-    <g transform="scale(${sx} ${sy}) translate(0 ${-LAND.top})">
-      <path class="l-far" d="M0,120 L90,96 L170,110 L260,80 L350,104 L450,72 L540,98 L640,64 L720,90 L800,62 L880,88 L960,58 L1040,84 L1100,70 V200 H0 Z"/>
-      <path class="l-mid" d="M0,150 L110,120 L200,138 L300,110 L410,136 L520,106 L620,132 L700,102 L790,126 L860,108 V200 H0 Z"/>
-      <path fill="url(#land-peak)" d="M820,200 L930,92 L962,106 L1000,30 L1050,94 L1074,82 L1100,92 V200 Z"/>
-      <path class="l-snow" d="M1000,30 L1019,54 L1010,50 L1002,58 L994,51 L987,54 Z"/>
-      <path fill="url(#land-hill)" d="M0,200 L0,174 C140,170 220,160 300,156 S470,140 560,134 S720,118 800,112 C850,108 878,124 905,200 Z"/>
-    </g>
-    ${[[90, 198, 1], [108, 197, .8], [520, 192, .9], [700, 178, .8]].map(([x, y, s]) => { const [tx, ty] = px([x, y]); return `<path class="l-tree" d="M${tx},${ty - 26 * s} l${7 * s},${26 * s} h${-14 * s} z"/>`; }).join('')}
+  const svg = `<svg class="land-svg photo" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" aria-hidden="true">
+    <defs><radialGradient id="land-glow"><stop offset="0" class="l-sun" stop-opacity=".8"/><stop offset="1" class="l-sun" stop-opacity="0"/></radialGradient><radialGradient id="land-tent-glow"><stop offset="0" class="l-sun" stop-opacity=".55"/><stop offset="1" class="l-sun" stop-opacity="0"/></radialGradient></defs>
+    <image href="${img(scene)}" x="${ox.toFixed(1)}" y="${oy.toFixed(1)}" width="${iw.toFixed(1)}" height="${ih.toFixed(1)}" preserveAspectRatio="none"/>
+    ${night ? `<circle class="lp-sunset" cx="${sx.toFixed(1)}" cy="${sy.toFixed(1)}" r="${(180 * s).toFixed(1)}"/>${stars}`
+      : `<g class="lp-birds" style="--w:${W}px"><path class="lp-bird" d="M0,0 q5,-5 10,0 q5,-5 10,0"/><path class="lp-bird" d="M18,9 q4,-4 8,0 q4,-4 8,0"/></g>`}
     <path class="l-dots" d="${line(ahead)}"/>
     <path class="l-dots up" d="${line(climb)}"/>
     ${path.done || slots === 1 ? `<path class="l-walk-under" pathLength="1" d="${line(walked)}"/><path class="l-walk" pathLength="1" d="${line(walked)}"/>` : ''}
-    ${steps.map(({ s, pt: [x, y], done, next }) => done
-      ? `<g transform="translate(${x.toFixed(1)} ${y.toFixed(1)}) scale(${s.major ? 1.35 : 1})"><path class="l-tent" d="M-12,3 L0,-15 L12,3 Z"/><path class="l-tent-door" d="M0,-8 L-4.5,3 L4.5,3 Z"/><path class="l-ground" d="M-16,3 H16"/></g>`
-      : `<circle class="l-step ${next ? 'next' : ''} ${s.major ? 'major' : ''}" cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${s.major ? 11 : next ? 9 : 6.5}"/>`).join('')}
-    <g transform="translate(${top[0].toFixed(1)} ${top[1].toFixed(1)})"><path class="l-flag" d="M0,0 v-26 M0,-26 l20,7 l-20,7"/></g>
+    ${steps.map(({ s: st, pt: [x, y], done, next }, i) => done
+      ? `<g class="lp-tent ${night ? 'lit' : ''}"><ellipse class="lp-tent-shadow" cx="${x.toFixed(1)}" cy="${(y + 1).toFixed(1)}" rx="${(tentW * 0.55).toFixed(1)}" ry="4"/>
+          ${night ? `<circle class="lp-tent-glow" cx="${x.toFixed(1)}" cy="${(y - tentW * 0.3).toFixed(1)}" r="${(tentW * 0.75).toFixed(1)}"/>` : ''}
+          <image href="${img(TENTS[i % TENTS.length])}" x="${(x - tentW / 2).toFixed(1)}" y="${(y - tentW * 0.68).toFixed(1)}" width="${(tentW * (st.major ? 1.25 : 1)).toFixed(1)}" height="${(tentW * 0.7 * (st.major ? 1.25 : 1)).toFixed(1)}"/></g>`
+      : `<circle class="l-step ${next ? 'next' : ''} ${st.major ? 'major' : ''}" cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${st.major ? 11 : next ? 9 : 6.5}"/>`).join('')}
+    <g transform="translate(${top[0].toFixed(1)} ${(top[1] + 4).toFixed(1)})"><path class="l-pole" d="M0,0 v-28"/><path class="l-flag" d="M0,-28 l20,7 l-20,7 Z"/></g>
     <g class="l-here" transform="translate(${here.pt[0].toFixed(1)} ${here.pt[1].toFixed(1)})"><circle class="l-here-wave" r="20"/><circle class="l-here-ring" r="10.6"/><circle class="l-here-dot" r="9"/></g>
   </svg>`;
 
   // Textes posés par-dessus (taille réelle : jamais sous 12 px, même sur téléphone)
   // Sur téléphone (ou quand les repères sont serrés) : seulement la date de la prochaine étape (les noms sont écrits juste sous le paysage).
   // Sur ordinateur : toutes les étapes si elles ont la place, sinon la prochaine seulement.
-  const gap = slots > 1 ? (total / (slots - 1)) : total;
-  const phone = W < 560 || gap < 150;
-  const shown = steps.filter(({ s, next }) => phone ? (next && s.due_date) : (gap >= 230 || next || (s.major && gap >= 150)));
-  const labels = shown.map(({ s, pt: [x, y], next }) => {
+  const gap = slots > 1 ? (total * 0.86 / (slots - 1)) : total;
+  const phone = !big || gap < 150;
+  const shown = steps.filter(({ s: st, next }) => phone ? (next && st.due_date) : (gap >= 230 || next || (st.major && gap >= 150)));
+  const labels = shown.map(({ s: st, pt: [x, y], next }) => {
     const side = x < 130 ? 'l' : x > W - 140 ? 'r' : '';
-    const date = s.due_date ? esc(fmtDate(s.due_date)) : '';
-    return `<span class="land-lab ${next ? 'next' : ''} ${s.major ? 'major' : ''} ${side}" style="left:${x.toFixed(0)}px;top:${(y + 16).toFixed(0)}px">${phone ? `<i>${date}</i>` : `<span translate="no">${esc(s.title)}</span>${date ? `<i>· ${date}</i>` : ''}`}</span>`;
+    const date = st.due_date ? esc(fmtDate(st.due_date)) : '';
+    return `<span class="land-lab ${next ? 'next' : ''} ${st.major ? 'major' : ''} ${side}" style="left:${x.toFixed(0)}px;top:${(y + 16).toFixed(0)}px">${phone ? `<i>${date}</i>` : `<span translate="no">${esc(st.title)}</span>${date ? `<i>· ${date}</i>` : ''}`}</span>`;
   }).join('');
   const bx = Math.max(64, Math.min(W - 64, here.pt[0]));
   const bubble = `<span class="land-here" style="left:${bx.toFixed(0)}px;top:${(here.pt[1] - 22).toFixed(0)}px">${tr('Vous êtes ici')}<i style="left:calc(50% + ${(here.pt[0] - bx).toFixed(0)}px)"></i></span>`;
@@ -237,7 +247,7 @@ async function renderCampHome(el, p) {
     const W = Math.max(280, Math.round(box.clientWidth));
     // Téléphone : le titre au-dessus du dessin (deux espaces distincts, jamais de collision avec « Vous êtes ici »)
     const stacked = W < 560;
-    const H = stacked ? 190 : 300;
+    const H = stacked ? 190 : Math.round(Math.min(400, Math.max(300, W * 0.36)));
     lastW = W;
     const head = `<div class="land-head">
           <div class="eyebrow">${reached ? tr('Sommet atteint') : tr('Le sommet')}${summitDay ? ` · ${esc(B.longDate(summitDay))}` : ''}</div>
@@ -246,7 +256,7 @@ async function renderCampHome(el, p) {
         </div>`;
     const next = path.next;
     box.innerHTML = `
-      <div class="land ${stacked ? 'stacked' : ''} ${drawn ? '' : 'draw'}" role="img" aria-label="${esc(say)}">
+      <div class="land photo ${stacked ? 'stacked' : ''} ${drawn ? '' : 'draw'}" style="${stacked ? '' : `height:${H}px`}" role="img" aria-label="${esc(say)}">
         ${stacked ? head : ''}
         <div class="land-art" style="height:${H}px">${landscape(path, W, H)}</div>
         ${stacked ? '' : head}
