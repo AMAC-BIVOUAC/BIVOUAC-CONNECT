@@ -1,0 +1,46 @@
+<!doctype html>
+<!-- Page de test de la scène du bivouac (pour l'équipe, pas un écran de l'app) : jour / nuit, animé ou fixe, mode debug
+     (cadres des calques et pivots). Ouvrir …/app/scene-test.html (web) ou src/scene-test.html (npm run web:serve). -->
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Scène du bivouac (test)</title>
+  <link rel="stylesheet" href="styles.css" />
+  <style>
+    html, body { margin: 0; height: 100%; background: var(--navy); }
+    #stage { position: fixed; inset: 0; }
+    .scn-tools { position: fixed; z-index: 3; left: var(--s-3); top: var(--s-3); display: flex; flex-wrap: wrap; gap: var(--s-2); }
+    .scn-tools button { min-height: 44px; padding: 0 var(--s-4); border-radius: var(--r-round); border: 1px solid var(--line);
+      background: var(--card); color: var(--text); font: inherit; font-weight: var(--fw-title); cursor: pointer; }
+    .scn-tools button[aria-pressed="true"] { background: var(--action); color: var(--on-navy); border-color: var(--action); }
+  </style>
+</head>
+<body>
+  <div id="stage"></div>
+  <div class="scn-tools">
+    <button type="button" id="t-mode" aria-pressed="false">Nuit</button>
+    <button type="button" id="t-anim" aria-pressed="true">Animé</button>
+    <button type="button" id="t-debug" aria-pressed="false">Debug</button>
+  </div>
+  <script src="js/scene-config.js"></script>
+  <script src="js/scene-positions.js"></script>
+  <script src="js/scene.js"></script>
+  <script>
+    const q = new URLSearchParams(location.search);
+    const state = { mode: q.get('mode') === 'nuit' ? 'nuit' : 'jour', animated: q.get('anim') !== '0', debug: q.has('debug') };
+    const scene = B.Scene(document.getElementById('stage'), state);
+    window.scene = scene;
+    const paint = () => {
+      const m = document.getElementById('t-mode');
+      m.textContent = state.mode === 'jour' ? 'Passer à la nuit' : 'Passer au jour';
+      document.getElementById('t-anim').setAttribute('aria-pressed', String(state.animated));
+      document.getElementById('t-debug').setAttribute('aria-pressed', String(state.debug));
+    };
+    document.getElementById('t-mode').onclick = () => { state.mode = state.mode === 'jour' ? 'nuit' : 'jour'; scene.setMode(state.mode); paint(); };
+    document.getElementById('t-anim').onclick = () => { state.animated = !state.animated; scene.setAnimated(state.animated); paint(); };
+    document.getElementById('t-debug').onclick = () => { state.debug = !state.debug; scene.setDebug(state.debug); paint(); };
+    paint();
+  </script>
+</body>
+</html>

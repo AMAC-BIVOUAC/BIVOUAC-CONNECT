@@ -1,6 +1,6 @@
 // =====================================================================
-// Ambiance d'Aujourd'hui (22/11, Apo) : un décor dessiné en fond de page, de jour ou de nuit selon l'heure
-//   (le dessin lui-même est dans ambiance-scene.js : B.ambianceScene, B.ambianceMoment).
+// Ambiance d'Aujourd'hui (22/11, Apo) : la scène peinte du bivouac en fond de page, de jour ou de nuit selon l'heure
+//   (scène : scene.js + scene-config.js + scene-positions.js ; jour ou nuit : B.ambianceMoment, ambiance-scene.js).
 //   Son (facultatif, bouton en bas à droite, clic droit = volume) : crépitement du feu, vent dans les feuilles ;
 //   oiseaux le jour, grillons et hibou la nuit. FABRIQUÉ ici par Web Audio (comme sounds.js) : aucun fichier,
 //   aucun extrait d'un tiers (droits d'auteur), rien à télécharger.
@@ -155,7 +155,6 @@
     let moment = B.ambianceMoment();
     layer.className = `amb ${moment}`;
     layer.setAttribute('aria-hidden', 'true');
-    layer.innerHTML = B.ambianceScene(moment);
     view.prepend(layer);
     // Le bouton du son flotte AU-DESSUS du contenu (le calque, lui, est dessous)
     const btn = document.createElement('button');
@@ -163,9 +162,10 @@
     view.append(btn);
     view.classList.add('has-amb');
     const still = () => !B.animationsOn() || matchMedia('(prefers-reduced-motion: reduce)').matches;
-    const svgEl = $('.amb-svg', layer);
-    const syncMotion = () => (still() ? svgEl.pauseAnimations?.() : svgEl.unpauseAnimations?.());
-    syncMotion();
+    // La scène peinte (scene.js) : fond, animaux, feu ; jour ou nuit
+    const fr = (m) => (m === 'night' ? 'nuit' : 'jour');
+    const scene = B.Scene(layer, { mode: fr(moment), animated: !still() });
+    const syncMotion = () => scene.setAnimated(!still());
 
     // Le calque suit exactement la zone de la page (#view), même quand la fenêtre change de taille
     const place = () => {
@@ -190,8 +190,8 @@
       const now = B.ambianceMoment();
       if (now === moment) return;
       moment = now;
-      layer.className = `amb ${moment}${still() ? ' still' : ''}`;
-      layer.innerHTML = B.ambianceScene(moment); // l'image du jour ou de la nuit
+      layer.className = `amb ${moment}`;
+      scene.setMode(fr(moment)); // toute la scène passe en fondu
       if (S.on) { stopSound(); setTimeout(sync, 950); }
     }, 60000);
     btn.onclick = () => { store.set('ambiance:sound', !soundWanted()); paintBtn(); sync(); };
@@ -236,6 +236,7 @@
       document.removeEventListener('visibilitychange', sync);
       offs.forEach((off) => off?.());
       view.classList.remove('has-amb');
+      scene.destroy();
       layer.remove();
       btn.remove();
     });
