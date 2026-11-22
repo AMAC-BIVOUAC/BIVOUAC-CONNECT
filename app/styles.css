@@ -2501,5 +2501,18 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--teal); }
 @keyframes amb-sq-tail { from { transform: rotate(-8deg); } to { transform: rotate(10deg); } }
 @keyframes amb-sq-climb { 0%, 40% { transform: translateY(0); } 46%, 70% { transform: translateY(-70px); } 76%, 100% { transform: translateY(0); } }
 
+/* Animaux détourés (images d'Apo) */
+.amb-pic { transform-box: fill-box; transform-origin: 50% 100%; }
+.amb-svg.photo .amb-flames { filter: blur(1.4px); opacity: .92; } /* flamme plus douce sur l'image peinte */
+.pic-bear { animation: amb-breathe 4.6s ease-in-out infinite; }
+.pic-chamois { animation: pic-chamois 9s ease-in-out infinite; }
+.pic-owl { animation: pic-owl 12s ease-in-out infinite; }
+.pic-squirrel { animation: pic-hop 14s ease-in-out infinite; }
+.pic-marmot { animation: pic-peek 22s ease-in-out infinite; }
+.pic-fox { animation: pic-chamois 7s ease-in-out infinite; }
+@keyframes pic-chamois { 0%, 100% { transform: scale(1, 1); } 50% { transform: scale(1.005, 1.015); } }
+@keyframes pic-owl { 0%, 40% { transform: rotate(0); } 46%, 60% { transform: rotate(-4deg); } 66%, 100% { transform: rotate(0); } }
+@keyframes pic-hop { 0%, 70%, 100% { transform: translateY(0); } 74% { transform: translateY(-14px); } 78% { transform: translateY(0); } 82% { transform: translateY(-8px); } 86% { transform: translateY(0); } }
+@keyframes pic-peek { 0%, 8% { transform: translateY(80px); } 16%, 60% { transform: translateY(0); } 70%, 100% { transform: translateY(80px); } }
 .no-anim .amb *, .no-anim .amb { animation: none !important; }
 @media (prefers-reduced-motion: reduce) { .amb *, .amb { animation: none !important; } }

@@ -210,14 +210,42 @@
     day: {
       img: 'camp-jour', fire: [1135, 905], bear: [1392, 858, 0.95], marmot: [600, 992, 1.25], chamois: [688, 730, 0.85],
       fox: [270, 850, 1], owl: [1262, 438, 0.9], squirrel: [322, 600, 1.2], lantern: null,
-      rays: [1660, 250], lake: [700, 690, 1280, 790], sky: null
+      rays: [1660, 250], lake: [700, 690, 1280, 790], sky: null,
+      photos: [
+        { file: 'jour-chamois', x: 716, y: 744, h: 150, ratio: 135 / 171, cls: 'pic-chamois' },
+        { file: 'jour-hibou', x: 1262, y: 452, h: 96, ratio: 79 / 111, cls: 'pic-owl' },
+        { file: 'jour-renard', x: 318, y: 866, h: 96, ratio: 119 / 105, cls: 'pic-fox' },
+        { file: 'jour-ecureuil', x: 880, y: 846, h: 62, ratio: 59 / 71, cls: 'pic-squirrel' },
+        { file: 'nuit-marmotte', x: 760, y: 852, h: 72, ratio: 56 / 63, cls: 'pic-marmot', clip: 0 },
+        { file: 'nuit-ours', x: 1400, y: 872, h: 330, ratio: 341 / 553, cls: 'pic-bear' } // en attendant l'ours de jour
+      ]
     },
     night: {
       img: 'camp-nuit', fire: [1160, 905], bear: [1612, 852, 0.95], marmot: [470, 995, 1.25], chamois: [692, 690, 0.85],
       fox: [275, 790, 1], owl: [1262, 438, 0.9], squirrel: [322, 600, 1.2], lantern: [285, 905],
-      rays: null, lake: [800, 680, 1250, 780], sky: [660, 10, 1220, 250]
+      rays: null, lake: [800, 680, 1250, 780], sky: [660, 10, 1220, 250],
+      photos: [
+        { file: 'nuit-chamois', x: 690, y: 674, h: 150, ratio: 137 / 164, cls: 'pic-chamois' },
+        { file: 'nuit-hibou', x: 1262, y: 452, h: 96, ratio: 78 / 107, cls: 'pic-owl' },
+        { file: 'nuit-ecureuil', x: 610, y: 868, h: 70, ratio: 86 / 76, cls: 'pic-squirrel' },
+        { file: 'nuit-marmotte', x: 772, y: 832, h: 72, ratio: 56 / 63, cls: 'pic-marmot', clip: 0 },
+        { file: 'nuit-ours', x: 1615, y: 866, h: 330, ratio: 341 / 553, cls: 'pic-bear' }
+      ]
     }
   };
+
+  /**
+   * Animaux détourés d'Apo (images, même style que le fond) : chacun posé par son pied (x au milieu, y en bas),
+   * à la hauteur voulue, dans les pixels de l'image du fond. `clip` = ligne sous laquelle l'animal est caché
+   * (la marmotte se cache derrière le rondin).
+   */
+  function photoAnimals(list) {
+    return list.map(({ file, x, y, h, ratio, cls, clip }) => {
+      const w = h * ratio;
+      const img = `<image class="amb-pic ${cls}" href="assets/scenes/${file}.webp" x="${f(x - w / 2)}" y="${f(y - h)}" width="${f(w)}" height="${f(h)}" preserveAspectRatio="none"/>`;
+      return clip ? `<clipPath id="amb-clip-${cls}"><rect x="${f(x - w)}" y="${f(y - h * 1.6)}" width="${f(w * 2)}" height="${f(h * 1.6 + clip)}"/></clipPath><g clip-path="url(#amb-clip-${cls})">${img}</g>` : img;
+    }).join('');
+  }
 
   B.ambianceScene = (moment = 'day') => {
     const P = PLACES[moment === 'night' ? 'night' : 'day'];
@@ -255,12 +283,12 @@
   <g class="amb-ripples">${ripples}</g>
   ${P.lantern ? `<circle class="amb-lantern-glow on" cx="${P.lantern[0]}" cy="${P.lantern[1] - 30}" r="110"/>` : ''}
 
-  ${at(P.chamois, chamois)}
+  ${P.photos ? photoAnimals(P.photos) : `${at(P.chamois, chamois)}
   ${at(P.fox, `<circle class="amb-bush" cx="-50" cy="-18" r="44"/><circle class="amb-bush" cx="34" cy="-24" r="48"/><g transform="translate(0 -22)">${fox}</g><circle class="amb-bush-light" cx="-58" cy="-4" r="32"/><circle class="amb-bush-light" cx="46" cy="-6" r="34"/>`)}
   ${at(P.squirrel, squirrel)}
   ${at(P.owl, `<path class="amb-trunk" d="M-60,4 L40,-6 L40,6 L-60,12 Z"/><g transform="translate(-14 4)">${owl}</g>`)}
   ${at(P.marmot, marmot)}
-  ${at(P.bear, bear)}
+  ${at(P.bear, bear)}`}
   ${at([P.fire[0], P.fire[1], 0.95], fire())}
   <g class="amb-flies">${flies}</g>
 </svg>`;
