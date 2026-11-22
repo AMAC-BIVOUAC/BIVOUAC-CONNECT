@@ -353,6 +353,8 @@ textarea { resize: vertical; }
 #sidebar { background: var(--navy); color: var(--on-navy); display: flex; flex-direction: column; padding: 18px 14px; min-height: 0; }
 #sidebar .brand { display: flex; align-items: center; gap: 10px; padding: 4px 8px 22px; }
 #sidebar .brand .wordmark { color: var(--card); font-size: var(--fs-logo); }
+#sidebar .brand .brand-logo { display: block; width: 170px; height: auto; margin-left: -6px; } /* logo officiel (22/11) */
+.login-logo { display: block; width: min(360px, 80%); height: auto; }
 .nav a, .space, .nav-add {
   display: flex; align-items: center; gap: 12px;
   padding: 10px 12px; border-radius: var(--r-md); color: var(--on-navy); font-weight: var(--fw-text); font-size: var(--fs-text);
@@ -1258,7 +1260,7 @@ video.mirror { transform: scaleX(-1); }
   .login-art { min-height: 150px; }
   .login-brand { padding: 22px 16px; }
   .login-brand .wordmark { font-size: var(--fs-logo-md); }
-  .login-brand img { width: 56px; height: 56px; }
+  .login-brand .login-logo { width: 220px; }
   .login-brand .tagline { display: none; }
   .login-panel { padding: 20px 16px 32px; justify-content: flex-start; }
   .login-card { max-height: none; }
