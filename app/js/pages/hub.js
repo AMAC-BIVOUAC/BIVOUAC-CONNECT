@@ -119,12 +119,17 @@ B.pages.hub = async (el, p) => {
   /** Décision classée sans suite (migration 039) : reste dans la liste, état visible, annulable */
   const noFollowState = () => `<div class="follow-none"><span class="follow-none-tag">${icon('x', 12)} ${tr('Classée sans suite')}</span>
     <button class="link small" data-undo-no-follow>${tr('Annuler')}</button></div>`;
-  /** Classer sans suite (`none`) ou annuler (`null`) */
+  /** Classer sans suite (`none`, la base l'archive : migration 040) ou annuler (`null`, la décision revient dans la liste) */
   const setNoFollow = async (item, on) => {
-    const { error } = await B.sb.from('items').update({ followup_type: on ? 'none' : null, followup_id: null }).eq('id', item.id);
+    const { error } = await B.sb.from('items').update(on ? { followup_type: 'none', followup_id: null } : { followup_type: null, followup_id: null, archived_at: null }).eq('id', item.id);
     if (error) return B.error(new Error(/followup/.test(error.message || '') ? tr('« Ne pas donner suite » n\'est pas encore installé sur le serveur (migration 039).') : errText(error)));
     await load();
-    if (on) B.toast(tr('Décision classée sans suite.'), { type: 'success', actions: [[tr('Annuler'), '', () => setNoFollow(item, false)]] });
+    if (on) archivedToast(item, tr('Décision classée sans suite.'), () => setNoFollow(item, false));
+  };
+  /** Message après archivage d'une décision, avec « Annuler » */
+  const archivedToast = (item, text, undo) => {
+    const archived = items.find((i) => i.id === item.id)?.archived_at;
+    B.toast(text + (archived ? ` ${tr('La décision est archivée en bas de la liste.')}` : ''), { type: 'success', actions: [[tr('Annuler'), '', undo]] });
   };
 
   /** Le sommet, en haut de la carte « Le chemin » */
@@ -247,7 +252,7 @@ B.pages.hub = async (el, p) => {
           : tr(n > 1 ? '{n} décisions archivées' : '{n} décision archivée', { n });
         $('.archived-list', box).innerHTML = archived.map((i) => `
           <li class="item done" data-id="${i.id}"><span class="bullet"></span>
-            <span class="item-title">${esc(i.title)}${i.vote_options ? voteHtml(i) : ''}</span>
+            <span class="item-title">${esc(i.title)}${i.vote_options ? voteHtml(i) : i.followup_type === 'none' ? noFollowState() : ''}</span>
             ${type !== 'milestone' || B.isManager(p.id) ? `<button class="link small" data-unarchive>${tr(type === 'milestone' ? 'Reprendre' : 'Ressortir')}</button>` : ''}</li>`).join('');
       }
     }
@@ -352,9 +357,19 @@ B.pages.hub = async (el, p) => {
       return render();
     }
     if (e.target.matches('input[type=checkbox]')) {
-      const { error } = await B.sb.from('items').update({ done: e.target.checked }).eq('id', item.id);
+      const checked = e.target.checked;
+      const { error } = await B.sb.from('items').update({ done: checked }).eq('id', item.id);
       if (error) B.error(new Error(/responsables|Administrateurs/i.test(error.message || '') ? tr('Seuls le Créateur et les Administrateurs peuvent revenir en arrière sur une étape.') : errText(error)));
-      return load();
+      await load();
+      // Décision cochée « Appliquée » : la base l'archive (migration 040)
+      if (!error && checked && item.type === 'decision') {
+        archivedToast(item, tr('Décision appliquée.'), async () => {
+          const r = await B.sb.from('items').update({ done: false, archived_at: null }).eq('id', item.id);
+          if (r.error) B.error(r.error);
+          load();
+        });
+      }
+      return;
     }
     if (e.target.closest('[data-archive]') || e.target.closest('[data-unarchive]')) {
       const { error } = await B.sb.from('items').update({ archived_at: e.target.closest('[data-archive]') ? new Date().toISOString() : null }).eq('id', item.id);

@@ -1238,6 +1238,7 @@ const EN = {
   "Garder la décision, sans en faire une tâche ni une étape": "Keep the decision without turning it into a task or a step",
   "Classée sans suite": "Closed, no follow-up",
   "Décision classée sans suite.": "Decision closed with no follow-up.",
+  "Décision appliquée.": "Decision applied.",
   "Annuler « sans suite »": "Undo “no follow-up”",
   "« Ne pas donner suite » n'est pas encore installé sur le serveur (migration 039).": "“Don't follow up” is not installed on the server yet (migration 039).",
   "Suite donnée": "Followed up",
