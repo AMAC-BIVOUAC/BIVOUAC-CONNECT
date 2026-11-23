@@ -47,7 +47,7 @@ B.pages.project = async (view, [pid, tab = 'projet', sub]) => {
     <div class="project">
       <header class="project-head">
         <a class="icon-btn proj-back" href="#/projects" aria-label="${tr('Retour à mes projets')}">${icon('back', 20)}</a>
-        <span class="proj-icon" style="background:${esc(p.color)}">${icon('users', 20)}</span>
+        <span class="proj-icon" style="background:${esc(p.color)}">${projectIcon(p, 20)}</span>
         <div class="project-title">
           <h1>${esc(p.name)}</h1>
           <p>${tr('{n} membres', { n: humans + p.aiCount })} (${tr(humans > 1 ? '{n} humains' : '{n} humain', { n: humans })} · ${tr('{n} IA', { n: p.aiCount })})</p>

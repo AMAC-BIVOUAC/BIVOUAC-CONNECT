@@ -165,7 +165,7 @@ B.renderSidebar = () => {
   const list = $('#space-list');
   list.innerHTML = B.projects.map((p) => `
     <a class="space" href="#/p/${p.id}" data-space="${p.id}">
-      <span class="space-dot" style="background:${esc(p.color)}"></span><span class="space-name">${esc(p.name)}</span>
+      <span class="space-ico" style="background:${esc(p.color)}">${projectIcon(p, 14)}</span><span class="space-name">${esc(p.name)}</span>
       <span class="unread-badge hidden" data-unread="project:${p.id}"></span>
     </a>`).join('') || `<p class="nav-empty">${tr("Aucun espace pour l'instant")}</p>`;
   B.paintUnread(list);
@@ -374,7 +374,7 @@ B.pickProject = (title, filter) => new Promise((resolve) => {
   }
   if (list.length === 1) return resolve(list[0].id);
   const m = B.modal(`<h2>${esc(title)}</h2><div class="pick-list">${list.map((p) =>
-    `<button class="pick" data-id="${p.id}"><span class="space-dot" style="background:${esc(p.color)}"></span>${esc(p.name)}</button>`).join('')}</div>
+    `<button class="pick" data-id="${p.id}"><span class="space-ico" style="background:${esc(p.color)}">${projectIcon(p, 14)}</span>${esc(p.name)}</button>`).join('')}</div>
     <div class="actions"><button class="btn" data-close>${tr('Annuler')}</button></div>`);
   $('[data-close]', m).onclick = () => { B.closeModal(); resolve(null); };
   $$('.pick', m).forEach((b) => (b.onclick = () => { B.closeModal(); resolve(b.dataset.id); }));

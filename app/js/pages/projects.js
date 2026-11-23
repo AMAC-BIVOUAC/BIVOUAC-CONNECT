@@ -13,7 +13,7 @@ B.pages.projects = async (view) => {
         <div class="proj-grid">
           ${B.projects.map((p) => `
             <a class="proj-card" href="#/p/${p.id}" style="--c:${esc(p.color)}">
-              <div class="proj-card-top"><span class="proj-sq" style="background:${esc(p.color)}"></span><h3>${esc(p.name)}</h3></div>
+              <div class="proj-card-top"><span class="proj-sq" style="background:${esc(p.color)}">${projectIcon(p, 18)}</span><h3>${esc(p.name)}</h3></div>
               <p>${p.description ? esc(p.description) : tr('Pas de description')}</p>
               <div class="proj-meta">
                 <span>${icon('users', 15)} ${tr(p.memberCount > 1 ? '{n} humains' : '{n} humain', { n: p.memberCount })} · ${tr('{n} IA', { n: p.aiCount })}</span>

@@ -67,8 +67,35 @@ const ICONS = {
   headoff: '<path d="M4 15v-3a8 8 0 0116 0v3"/><rect x="3" y="14" width="4" height="7" rx="1.5"/><rect x="17" y="14" width="4" height="7" rx="1.5"/><path d="M3 3l18 18"/>',
   volume: '<path d="M4 10h4l5-4v12l-5-4H4z"/><path d="M16.5 9a4 4 0 010 6M19 6.5a8 8 0 010 11"/>',
   volumeoff: '<path d="M4 10h4l5-4v12l-5-4H4z"/><path d="M16 9.5l5 5M21 9.5l-5 5"/>',
-  hangup: '<path d="M3 15c5-4 13-4 18 0l-2 3-4-1v-2a10 10 0 00-6 0v2l-4 1z"/>'
+  hangup: '<path d="M3 15c5-4 13-4 18 0l-2 3-4-1v-2a10 10 0 00-6 0v2l-4 1z"/>',
+  // Icônes de projet (thème bivouac / montagne, demande d'Apo du 23/11)
+  tent: '<path d="M2.5 20.5h19M4 20.5L12 4l8 16.5"/><path d="M12 12.5l-3 8M12 12.5l3 8"/>',
+  mountain: '<path d="M2 20l7-13.5 4.6 7.6 2.6-3.6L22 20z"/><path d="M6.3 12.2l1.7 1 1.5-1.2 1.6 1"/>',
+  campfire: '<path d="M12 3.5c.8 2.6 3.8 4 3.8 7.4a3.8 3.8 0 01-7.6 0c0-1.8.9-3 2-3.9-.1 1.5.6 2.5 1.6 2.6-.4-2.2-.3-4.2.2-6.1z"/><path d="M4 21l16-4.5M20 21L4 16.5"/>',
+  map: '<path d="M3 6.5l6-2.5 6 2.5 6-2.5v13.5l-6 2.5-6-2.5-6 2.5z"/><path d="M9 4v13.5M15 6.5V20"/>',
+  backpack: '<path d="M6 21v-9.5a6 6 0 0112 0V21z"/><path d="M10 5.7V3.5h4v2.2M9 21v-5h6v5M6 13h12"/>',
+  tree: '<path d="M12 2.5l-5 7h3l-4.5 6.5h13L14 9.5h3z"/><path d="M12 16v5"/>',
+  star: '<path d="M12 3.5l2.6 5.3 5.9.9-4.3 4.1 1 5.8-5.2-2.7-5.2 2.7 1-5.8-4.3-4.1 5.9-.9z"/>',
+  briefcase: '<rect x="3" y="7" width="18" height="13" rx="2"/><path d="M9 7V4.5h6V7M3 12.5h18M11 12.5v2h2v-2"/>',
+  book: '<path d="M12 6.5C10 5 7 4.5 3.5 5v13.5c3.5-.5 6.5 0 8.5 1.5 2-1.5 5-2 8.5-1.5V5c-3.5-.5-6.5 0-8.5 1.5zM12 6.5V20"/>',
+  heart: '<path d="M12 20s-7.4-4.5-8.4-9.4C2.9 7.1 5 4.5 7.8 4.5c1.8 0 3.2 1 4.2 2.5 1-1.5 2.4-2.5 4.2-2.5 2.8 0 4.9 2.6 4.2 6.1-1 4.9-8.4 9.4-8.4 9.4z"/>',
+  gift: '<rect x="3.5" y="8" width="17" height="4" rx="1"/><path d="M5 12v8h14v-8M12 8v12M12 8c-1.5-3-5-4-5-1.5S10 8 12 8zM12 8c1.5-3 5-4 5-1.5S14 8 12 8z"/>'
 };
+
+/** Icônes qu'on peut choisir pour un projet (Équipe → Réglages du projet). 'users' = ancienne icône, par défaut.
+ *  Ajouter une icône : la dessiner dans ICONS, l'ajouter ici (la base n'accepte qu'un nom en minuscules, migration 037). */
+const PROJECT_ICONS = [
+  ['users', 'Équipe'], ['tent', 'Tente'], ['mountain', 'Montagne'], ['campfire', 'Feu de camp'],
+  ['compass', 'Boussole'], ['map', 'Carte'], ['backpack', 'Sac à dos'], ['tree', 'Sapin'],
+  ['flag', 'Sommet'], ['star', 'Étoile'], ['rocket', 'Lancement'], ['bulb', 'Idée'],
+  ['briefcase', 'Travail'], ['book', 'Études'], ['heart', 'Cœur'], ['gift', 'Fête']
+];
+
+/** Icône d'un projet (repli sur 'users' si la valeur est inconnue, par exemple ajoutée par une version plus récente) */
+function projectIcon(p, size = 18) {
+  const name = PROJECT_ICONS.some(([k]) => k === p?.icon) ? p.icon : 'users';
+  return icon(name, size);
+}
 
 function icon(name, size = 18) {
   return `<svg class="ico" width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[name] || ''}</svg>`;

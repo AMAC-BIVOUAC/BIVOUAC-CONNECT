@@ -138,7 +138,7 @@ B.pages.home = async (view) => {
           const line = path.next ? `${tr('Prochaine')} : <span translate="no">${esc(path.next.title)}</span>`
             : path.total ? tr('Toutes les étapes sont franchies') : tr("Pas encore d'étape sur le chemin");
           return `<a class="door tproj" href="#/p/${p.id}/projet">
-            <span class="door-ico" style="background:${esc(p.color)}">${icon('compass', 20)}</span>
+            <span class="door-ico" style="background:${esc(p.color)}">${projectIcon(p, 20)}</span>
             <span class="door-text"><b translate="no">${esc(p.name)}</b><span>${line}</span></span>
             <span class="unread-badge hidden" data-unread="project:${p.id}"></span></a>`;
         }).join('')}</div>

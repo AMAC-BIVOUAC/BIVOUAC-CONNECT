@@ -126,7 +126,16 @@ B.pages.team = async (el, p) => {
         ${isOwner ? `
           <label>${tr('Nom')}</label><input id="pj-name" maxlength="60" value="${esc(p.name)}" />
           <label>${tr('Description')}</label><input id="pj-desc" maxlength="300" value="${esc(p.description || '')}" />
-          <label>${tr('Couleur')}</label><input id="pj-color" type="color" value="${esc(p.color)}" />
+          <div class="pj-look">
+            <div><label for="pj-icon">${tr('Icône')}</label>
+              <button type="button" class="pj-icon-btn" id="pj-icon" data-icon="${esc(p.icon || 'users')}" style="background:${esc(p.color)}"
+                aria-expanded="false" aria-controls="pj-icons" title="${tr("Changer l'icône du projet")}">${projectIcon(p, 22)}</button></div>
+            <div><label for="pj-color">${tr('Couleur')}</label><input id="pj-color" type="color" value="${esc(p.color)}" /></div>
+          </div>
+          <div class="pj-icons hidden" id="pj-icons" role="radiogroup" aria-label="${tr('Icône du projet')}" style="--c:${esc(p.color)}">
+            ${PROJECT_ICONS.map(([k, label]) => `<button type="button" class="pj-icon-opt" role="radio" data-pick="${k}"
+              aria-checked="${k === (p.icon || 'users')}" aria-label="${tr(label)}" title="${tr(label)}">${icon(k, 22)}</button>`).join('')}
+          </div>
           <div class="actions"><button class="btn danger-ghost" id="pj-del">${icon('trash', 15)} ${tr('Supprimer le projet')}</button>
             <span class="spacer"></span><button class="btn primary" id="pj-save">${tr('Enregistrer')}</button></div>`
         : `<p class="muted">${tr('Seul le créateur du projet peut le renommer ou le supprimer.')}</p>
@@ -168,11 +177,34 @@ B.pages.team = async (el, p) => {
     B.route();
   }));
 
+  // Icône du projet : le bouton ouvre la grille ; l'aperçu suit la couleur choisie (rien n'est enregistré avant « Enregistrer »)
+  const iconBtn = $('#pj-icon', el), iconGrid = $('#pj-icons', el);
+  if (iconBtn) {
+    iconBtn.onclick = () => {
+      const open = iconGrid.classList.toggle('hidden') === false;
+      iconBtn.setAttribute('aria-expanded', open);
+      if (open) $('.pj-icon-opt[aria-checked="true"]', iconGrid)?.focus();
+    };
+    $$('.pj-icon-opt', iconGrid).forEach((b) => (b.onclick = () => {
+      $$('.pj-icon-opt', iconGrid).forEach((o) => o.setAttribute('aria-checked', o === b));
+      iconBtn.dataset.icon = b.dataset.pick;
+      iconBtn.innerHTML = icon(b.dataset.pick, 22);
+      iconGrid.classList.add('hidden');
+      iconBtn.setAttribute('aria-expanded', 'false');
+      iconBtn.focus();
+    }));
+    $('#pj-color', el).addEventListener('input', (e) => {
+      iconBtn.style.background = e.target.value;
+      iconGrid.style.setProperty('--c', e.target.value);
+    });
+  }
+
   $('#pj-save', el)?.addEventListener('click', async () => {
     const { error } = await B.sb.from('projects').update({
       name: $('#pj-name', el).value.trim() || p.name,
       description: $('#pj-desc', el).value.trim() || null,
-      color: $('#pj-color', el).value.toUpperCase()
+      color: $('#pj-color', el).value.toUpperCase(),
+      icon: iconBtn?.dataset.icon || 'users'
     }).eq('id', p.id);
     if (error) return B.error(error);
     await B.loadProjects();

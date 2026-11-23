@@ -311,7 +311,7 @@ textarea { resize: vertical; }
 .nav-title { font-size: var(--fs-label); font-weight: var(--fw-strong); color: var(--on-navy-muted); padding: 0 12px 8px; }
 .space { padding: 8px 12px; font-size: var(--fs-small); }
 .space.active { background: var(--navy-3); color: var(--card); }
-.space-dot { width: 12px; height: 12px; border-radius: var(--r-sm); flex: none; }
+.space-ico { width: 22px; height: 22px; border-radius: var(--r-sm); flex: none; display: grid; place-items: center; color: var(--card); }
 .nav-add { background: none; border: 0; width: 100%; font: inherit; cursor: pointer; font-size: var(--fs-small); }
 .nav-empty { font-size: var(--fs-label); color: var(--on-navy-muted); padding: 0 12px; }
 /* Encart « En ligne » (colonne de gauche) : coéquipiers connectés, clic = message privé */
@@ -407,6 +407,7 @@ textarea { resize: vertical; }
 .proj-card { background: var(--card); border-radius: var(--r-lg); box-shadow: var(--shadow); padding: 20px; color: var(--text); display: flex; flex-direction: column; gap: 10px; border-top: 4px solid var(--c); }
 .proj-card:hover { transform: translateY(-2px); transition: transform .12s; }
 .proj-card-top { display: flex; align-items: center; gap: 10px; }
+.proj-sq { width: 32px; height: 32px; border-radius: var(--r-md); flex: none; display: grid; place-items: center; color: var(--card); }
 .proj-card p { margin: 0; color: var(--muted); font-size: var(--fs-small); min-height: 36px; }
 .proj-meta { display: flex; gap: 16px; font-size: var(--fs-label); color: var(--muted); }
 .proj-meta span { display: flex; align-items: center; gap: 5px; }
@@ -416,6 +417,17 @@ textarea { resize: vertical; }
 .project { display: flex; flex-direction: column; height: 100%; }
 .project-head { display: flex; align-items: center; gap: 14px; padding: 18px 28px 10px; background: var(--card); }
 .proj-icon { width: 42px; height: 42px; border-radius: var(--r-md); display: grid; place-items: center; color: var(--card); }
+
+/* Réglages du projet : icône (à gauche) et couleur ; grille des icônes = PROJECT_ICONS (icons.js) */
+.pj-look { display: flex; gap: 20px; align-items: flex-end; }
+.pj-icon-btn { width: 56px; height: 44px; border: 1px solid var(--line); border-radius: var(--r-md); display: grid; place-items: center; color: var(--card); cursor: pointer; padding: 0; }
+.pj-icon-btn[aria-expanded="true"] { outline: 2px solid var(--link); outline-offset: 2px; }
+.pj-look input[type=color] { height: 44px; }
+.pj-icons { display: grid; grid-template-columns: repeat(8, 44px); gap: 8px; margin-top: 12px; padding: 12px; border: 1px solid var(--line); border-radius: var(--r-md); background: var(--bg); width: max-content; max-width: 100%; }
+.pj-icon-opt { width: 44px; height: 44px; border: 1px solid var(--line); border-radius: var(--r-md); background: var(--card); color: var(--navy); display: grid; place-items: center; cursor: pointer; padding: 0; }
+.pj-icon-opt:hover { border-color: var(--link); }
+.pj-icon-opt[aria-checked="true"] { background: var(--c); border-color: var(--c); color: var(--card); }
+@media (max-width: 760px) { .pj-icons { grid-template-columns: repeat(4, 44px); gap: 12px; } }
 .project-title { flex: 1; }
 .project-title h1 { font-size: var(--fs-title-sm); }
 .project-title p { margin: 2px 0 0; color: var(--muted); font-size: var(--fs-label); }
