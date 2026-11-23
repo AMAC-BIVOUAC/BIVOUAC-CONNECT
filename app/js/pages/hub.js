@@ -107,8 +107,7 @@ B.pages.hub = async (el, p) => {
           <span class="vote-bar" style="width:${people ? Math.round((counts[k] / people) * 100) : 0}%"></span>
           <span class="vote-label" translate="no">${esc(o)}</span><span class="vote-count">${counts[k]}</span></button>`).join('')}
       <div class="vote-foot muted small">${tr(people > 1 ? '{n} votants sur {m} membres' : '{n} votant sur {m} membres', { n: people, m: voters })}${open && mine ? ` · ${tr('vous pouvez changer d\'avis jusqu\'à la clôture')}` : ''}</div>
-      ${!open && vs.length ? (follow || `<div class="follow-actions"><button class="btn small follow-btn" data-follow>${icon('arrow', 13)} ${tr('Donner suite')}</button>
-        <button class="btn small follow-btn no-follow-btn" data-no-follow title="${tr('Garder la décision, sans en faire une tâche ni une étape')}">${icon('x', 13)} ${tr('Ne pas donner suite')}</button></div>`) : ''}
+      ${!open ? (follow || followButtons()) : ''}
     </div>`;
   };
 
@@ -116,6 +115,9 @@ B.pages.hub = async (el, p) => {
   const FOLLOW_LABEL = () => ({ task: tr('Tâche'), idea: tr('Idée'), objective: tr('Objectif'), decision: tr('Décision'), milestone: tr('Étape') });
   const followLink = (i) => `<div class="follow-done">${icon('check', 13)} ${tr('Suite donnée')} :
     <a href="#/p/${p.id}/${i.followup_type === 'task' ? 'taches' : 'projet'}">${FOLLOW_LABEL()[i.followup_type] || ''}</a></div>`;
+  /** « Donner suite » / « Ne pas donner suite » : la seule façon de clore une décision (plus de case à cocher depuis la 0.8.58) */
+  const followButtons = () => `<div class="follow-actions"><button class="btn small follow-btn" data-follow>${icon('arrow', 13)} ${tr('Donner suite')}</button>
+        <button class="btn small follow-btn no-follow-btn" data-no-follow title="${tr('Garder la décision, sans en faire une tâche ni une étape')}">${icon('x', 13)} ${tr('Ne pas donner suite')}</button></div>`;
   /** Décision classée sans suite (migration 039) : reste dans la liste, état visible, annulable */
   const noFollowState = () => `<div class="follow-none"><span class="follow-none-tag">${icon('x', 12)} ${tr('Classée sans suite')}</span>
     <button class="link small" data-undo-no-follow>${tr('Annuler')}</button></div>`;
@@ -174,8 +176,8 @@ B.pages.hub = async (el, p) => {
   /** Une ligne d'élément (étape, idée, décision) */
   const itemRow = (i, type) => `
         <li class="item ${i.done ? 'done' : ''} ${i.major ? 'major' : ''} ${i.followup_type === 'none' ? 'no-follow' : ''}" data-id="${i.id}">
-          ${type === 'idea' ? `<span class="bullet"></span>` : `<input type="checkbox" ${i.done ? 'checked' : ''} title="${type === 'decision' ? tr('Appliquée') : tr('Étape franchie')}" aria-label="${type === 'decision' ? tr('Appliquée') : tr('Étape franchie')}" />`}
-          <span class="item-title">${type === 'milestone' && i.major ? `<span class="major-tag">${tr('Étape majeure')}</span>` : ''}${esc(i.title)}${i.body ? `<small>${esc(i.body.slice(0, 120))}</small>` : ''}${i.vote_options ? voteHtml(i) : ''}</span>
+          ${type === 'milestone' ? `<input type="checkbox" ${i.done ? 'checked' : ''} title="${tr('Étape franchie')}" aria-label="${tr('Étape franchie')}" />` : `<span class="bullet"></span>`}
+          <span class="item-title">${type === 'milestone' && i.major ? `<span class="major-tag">${tr('Étape majeure')}</span>` : ''}${esc(i.title)}${i.body ? `<small>${esc(i.body.slice(0, 120))}</small>` : ''}${i.vote_options ? voteHtml(i) : type === 'decision' ? (i.followup_type === 'none' ? noFollowState() : i.followup_type ? followLink(i) : followButtons()) : ''}</span>
           ${i.due_date ? `<span class="due">${icon('calendar', 13)} ${fmtDate(i.due_date)}</span>` : ''}
           <span class="item-meta">${avatar(B.person(i.author_id), 20)}</span>
           ${type === 'idea' && !i.done ? `<button class="btn tiny" data-to-task title="${tr('Transformer en tâche')}">${tr('→ tâche')}</button>` : ''}
@@ -357,19 +359,9 @@ B.pages.hub = async (el, p) => {
       return render();
     }
     if (e.target.matches('input[type=checkbox]')) {
-      const checked = e.target.checked;
-      const { error } = await B.sb.from('items').update({ done: checked }).eq('id', item.id);
+      const { error } = await B.sb.from('items').update({ done: e.target.checked }).eq('id', item.id);
       if (error) B.error(new Error(/responsables|Administrateurs/i.test(error.message || '') ? tr('Seuls le Créateur et les Administrateurs peuvent revenir en arrière sur une étape.') : errText(error)));
-      await load();
-      // Décision cochée « Appliquée » : la base l'archive (migration 040)
-      if (!error && checked && item.type === 'decision') {
-        archivedToast(item, tr('Décision appliquée.'), async () => {
-          const r = await B.sb.from('items').update({ done: false, archived_at: null }).eq('id', item.id);
-          if (r.error) B.error(r.error);
-          load();
-        });
-      }
-      return;
+      return load();
     }
     if (e.target.closest('[data-archive]') || e.target.closest('[data-unarchive]')) {
       const { error } = await B.sb.from('items').update({ archived_at: e.target.closest('[data-archive]') ? new Date().toISOString() : null }).eq('id', item.id);
