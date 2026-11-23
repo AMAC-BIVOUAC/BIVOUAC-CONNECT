@@ -3,8 +3,8 @@
   Page publique « Rejoindre » — https://www.bivouac-tech.com/rejoindre/#K7QM-4TPX
   Source : dépôt BIVOUAC-TECH, dossier pages-publiques/. Déposée dans BIVOUAC-CONNECT par
   l'action « Publier une version ». AUCUN secret ici : cette page est publique.
-  Elle lit le code après le #, propose d'ouvrir l'app (bivouac://rejoindre/<code>)
-  ou de la télécharger. Le code n'est jamais envoyé à un serveur depuis cette page.
+  Elle lit le code après le #. Chemin principal (23/11) : « Rejoindre le projet » = version web (../app/#/rejoindre/<code>),
+  rien à installer. L'app Windows (bivouac://rejoindre/<code>) et les téléchargements restent des options. Le code n'est jamais envoyé à un serveur depuis cette page.
 -->
 <html lang="fr">
 <head>
@@ -27,12 +27,23 @@
     .word small { display: block; color: var(--orange); font-size: 11px; letter-spacing: 4px; font-weight: 600; }
     h1 { font-size: 22px; margin: 0 0 8px; }
     p { line-height: 1.55; margin: 0 0 12px; color: #33475A; }
-    .code { font-family: Consolas, "Courier New", monospace; font-size: 30px; font-weight: 700; letter-spacing: 4px; text-align: center;
-            background: #F1F5F8; border-radius: 12px; padding: 14px; margin: 16px 0 18px; color: var(--night); }
+    .code { font-family: Consolas, "Courier New", monospace; font-size: 18px; font-weight: 700; letter-spacing: 3px;
+            background: #F1F5F8; border-radius: 10px; padding: 6px 12px; color: var(--night); }
+    .code-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin: 4px 0 10px; }
+    .btn.big { font-size: 17px; padding: 16px 18px; margin-top: 18px; }
+    .under { font-size: 13px; color: var(--muted); text-align: center; margin: 0 0 6px; }
+    .app-box { margin-top: 18px; padding: 14px 16px; border-radius: 12px; background: #F1F5F8; }
+    .app-box p { margin: 0 0 10px; font-size: 14px; }
+    .app-box .btn { margin-bottom: 0; }
+    .app-box .note { margin: 10px 0 0; color: #8A4A10; font-weight: 600; }
+    details { margin-top: 16px; }
+    summary { cursor: pointer; font-weight: 700; color: var(--teal); padding: 6px 0; }
+    details .btn { margin-top: 10px; }
+    .small { font-size: 13px; color: var(--muted); }
     .btn { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; padding: 14px 18px; border-radius: 12px;
            font: inherit; font-weight: 700; font-size: 15px; text-decoration: none; text-align: center; cursor: pointer; border: 2px solid transparent; margin-bottom: 10px; }
-    .btn.primary { background: var(--orange); color: #fff; }
-    .btn.primary:hover { background: #E07B17; }
+    .btn.primary { background: #B4560A; color: #fff; }
+    .btn.primary:hover { background: #9C4A08; }
     .btn.second { background: #fff; color: var(--teal); border-color: var(--teal); }
     .btn.second:hover { background: #E3F3F6; }
     .btn.small { width: auto; display: inline-flex; padding: 6px 12px; font-size: 13px; margin: 0; border-color: #D5DEE6; color: var(--night); background: #fff; }
@@ -56,24 +67,34 @@
 
     <section id="ok" class="hidden">
       <h1 data-t="title">Vous êtes invité dans un projet</h1>
-      <p data-t="intro">Quelqu'un vous invite à le rejoindre sur BIVOUAC-TECH, le camp de base où humains et IA construisent ensemble.</p>
-      <div class="code" id="code"></div>
+      <p data-t="intro">Une équipe vous attend sur BIVOUAC-TECH, le camp de base où humains et IA construisent ensemble.</p>
 
-      <a class="btn primary" id="open" href="#" data-t="open">Ouvrir dans BIVOUAC-TECH</a>
-      <a class="btn second" id="download" href="https://github.com/AMAC-BIVOUAC/BIVOUAC-CONNECT/releases/latest" data-t="download">Télécharger BIVOUAC-TECH pour Windows</a>
-      <a class="btn second" id="android" href="https://github.com/AMAC-BIVOUAC/BIVOUAC-CONNECT/releases/download/android/bivouac-tech.apk" data-t="android">Télécharger l'app Android (APK)</a>
-      <a class="btn second" id="web" href="../app/" data-t="web">Ouvrir la version web (téléphone, Mac, tout navigateur)</a>
+      <a class="btn primary big" id="web" href="../app/" data-t="join">Rejoindre le projet</a>
+      <p class="under" data-t="joinHint">S'ouvre dans votre navigateur, rien à installer. Marche sur ordinateur, téléphone et tablette.</p>
 
       <ol>
-        <li data-t="s1">Pas encore l'application ? Téléchargez-la et installez-la. Si Windows affiche un avertissement : « Informations complémentaires », puis « Exécuter quand même ».</li>
-        <li data-t="s2">Revenez sur cette page et cliquez sur « Ouvrir dans BIVOUAC-TECH ».</li>
-        <li data-t="s3">Créez votre compte (ou connectez-vous) : vous arrivez directement dans le projet.</li>
+        <li data-t="s1">Cliquez sur « Rejoindre le projet ».</li>
+        <li data-t="s2">Créez votre compte en une minute, ou connectez-vous si vous en avez déjà un.</li>
+        <li data-t="s3">Vous arrivez directement dans le projet, avec toute l'équipe.</li>
       </ol>
 
+      <div class="app-box" id="win-box">
+        <p data-t="hasApp">Vous avez déjà l'application BIVOUAC-TECH sur ce PC ?</p>
+        <a class="btn second" id="open" href="#" data-t="open">Ouvrir dans l'application</a>
+        <p class="note hidden" id="no-app" data-t="noApp">L'application ne s'est pas ouverte ? Elle n'est sans doute pas installée : utilisez « Rejoindre le projet » ci-dessus, c'est la même chose.</p>
+      </div>
+
+      <details>
+        <summary data-t="install">Préférer une application à installer ?</summary>
+        <a class="btn second" id="download" href="https://github.com/AMAC-BIVOUAC/BIVOUAC-CONNECT/releases/latest" data-t="download">Télécharger BIVOUAC-TECH pour Windows</a>
+        <a class="btn second" id="android" href="https://github.com/AMAC-BIVOUAC/BIVOUAC-CONNECT/releases/download/android/bivouac-tech.apk" data-t="android">Télécharger l'app Android (APK)</a>
+        <p class="small" data-t="installHelp">Une fois l'application installée, revenez sur cette page et cliquez sur « Ouvrir dans l'application ». Si Windows affiche un avertissement : « Informations complémentaires », puis « Exécuter quand même ».</p>
+      </details>
+
       <div class="help">
-        <p data-t="manual">L'application ne s'ouvre pas ? Dans BIVOUAC-TECH, cliquez sur « Nouvel espace », puis collez ce code dans « Rejoindre ».</p>
-        <button class="btn small" id="copy" data-t="copy">Copier le code</button>
-        <p style="margin-top:10px" data-t="once">Ce lien est personnel : il ne sert qu'une fois et expire au bout de 15 jours.</p>
+        <p data-t="manual">Votre code d'invitation, à coller dans « Nouvel espace » → « Rejoindre » si on vous le demande :</p>
+        <div class="code-row"><span class="code" id="code"></span><button class="btn small" id="copy" data-t="copy">Copier le code</button></div>
+        <p data-t="once">Cette invitation est personnelle : elle ne sert qu'une fois et expire au bout de 15 jours.</p>
       </div>
     </section>
 
@@ -87,17 +108,22 @@
     (function () {
       var EN = {
         title: 'You are invited to a project',
-        intro: 'Someone invites you to join them on BIVOUAC-TECH, the base camp where humans and AI build together.',
-        open: 'Open in BIVOUAC-TECH',
+        intro: 'A team is waiting for you on BIVOUAC-TECH, the base camp where humans and AI build together.',
+        join: 'Join the project',
+        joinHint: 'Opens in your browser, nothing to install. Works on computer, phone and tablet.',
+        s1: 'Click “Join the project”.',
+        s2: 'Create your account in a minute, or sign in if you already have one.',
+        s3: 'You land right in the project, with the whole team.',
+        hasApp: 'Already have the BIVOUAC-TECH app on this PC?',
+        open: 'Open in the app',
+        noApp: 'The app did not open? It is probably not installed: use “Join the project” above, it does the same.',
+        install: 'Prefer an app to install?',
         download: 'Download BIVOUAC-TECH for Windows',
         android: 'Download the Android app (APK)',
-        web: 'Open the web version (phone, Mac, any browser)',
-        s1: 'No app yet? Download and install it. If Windows shows a warning: “More info”, then “Run anyway”.',
-        s2: 'Come back to this page and click “Open in BIVOUAC-TECH”.',
-        s3: 'Create your account (or sign in): you land right in the project.',
-        manual: 'The app does not open? In BIVOUAC-TECH, click “New space”, then paste this code in “Join”.',
+        installHelp: 'Once the app is installed, come back to this page and click “Open in the app”. If Windows shows a warning: “More info”, then “Run anyway”.',
+        manual: 'Your invitation code, to paste in “New space” → “Join” if you are asked for it:',
         copy: 'Copy code', copied: 'Code copied!',
-        once: 'This link is personal: it works once and expires after 15 days.',
+        once: 'This invitation is personal: it works once and expires after 15 days.',
         badTitle: 'Incomplete invitation link',
         bad: 'This link does not contain a valid invite code. Ask the person who invited you for a new link.'
       };
@@ -117,15 +143,27 @@
       var code = m[1] + '-' + m[2];
       document.getElementById('ok').classList.remove('hidden');
       document.getElementById('code').textContent = code;
-      document.getElementById('open').href = 'bivouac://rejoindre/' + code;
-      // Version web (même site, dossier app/) : rien à installer ; mise en avant hors de Windows
-      var web = document.getElementById('web');
-      web.href = '../app/#/rejoindre/' + code;
-      if (!/Windows/i.test(navigator.userAgent)) {
-        web.className = 'btn primary';
-        document.getElementById('open').className = 'btn second';
-        web.parentNode.insertBefore(web, document.getElementById('open'));
-      }
+
+      // Chemin principal, pour tout le monde : la version web (rien à installer). Elle garde l'invitation pendant
+      // la création du compte et la confirmation de l'adresse, puis fait entrer la personne dans le projet.
+      document.getElementById('web').href = '../app/#/rejoindre/' + code;
+
+      // L'application Windows reste une option, montrée seulement sous Windows. Si elle ne s'ouvre pas
+      // (pas installée : le navigateur ne fait rien), on le dit au lieu de laisser la personne attendre.
+      var windows = /Windows/i.test(navigator.userAgent);
+      if (!windows) document.getElementById('win-box').classList.add('hidden');
+      var open = document.getElementById('open');
+      open.href = 'bivouac://rejoindre/' + code;
+      open.addEventListener('click', function () {
+        var left = false;
+        var onBlur = function () { left = true; };
+        window.addEventListener('blur', onBlur);
+        setTimeout(function () {
+          window.removeEventListener('blur', onBlur);
+          if (!left && !document.hidden) document.getElementById('no-app').classList.remove('hidden');
+        }, 2000);
+      });
+      if (!windows) document.getElementById('download').classList.add('hidden');
 
       document.getElementById('copy').onclick = function () {
         var btn = this;

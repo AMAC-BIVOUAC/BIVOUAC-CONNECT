@@ -75,9 +75,14 @@ document.addEventListener('keydown', (e) => { if (e.key === 'Escape') B.closePop
 
 // ---------- Fenêtre modale ----------
 
-B.modal = (html, { wide = false } = {}) => {
+/**
+ * Ouvre une fenêtre. `locked` : elle ne se ferme ni par un clic à côté ni par Échap, seulement par ses boutons
+ * (première connexion : un clic à côté faisait disparaître la présentation et la visite guidée ne se lançait plus).
+ */
+B.modal = (html, { wide = false, locked = false } = {}) => {
   const m = $('#modal');
   m.className = wide ? 'wide' : '';
+  m.dataset.locked = locked ? '1' : '';
   m.innerHTML = html;
   paintIcons(m);
   $('#modal-backdrop').classList.remove('hidden');
@@ -100,12 +105,13 @@ B.growTextarea = (ta, maxVh = 45) => {
 B.closeModal = () => {
   $('#modal-backdrop').classList.add('hidden');
   $('#modal').innerHTML = '';
+  $('#modal').dataset.locked = '';
 };
 $('#modal-backdrop').addEventListener('mousedown', (e) => {
-  if (e.target.id === 'modal-backdrop') B.closeModal();
+  if (e.target.id === 'modal-backdrop' && !$('#modal').dataset.locked) B.closeModal();
 });
 document.addEventListener('keydown', (e) => {
-  if (e.key === 'Escape' && !$('#modal-backdrop').classList.contains('hidden')) B.closeModal();
+  if (e.key === 'Escape' && !$('#modal-backdrop').classList.contains('hidden') && !$('#modal').dataset.locked) B.closeModal();
 });
 
 /** Indicateur discret : coche grise à l'envoi, double coche pétrole après lecture. */
@@ -215,11 +221,20 @@ B.openInvite = async (projectId) => {
 
   const m = B.modal(`
     <h2>${tr('Inviter dans « {name} »', { name: esc(p.name) })}</h2>
+    <form class="invite-mail" id="inv-mail-form" novalidate>
+      <label for="inv-mail">${tr('Par e-mail')}</label>
+      <div class="invite-mail-row">
+        <input type="email" id="inv-mail" autocomplete="email" maxlength="254" placeholder="${tr('adresse@exemple.fr')}" />
+        <button class="btn primary" id="inv-mail-send" type="submit">${icon('send', 15)} ${tr("Envoyer l'invitation")}</button>
+      </div>
+      <p class="muted small" id="inv-mail-msg">${tr('La personne reçoit un e-mail à votre nom, avec un bouton pour rejoindre le projet.')}</p>
+    </form>
+    <h3 class="invite-or">${tr('Ou envoyez un lien vous-même')}</h3>
     <p class="muted">${tr("Envoyez ce lien à la personne. Il est valable 15 jours et ne sert qu'à une seule personne : pour inviter quelqu'un d'autre, créez un autre lien.")}</p>
     <button class="invite-link" id="inv-link" title="${tr('Cliquer pour copier')}"><span class="loading">${tr('Chargement…')}</span></button>
     <p class="invite-meta muted small" id="inv-meta"></p>
     <div class="invite-actions">
-      <button class="btn primary" id="inv-copy">${icon('copy', 15)} ${tr('Copier le lien')}</button>
+      <button class="btn" id="inv-copy">${icon('copy', 15)} ${tr('Copier le lien')}</button>
       <button class="btn" id="inv-share">${icon('send', 15)} ${tr('Partager')}</button>
       <span class="spacer"></span>
       <button class="link small" id="inv-new">${tr('Inviter une autre personne')}</button>
@@ -235,8 +250,21 @@ B.openInvite = async (projectId) => {
 
   let current = null; // { code, expires_at }
   const link = () => B.inviteLink(current.code);
-  const message = () => tr('{who} vous invite à rejoindre « {project} » sur BIVOUAC-TECH : {link}',
-    { who: B.me.display_name, project: p.name, link: link() });
+  const message = (l = link()) => tr('{who} vous invite à rejoindre « {project} » sur BIVOUAC-TECH : {link}',
+    { who: B.me.display_name, project: p.name, link: l });
+  // E-mail préparé dans la messagerie du poste (quand l'envoi automatique n'est pas disponible)
+  const mailDraft = (to, l) => {
+    const subject = tr('{who} vous invite dans « {project} » sur BIVOUAC-TECH', { who: B.me.display_name, project: p.name });
+    const v = { who: B.me.display_name, project: p.name };
+    const body = [
+      tr('Bonjour,'),
+      tr("{who} vous invite à rejoindre le projet « {project} » sur BIVOUAC-TECH, le camp de base où l'équipe et ses IA avancent ensemble.", v),
+      tr("Pour nous rejoindre, ouvrez ce lien : il s'ouvre dans votre navigateur, rien à installer. Créez votre compte (ou connectez-vous) et vous arrivez directement dans le projet.") + '\n' + l,
+      tr('Cette invitation est personnelle : elle sert une seule fois et reste valable 15 jours.'),
+      tr('À bientôt au camp de base !')
+    ].join('\n\n');
+    window.bivouac.openExternal(`mailto:${encodeURIComponent(to || '')}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`);
+  };
 
   const copied = async (text, btn, label) => {
     await navigator.clipboard.writeText(text);
@@ -291,12 +319,47 @@ B.openInvite = async (projectId) => {
     menu.classList.add('hidden');
     const text = message();
     if (b.dataset.share === 'whatsapp') window.bivouac.openExternal(`https://wa.me/?text=${encodeURIComponent(text)}`);
-    if (b.dataset.share === 'mail') {
-      const subject = tr('Invitation dans « {project} » sur BIVOUAC-TECH', { project: p.name });
-      window.bivouac.openExternal(`mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(text)}`);
-    }
+    if (b.dataset.share === 'mail') mailDraft('', link());
     if (b.dataset.share === 'message') await copied(text, $('#inv-share', m), `${icon('check', 15)} ${tr('Message copié !')}`);
   }));
+
+  // Invitation par e-mail : la fonction « invite-email » crée une invitation pour CETTE personne et envoie un vrai
+  // e-mail (logo, votre nom, le projet, un bouton). Pas encore activée (secret Brevo absent) ou injoignable :
+  // on prépare l'e-mail dans la messagerie du poste, avec une invitation neuve pour cette adresse.
+  const mailMsg = $('#inv-mail-msg', m);
+  $('#inv-mail-form', m).onsubmit = async (e) => {
+    e.preventDefault();
+    const input = $('#inv-mail', m);
+    const to = input.value.trim();
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(to)) {
+      mailMsg.className = 'small error-text';
+      mailMsg.textContent = tr('Adresse e-mail invalide.');
+      return input.focus();
+    }
+    const btn = $('#inv-mail-send', m);
+    btn.disabled = true;
+    mailMsg.className = 'muted small';
+    mailMsg.textContent = tr('Envoi…');
+    try {
+      const code = await B.sendInviteEmail(projectId, to);
+      if (code) {
+        mailMsg.className = 'small ok-text';
+        mailMsg.textContent = tr('Invitation envoyée à {email}.', { email: to });
+        input.value = '';
+      } else {
+        const inv = await B.createInvite(projectId, true);
+        mailDraft(to, B.inviteLink(inv.code));
+        mailMsg.className = 'muted small';
+        mailMsg.textContent = tr("L'envoi automatique n'est pas encore activé : votre messagerie s'ouvre avec l'invitation prête à envoyer.");
+      }
+      await showPending();
+    } catch (err) {
+      mailMsg.className = 'small error-text';
+      mailMsg.textContent = errText(err);
+    } finally {
+      btn.disabled = false;
+    }
+  };
 
   await show(false);
 };

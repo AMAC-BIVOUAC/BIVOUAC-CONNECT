@@ -118,6 +118,21 @@ B.createInvite = async (projectId, fresh = false) => {
   return Array.isArray(data) ? data[0] : data;
 };
 
+/**
+ * Envoie l'e-mail d'invitation (fonction « invite-email », migration 036). Renvoie le code créé,
+ * ou null si l'envoi automatique n'est pas disponible (fonction absente ou secret Brevo pas encore posé).
+ */
+B.sendInviteEmail = async (projectId, email) => {
+  if (!B.sb.functions?.invoke) return null;
+  const { data, error } = await B.sb.functions.invoke('invite-email', { body: { project: projectId, email, lang: B.lang } });
+  if (!error) return data?.code || null;
+  const status = error.context?.status;
+  const body = await error.context?.json?.().catch(() => null);
+  const code = body?.error || '';
+  if (code === 'email:non_configure' || status === 404 || !status) return null;
+  throw new Error(code || error.message);
+};
+
 /** Invitations en attente du projet (visibles par le Créateur et les Administrateurs) */
 B.pendingInvites = async (projectId) => {
   const { data, error } = await B.sb.from('project_invites').select('code, created_by, expires_at')

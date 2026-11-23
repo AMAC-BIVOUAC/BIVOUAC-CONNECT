@@ -763,6 +763,15 @@ details.advanced[open] summary { margin-bottom: 10px; }
 .invite-link .url { flex: 1; min-width: 0; font-family: var(--font-code); font-size: var(--fs-text); font-weight: var(--fw-strong); overflow-wrap: anywhere; }
 .invite-link .hint { display: inline-flex; align-items: center; gap: 4px; color: var(--link); font-size: var(--fs-label); font-weight: var(--fw-strong); white-space: nowrap; }
 .invite-meta { margin: 6px 2px 0; }
+.invite-mail { margin: 14px 0 6px; }
+.invite-mail label { display: block; font-weight: var(--fw-strong); margin-bottom: 6px; }
+.invite-mail-row { display: flex; gap: 8px; flex-wrap: wrap; }
+.invite-mail-row input { flex: 1 1 220px; min-width: 0; }
+.invite-mail-row .btn { flex: 0 0 auto; }
+.invite-mail p { margin: 6px 2px 0; }
+#modal h3.invite-or { margin: 18px 0 4px; }
+.error-text { color: var(--danger); }
+.ok-text { color: var(--link); font-weight: var(--fw-strong); }
 .login-invite { background: var(--mint-soft); color: var(--navy); border-radius: var(--r-md); padding: 10px 12px; font-size: var(--fs-small); font-weight: var(--fw-strong); }
 .invite-actions { display: flex; align-items: center; gap: 8px; margin-top: 14px; flex-wrap: wrap; }
 .btn.copied { border-color: var(--mint); color: var(--link); }

@@ -34,7 +34,7 @@ B.runOnboarding = () => new Promise((resolve) => {
           <button class="level" id="o-go">${icon('arrow', 28)}<strong>${tr('Commencer directement')}</strong><span>${tr('Je me débrouille.')}</span></button>
         </div>
       </div>
-    </div>`, { wide: true });
+    </div>`, { wide: true, locked: true });
 
   const show = (n) => $$('.onb-step', m).forEach((s) => s.classList.toggle('hidden', s.dataset.s !== String(n)));
 
@@ -54,12 +54,13 @@ B.runOnboarding = () => new Promise((resolve) => {
   }));
   $('#o-next2', m).onclick = () => show(3);
 
+  // Renvoie true si la personne veut la visite guidée : app.js la lance une fois la page affichée
+  // (avant, elle partait pendant le chargement de la page et pouvait viser des zones pas encore là)
   const finish = async (tour) => {
     await B.updateMe({ level, onboarded: true }).catch(B.error);
     B.closeModal();
     B.renderSidebar();
-    resolve();
-    if (tour) setTimeout(B.startTour, 300);
+    resolve(tour);
   };
   $('#o-tour', m).onclick = () => finish(true);
   $('#o-go', m).onclick = () => finish(false);
@@ -98,11 +99,12 @@ const visibleZone = (sels) => {
   return null;
 };
 
-B.startTour = () => {
+/** Lance la visite guidée ; `then` est appelé à la fin (terminée ou passée) */
+B.startTour = ({ then } = {}) => {
   const tour = $('#tour');
   const steps = TOUR.filter(([sels]) => visibleZone(sels));
-  if (!steps.length) return;
-  const end = () => { tour.classList.add('hidden'); document.removeEventListener('keydown', onKey); };
+  if (!steps.length) return then?.();
+  const end = () => { tour.classList.add('hidden'); document.removeEventListener('keydown', onKey); then?.(); };
   const onKey = (e) => { if (e.key === 'Escape') end(); };
   document.addEventListener('keydown', onKey);
   const show = (i) => {

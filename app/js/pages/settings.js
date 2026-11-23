@@ -523,7 +523,7 @@ B.pages.settings = async (view) => {
   }));
   $('#s-anim', view).onchange = (e) => B.setAnimations(e.target.checked);
   $('#s-today', view).onchange = (e) => B.setTodayTasksEnabled(e.target.checked);
-  $('#s-tour', view).onclick = () => { location.hash = '#/home'; setTimeout(B.startTour, 400); };
+  $('#s-tour', view).onclick = () => { location.hash = '#/home'; setTimeout(() => B.startTour(), 400); };
 
   // Mises à jour
   const showUpdate = (u) => {
