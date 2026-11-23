@@ -19,10 +19,14 @@ B.pages.hub = async (el, p) => {
   el.innerHTML = `<div class="hub-wrap"><div class="hub">${CARDS.map((type) => [type, ITEM_TYPES[type]]).map(([type, t]) => `
     <section class="card hub-card" data-type="${type}">
       <div class="card-head"><h2><span class="our-ico ${t.tone}">${icon(t.icon, 16)}</span>${tr(t.label)} <span class="count"></span></h2>
-        ${type === 'idea' ? `<button class="btn small tidy hidden" data-tidy title="${tr('Ranger les idées déjà transformées en tâches')}">${icon('check', 14)} <span></span></button>` : ''}</div>
+        ${type === 'idea' ? `<button class="btn small tidy hidden" data-tidy title="${tr('Ranger les idées déjà transformées en tâches')}">${icon('check', 14)} <span></span></button>` : ''}
+        ${type === 'milestone' ? `<div class="path-tools">
+          <button class="btn small" data-path-short aria-pressed="false">${icon('shrink', 14)} <span></span></button>
+          <button class="btn small" data-path-hide-done aria-pressed="false">${icon('check', 14)} <span></span></button></div>` : ''}</div>
       <p class="muted small">${tr(t.hint)}</p>
       ${type === 'milestone' ? '<div class="hub-summit"></div>' : ''}
       <ul class="items"></ul>
+      ${type === 'milestone' ? '<details class="archived done-steps hidden"><summary></summary><ul class="items"></ul></details>' : ''}
       ${type === 'milestone' ? `<div class="path-start">${icon('flag', 14).replace('<svg', '<svg aria-hidden="true"')} ${tr('Départ')}</div>` : ''}
       <details class="archived hidden"><summary></summary><ul class="items archived-list"></ul></details>
       <form class="add-item">
@@ -129,17 +133,30 @@ B.pages.hub = async (el, p) => {
           <button class="btn small primary" data-edit-summit>${icon('plus', 13)} ${tr('Fixer le sommet')}</button></div>`;
   };
 
-  const render = () => {
-    renderSummit();
-    for (const type of CARDS) {
-      const t = ITEM_TYPES[type];
-      const card = $(`.hub-card[data-type="${type}"]`, el);
-      if (!card) continue;
-      let list = items.filter((i) => i.type === type && !i.archived_at);
-      // Le chemin se lit de bas en haut : la première étape en bas, la plus proche du sommet en haut
-      if (type === 'milestone') list = B.pathOf(items).steps.slice().reverse();
-      $('.count', card).textContent = list.length ? `(${list.length})` : '';
-      $('.items', card).innerHTML = list.map((i) => `
+  // Affichage du chemin (23/11, Apo), retenu sur CE poste et pour CE projet :
+  //   « Masquer les étapes accomplies » : les étapes franchies passent dans une zone repliable (comme les idées rangées) ;
+  //   « Raccourcir le chemin » : seulement l'étape actuelle (la première non franchie), la prochaine étape majeure
+  //   après elle et le sommet, pour laisser la place aux Idées et aux Décisions.
+  const view = { short: store.get(`path-short:${p.id}`, false) === true, hideDone: store.get(`path-hide-done:${p.id}`, false) === true };
+  const paintPathTools = () => {
+    const s = $('[data-path-short]', el);
+    const h = $('[data-path-hide-done]', el);
+    if (!s || !h) return;
+    s.setAttribute('aria-pressed', String(view.short));
+    // Texte court sur téléphone (les deux boutons tiennent sur une ligne), texte complet en infobulle / lecteur d'écran
+    const label = (long, short) => `<span class="lbl-long">${long}</span><span class="lbl-short" aria-hidden="true">${short}</span>`;
+    s.innerHTML = `${icon(view.short ? 'expand' : 'shrink', 14)} ${view.short ? label(tr('Chemin complet'), tr('Tout voir')) : label(tr('Raccourcir le chemin'), tr('Raccourcir'))}`;
+    h.setAttribute('aria-pressed', String(view.hideDone));
+    h.innerHTML = `${icon(view.hideDone ? 'list' : 'check', 14)} ${view.hideDone ? label(tr('Afficher étapes accomplies'), tr('Voir finies')) : label(tr('Masquer étapes accomplies'), tr('Masquer finies'))}`;
+    // En chemin raccourci, les étapes accomplies sont déjà masquées : le bouton revient avec « Chemin complet »
+    h.hidden = view.short;
+  };
+  $('[data-path-short]', el)?.addEventListener('click', () => { view.short = !view.short; store.set(`path-short:${p.id}`, view.short); paintPathTools(); render(); });
+  $('[data-path-hide-done]', el)?.addEventListener('click', () => { view.hideDone = !view.hideDone; store.set(`path-hide-done:${p.id}`, view.hideDone); paintPathTools(); render(); });
+  paintPathTools();
+
+  /** Une ligne d'élément (étape, idée, décision) */
+  const itemRow = (i, type) => `
         <li class="item ${i.done ? 'done' : ''} ${i.major ? 'major' : ''}" data-id="${i.id}">
           ${type === 'idea' ? `<span class="bullet"></span>` : `<input type="checkbox" ${i.done ? 'checked' : ''} title="${type === 'decision' ? tr('Appliquée') : tr('Étape franchie')}" aria-label="${type === 'decision' ? tr('Appliquée') : tr('Étape franchie')}" />`}
           <span class="item-title">${type === 'milestone' && i.major ? `<span class="major-tag">${tr('Étape majeure')}</span>` : ''}${esc(i.title)}${i.body ? `<small>${esc(i.body.slice(0, 120))}</small>` : ''}${i.vote_options ? voteHtml(i) : ''}</span>
@@ -147,7 +164,60 @@ B.pages.hub = async (el, p) => {
           <span class="item-meta">${avatar(B.person(i.author_id), 20)}</span>
           ${type === 'idea' && !i.done ? `<button class="btn tiny" data-to-task title="${tr('Transformer en tâche')}">${tr('→ tâche')}</button>` : ''}
           ${type === 'idea' ? `<button class="icon-btn tiny-ico" data-archive title="${tr('Ranger cette idée')}">${icon('check', 14)}</button>` : ''}
-        </li>`).join('') || `<li class="item empty-item">${tr(t.empty)}</li>`;
+        </li>`;
+  /** Les étapes cachées entre deux étapes montrées (chemin raccourci) */
+  const gapRow = (n, done) => n ? `<li class="path-gap">${icon('more', 14).replace('<svg', '<svg aria-hidden="true"')} ${done
+    ? tr(n > 1 ? '{n} étapes accomplies' : '{n} étape accomplie', { n })
+    : tr(n > 1 ? '{n} autres étapes' : '{n} autre étape', { n })}</li>` : '';
+
+  /** La carte « Le chemin » : complète, sans les étapes accomplies, ou raccourcie */
+  const renderPath = (card) => {
+    const path = B.pathOf(items);
+    const done = path.steps.filter((s) => s.done);
+    const ahead = path.steps.filter((s) => !s.done);
+    $('.count', card).textContent = path.steps.length ? `(${path.steps.length})` : '';
+    const box = $('.done-steps', card);
+    box.classList.add('hidden');
+    let html;
+    if (view.short) {
+      // Étape actuelle = la première non franchie en partant du départ ; puis la prochaine étape majeure après elle
+      const cur = ahead[0];
+      const majorAt = ahead.findIndex((s, k) => k > 0 && s.major);
+      const rows = [];   // de haut (sommet) en bas (départ)
+      if (cur) {
+        const after = majorAt > 0 ? ahead.length - 1 - majorAt : ahead.length - 1;  // au-dessus de la dernière montrée
+        rows.push(gapRow(after, false));
+        if (majorAt > 0) { rows.push(itemRow(ahead[majorAt], 'milestone')); rows.push(gapRow(majorAt - 1, false)); }
+        rows.push(itemRow(cur, 'milestone'));
+      }
+      rows.push(gapRow(done.length, true));
+      html = rows.join('');
+    } else if (view.hideDone) {
+      html = ahead.slice().reverse().map((i) => itemRow(i, 'milestone')).join('');
+      if (done.length) {
+        box.classList.remove('hidden');
+        $('summary', box).textContent = tr(done.length > 1 ? '{n} étapes accomplies' : '{n} étape accomplie', { n: done.length });
+        $('.items', box).innerHTML = done.slice().reverse().map((i) => itemRow(i, 'milestone')).join('');
+      }
+    } else {
+      // Le chemin se lit de bas en haut : la première étape en bas, la plus proche du sommet en haut
+      html = path.steps.slice().reverse().map((i) => itemRow(i, 'milestone')).join('');
+    }
+    $(':scope > .items', card).innerHTML = html || `<li class="item empty-item">${tr(path.steps.length ? 'Toutes les étapes sont franchies.' : ITEM_TYPES.milestone.empty)}</li>`;
+  };
+
+  const render = () => {
+    renderSummit();
+    for (const type of CARDS) {
+      const t = ITEM_TYPES[type];
+      const card = $(`.hub-card[data-type="${type}"]`, el);
+      if (!card) continue;
+      const list = items.filter((i) => i.type === type && !i.archived_at);
+      if (type === 'milestone') renderPath(card);
+      else {
+        $('.count', card).textContent = list.length ? `(${list.length})` : '';
+        $(':scope > .items', card).innerHTML = list.map((i) => itemRow(i, type)).join('') || `<li class="item empty-item">${tr(t.empty)}</li>`;
+      }
       if (type === 'idea') {
         // « Ranger » : les idées déjà transformées en tâches (ou marquées) quittent la liste
         const treated = list.filter((i) => i.done);
@@ -156,7 +226,7 @@ B.pages.hub = async (el, p) => {
         $('span', btn).textContent = tr('Ranger ({n})', { n: treated.length });
       }
       // Archivés : idées rangées à la main ; objectifs atteints et décisions suivies, archivés tout seuls (migration 028)
-      const box = $('.archived', card);
+      const box = $('.archived:not(.done-steps)', card);
       if (box) {
         const archived = items.filter((i) => i.type === type && i.archived_at).sort((a, b) => b.archived_at.localeCompare(a.archived_at));
         const n = archived.length;

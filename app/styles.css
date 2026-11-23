@@ -1998,6 +1998,20 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--teal); }
 .hub-summit .summit-item.done b { text-decoration: none; }
 .hub-card[data-type="milestone"] .item.major .item-title { font-weight: var(--fw-title); }
 .path-start { display: flex; align-items: center; gap: var(--s-2); font-size: var(--fs-small); color: var(--muted); font-weight: var(--fw-strong); padding: var(--s-1) var(--s-2); }
+/* Boutons d'affichage du chemin (23/11, Apo) : « Raccourcir le chemin » puis « Masquer étapes accomplies » */
+.hub-card[data-type="milestone"] .card-head { flex-wrap: wrap; }
+.path-tools { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: var(--s-2); margin-left: auto; }
+.path-tools .btn { display: inline-flex; align-items: center; gap: var(--s-1); }
+.path-tools .btn[aria-pressed="true"] { border-color: var(--link); color: var(--link); }
+.path-tools .btn[hidden] { display: none; }
+.path-tools .lbl-short { display: none; }
+@media (max-width: 760px) {
+  .path-tools { flex: 1 1 100%; flex-wrap: nowrap; }
+  .path-tools .lbl-long { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+  .path-tools .lbl-short { display: inline; }
+}
+.path-gap { display: flex; align-items: center; gap: var(--s-2); padding: var(--s-1) var(--s-2); font-size: var(--fs-small); color: var(--muted); list-style: none; }
+.done-steps { margin-top: var(--s-1); }
 .add-item .major-check { margin: 0; display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; color: var(--muted); }
 .add-item input.major { flex: none; padding: 0; }
 
