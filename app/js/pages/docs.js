@@ -5,6 +5,8 @@
 // version part toute seule dans le projet (core.js). Les anciennes restent dans « Versions ».
 // 22/11 (Amaury) : affichage en liste ou en icônes (réglage de ce poste), filtre par type et recherche par nom
 // (la recherche et le filtre regardent TOUS les dossiers ; le dossier de chaque résultat est indiqué).
+// 23/11 (Apo, v0.8.57) : miniature des images dans la liste et les icônes (file_thumbs, migration 041 : quelques Ko,
+// jamais la photo entière) et visionneuse en grand au clic (l'image entière n'est téléchargée qu'à ce moment-là).
 // =====================================================================
 
 /** Types de documents pour le filtre : [clé, libellé] */
@@ -35,7 +37,7 @@ B.pages.docs = async (el, p) => {
         <p class="muted small">${tr('{max} Mo maximum par fichier.', { max: B.MAX_FILE_MB })}</p>
         <input type="file" id="doc-input" class="hidden" multiple />
       </div>
-      <p class="muted small docs-hint">${icon('edit', 14)} ${tr('Cliquez sur un document pour l\'ouvrir dans le logiciel de votre PC (Word, Excel…). Quand vous l\'enregistrez, la nouvelle version est envoyée toute seule au projet ; les précédentes restent dans « Versions ».')}</p>
+      <p class="muted small docs-hint">${icon('edit', 14)} ${tr('Cliquez sur un document pour l\'ouvrir dans le logiciel de votre PC (Word, Excel…). Quand vous l\'enregistrez, la nouvelle version est envoyée toute seule au projet ; les précédentes restent dans « Versions ».')} ${tr('Les images s\'ouvrent d\'abord en aperçu.')}</p>
       <div class="docs-tools">
         <label class="docs-search">${icon('search', 16)}<span class="sr-only">${tr('Rechercher un document')}</span>
           <input type="search" id="doc-q" placeholder="${tr('Rechercher un document…')}" autocomplete="off" /></label>
@@ -59,6 +61,12 @@ B.pages.docs = async (el, p) => {
   let kind = 'all';
   let view = store.get('docs-view', 'list') === 'grid' ? 'grid' : 'list';
   let cur = store.get('docs-folder:' + p.id, null); // dossier ouvert (null = racine)
+  let here = []; // documents affichés (ordre de l'écran : la visionneuse passe de l'un à l'autre)
+  let left = false;
+  B.onLeave(() => { left = true; });
+  // Miniatures : id → { v: version du document, data } ; demandées une fois par version
+  const thumbs = new Map(), asked = new Set(), failed = new Set(), queue = [];
+  const fresh = (f) => { const t = thumbs.get(f.id); return t && t.v === (f.version || 1) ? t.data : null; };
   const kids = (id) => folders.filter((d) => (d.parent_id || null) === id).sort((a, b) => a.name.localeCompare(b.name, B.locale()));
   const chain = (id) => { const out = []; let d = folders.find((x) => x.id === id); while (d) { out.unshift(d); d = folders.find((x) => x.id === d.parent_id); } return out; };
   /** Nombre de documents dans un dossier et ses sous-dossiers */
@@ -79,6 +87,8 @@ B.pages.docs = async (el, p) => {
 
   const folderPath = (id) => chain(id).map((d) => d.name).join(' / ');
   const fileIcon = (f) => icon(docKind(f) === 'image' ? 'image' : 'file', view === 'grid' ? 34 : 18);
+  /** Miniature si on l'a, sinon l'icône du type */
+  const fileFace = (f) => { const t = fresh(f); return t ? `<img class="doc-thumb" src="${esc(t)}" alt="" />` : fileIcon(f); };
   const fileActions = (f) => `
     ${(f.version || 1) > 1 ? `<button class="link small" data-versions>${tr('Versions')}</button>` : ''}
     ${folders.length ? `<button class="icon-btn" data-move title="${tr('Ranger dans un dossier')}" aria-label="${tr('Ranger dans un dossier')}">${icon('arrow', 16)}</button>` : ''}
@@ -87,6 +97,56 @@ B.pages.docs = async (el, p) => {
     <button class="icon-btn" data-rename title="${tr('Renommer')}" aria-label="${tr('Renommer')}">${icon('edit', 16)}</button>
     <button class="icon-btn" data-move-folder title="${tr('Déplacer')}" aria-label="${tr('Déplacer')}">${icon('arrow', 16)}</button>
     <button class="icon-btn" data-del-folder title="${tr('Supprimer le dossier')}" aria-label="${tr('Supprimer le dossier')}">${icon('trash', 16)}</button>`;
+
+  /** Pose la miniature d'un document déjà affiché, sans tout redessiner */
+  const showThumb = (f) => $$(`[data-ico="${f.id}"]`, el).forEach((box) => {
+    const t = fresh(f);
+    if (!t || box.querySelector('img')) return;
+    box.classList.add('has-thumb');
+    const img = document.createElement('img');
+    img.className = 'doc-thumb'; img.alt = ''; img.src = t;
+    box.querySelector('svg')?.replaceWith(img);
+  });
+
+  /** Miniatures des images affichées : lues dans file_thumbs ; celles qui manquent sont fabriquées une fois pour tous */
+  async function loadThumbs(list) {
+    const want = list.filter((f) => B.canPreview(f) && !fresh(f) && !asked.has(f.id + ':' + (f.version || 1)));
+    if (!want.length) return;
+    want.forEach((f) => asked.add(f.id + ':' + (f.version || 1)));
+    for (let i = 0; i < want.length; i += 100) {
+      const part = want.slice(i, i + 100);
+      const { data, error } = await B.sb.from('file_thumbs').select('file_id, version, data').in('file_id', part.map((f) => f.id));
+      if (error || left) return; // migration 041 pas encore passée : on garde les icônes
+      for (const r of data || []) {
+        const f = files.find((x) => x.id === r.file_id);
+        if (f && r.version === (f.version || 1)) { thumbs.set(f.id, { v: r.version, data: r.data }); showThumb(f); }
+      }
+      // Pas encore de miniature (image envoyée par une IA, ou avant la 0.8.57) : on la fabrique une fois pour toute
+      // l'équipe, une image à la fois. Sur téléphone, seulement pour les images légères (téléchargées en entier).
+      const max = (B.isPhone() ? 4 : 20) * 1024 * 1024;
+      part.filter((f) => !fresh(f) && !failed.has(f.id) && (f.size || 0) <= max).forEach((f) => queue.push(f));
+    }
+    makeMissing();
+  }
+  let making = false;
+  async function makeMissing() {
+    if (making) return;
+    making = true;
+    try {
+      while (queue.length && !left) {
+        const f = queue.shift();
+        if (fresh(f) || failed.has(f.id)) continue;
+        try {
+          const res = await fetch(await B.fileUrl(f.path));
+          if (!res.ok) throw new Error(String(res.status));
+          const data = await B.saveThumb(f, await res.blob());
+          if (!data) throw new Error('miniature');
+          thumbs.set(f.id, { v: f.version || 1, data });
+          showThumb(f);
+        } catch { failed.add(f.id); }
+      }
+    } finally { making = false; }
+  }
 
   function paint() {
     if (cur && !folders.some((d) => d.id === cur)) cur = null; // dossier supprimé entre-temps
@@ -100,7 +160,8 @@ B.pages.docs = async (el, p) => {
     const q = fold(query);
     const match = (f) => (kind === 'all' || docKind(f) === kind) && (!q || fold(f.name).includes(q));
     const dirs = searching ? [] : kids(cur);
-    const here = searching ? files.filter(match) : files.filter((f) => (f.folder_id || null) === cur);
+    here = searching ? files.filter(match) : files.filter((f) => (f.folder_id || null) === cur);
+    loadThumbs(here);
     const where = (f) => (searching && f.folder_id ? `<span class="doc-where" translate="no">${icon('folder', 12)} ${esc(folderPath(f.folder_id))}</span>` : '');
     const empty = searching ? tr('Aucun document ne correspond.')
       : cur ? tr('Ce dossier est vide. Déposez des fichiers ici ou rangez-y des documents.') : tr("Aucun document pour l'instant.");
@@ -116,7 +177,7 @@ B.pages.docs = async (el, p) => {
             <b translate="no">${esc(d.name)}</b><span class="muted small">${tr(n > 1 ? '{n} documents' : '{n} document', { n })}</span></button>
           <div class="doc-card-actions">${folderActions()}</div></div>`;
       }).join('')}${here.map((f) => `<div class="doc-card" data-id="${f.id}" draggable="${folders.length ? 'true' : 'false'}">
-          <button class="doc-card-main file-link"><span class="doc-card-ico k-${docKind(f)}">${fileIcon(f)}<span class="doc-ext">${esc(docExt(f))}</span></span>
+          <button class="doc-card-main file-link"><span class="doc-card-ico k-${docKind(f)}${fresh(f) ? ' has-thumb' : ''}" data-ico="${f.id}">${fileFace(f)}<span class="doc-ext">${esc(docExt(f))}</span></span>
             <b translate="no">${esc(f.name)}</b><span class="muted small">${fmtSize(f.size)} · ${timeAgo(f.updated_at || f.created_at)}${(f.version || 1) > 1 ? ` · v${f.version}` : ''}</span>${where(f)}</button>
           <div class="doc-card-actions">${fileActions(f)}</div></div>`).join('')}</div>`
         : `<p class="muted doc-empty">${empty}</p>`);
@@ -136,7 +197,7 @@ B.pages.docs = async (el, p) => {
       const by = B.person(f.updated_by || f.uploader_id);
       return `
       <tr data-id="${f.id}" draggable="${folders.length ? 'true' : 'false'}">
-        <td><button class="file-link">${fileIcon(f)} <span translate="no">${esc(f.name)}</span></button>
+        <td><button class="file-link"><span class="doc-ico${fresh(f) ? ' has-thumb' : ''}" data-ico="${f.id}">${fileFace(f)}</span> <span translate="no">${esc(f.name)}</span></button>
           ${(f.version || 1) > 1 ? `<span class="version-badge" title="${tr('Version {v}', { v: f.version })}">v${f.version}</span>` : ''}${where(f)}</td>
         <td>${fmtSize(f.size)}</td>
         <td>${avatar(by, 22)} ${esc(by.display_name)}</td>
@@ -294,7 +355,11 @@ B.pages.docs = async (el, p) => {
     const row = e.target.closest('[data-id]');
     if (!row) return;
     const f = files.find((x) => x.id === row.dataset.id);
-    if (e.target.closest('.file-link')) return B.openFile(f).catch(B.error);
+    if (e.target.closest('.file-link')) {
+      if (!B.canPreview(f)) return B.openFile(f).catch(B.error);
+      const imgs = here.filter((x) => B.canPreview(x));
+      return openViewer(imgs, Math.max(0, imgs.indexOf(f)), e.target.closest('.file-link'));
+    }
     if (e.target.closest('[data-versions]')) return showVersions(f).catch(B.error);
     if (e.target.closest('[data-move]')) {
       const to = await pickFolder(tr('Ranger « {name} » dans…', { name: esc(f.name) }));
@@ -307,6 +372,92 @@ B.pages.docs = async (el, p) => {
       load();
     }
   });
+
+  /**
+   * Visionneuse : l'image en grand, sur fond nuit. La miniature s'affiche tout de suite (floue), puis l'image entière
+   * une fois téléchargée. ← → (ou glisser au doigt) pour passer d'une image à l'autre, Échap pour fermer.
+   */
+  function openViewer(list, start, from) {
+    if (!list.length) return;
+    let i = start, token = 0;
+    const v = document.createElement('div');
+    v.className = 'img-viewer';
+    v.setAttribute('role', 'dialog');
+    v.setAttribute('aria-modal', 'true');
+    v.setAttribute('aria-label', tr('Aperçu de l\'image'));
+    v.innerHTML = `
+      <div class="iv-top">
+        <span class="iv-name" translate="no"></span><span class="iv-count"></span>
+        <button class="icon-btn iv-open" title="${tr('Ouvrir le fichier')}" aria-label="${tr('Ouvrir le fichier')}">${icon('download', 20)}</button>
+        <button class="icon-btn iv-close" title="${tr('Fermer')}" aria-label="${tr('Fermer')}">${icon('x', 20)}</button>
+      </div>
+      <div class="iv-stage">
+        <button class="icon-btn iv-prev" title="${tr('Image précédente')}" aria-label="${tr('Image précédente')}">${icon('back', 22)}</button>
+        <img class="iv-img" alt="" />
+        <p class="iv-msg" hidden></p>
+        <button class="icon-btn iv-next" title="${tr('Image suivante')}" aria-label="${tr('Image suivante')}">${icon('chevron', 22)}</button>
+      </div>
+      <p class="iv-meta"></p>`;
+    document.body.appendChild(v);
+    const img = $('.iv-img', v), msg = $('.iv-msg', v);
+    const show = async () => {
+      const f = list[i], mine = ++token;
+      const by = B.person(f.updated_by || f.uploader_id);
+      $('.iv-name', v).textContent = f.name;
+      $('.iv-count', v).textContent = list.length > 1 ? `${i + 1} / ${list.length}` : '';
+      $('.iv-meta', v).textContent = `${fmtSize(f.size)} · ${by.display_name} · ${timeAgo(f.updated_at || f.created_at)}`;
+      $('.iv-prev', v).hidden = $('.iv-next', v).hidden = list.length < 2;
+      msg.hidden = true;
+      img.alt = f.name;
+      const t = fresh(f);
+      img.classList.toggle('iv-blur', Boolean(t));
+      if (t) img.src = t; else img.removeAttribute('src');
+      img.hidden = !t;
+      try {
+        const url = await B.fileUrl(f.path);
+        const full = new Image();
+        full.referrerPolicy = 'no-referrer';
+        full.src = url;
+        await full.decode();
+        if (mine !== token) return;
+        img.src = url; img.hidden = false; img.classList.remove('iv-blur');
+      } catch {
+        if (mine !== token) return;
+        msg.textContent = tr('Aperçu impossible. Ouvrez le fichier pour le voir.');
+        msg.hidden = false;
+      }
+    };
+    const go = (d) => { if (list.length > 1) { i = (i + d + list.length) % list.length; show(); } };
+    const onKey = (e) => {
+      if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); close(); }
+      else if (e.key === 'ArrowLeft') go(-1);
+      else if (e.key === 'ArrowRight') go(1);
+    };
+    function close() {
+      if (!v.isConnected) return;
+      token++;
+      v.parentNode.removeChild(v);
+      document.removeEventListener('keydown', onKey, true);
+      if (from && from.isConnected) from.focus();
+    }
+    document.addEventListener('keydown', onKey, true);
+    B.onLeave(close);
+    $('.iv-close', v).onclick = close;
+    $('.iv-prev', v).onclick = () => go(-1);
+    $('.iv-next', v).onclick = () => go(1);
+    $('.iv-open', v).onclick = () => B.openFile(list[i]).catch(B.error);
+    $('.iv-stage', v).addEventListener('click', (e) => { if (e.target.classList.contains('iv-stage')) close(); });
+    let x0 = null;
+    v.addEventListener('touchstart', (e) => { x0 = e.touches.length === 1 ? e.touches[0].clientX : null; }, { passive: true });
+    v.addEventListener('touchend', (e) => {
+      if (x0 === null) return;
+      const dx = e.changedTouches[0].clientX - x0;
+      x0 = null;
+      if (Math.abs(dx) > 50) go(dx < 0 ? 1 : -1);
+    });
+    $('.iv-close', v).focus();
+    show();
+  }
 
   /** Fenêtre « Versions » : ouvrir une ancienne version (lecture seule) ou la restaurer */
   async function showVersions(f) {

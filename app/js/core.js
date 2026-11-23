@@ -201,7 +201,56 @@ B.uploadFile = async (projectId, file, messageId = null, folderId = null) => {
     ...(folderId ? { folder_id: folderId } : {})
   }).select().single();
   if (error) throw error;
+  await B.saveThumb(data, file).catch(() => {}); // miniature de l'image (Documents), sans bloquer l'envoi
   return data;
+};
+
+// ---------------------------------------------------------------------
+// Miniatures des images (migration 041, v0.8.57) : une petite image (THUMB_PX de côté, quelques Ko) fabriquée
+// ici, dans l'app, et rangée dans file_thumbs. Documents l'affiche au lieu de télécharger la photo entière
+// (important sur téléphone). Faite à l'envoi, à chaque nouvelle version, ou la première fois que quelqu'un
+// ouvre Documents (docs.js). Le stockage gratuit de Supabase ne sait pas réduire les images lui-même.
+// ---------------------------------------------------------------------
+B.THUMB_PX = 320;
+/** Images que le navigateur sait afficher (aperçu et miniature) ; HEIC, TIFF… s'ouvrent comme avant */
+B.canPreview = (f) => /^image\/(png|jpeg|gif|webp|svg\+xml|bmp|avif)$/i.test(f.mime || '')
+  || (!f.mime && /\.(png|jpe?g|gif|webp|svg|bmp|avif)$/i.test(f.name || ''));
+/** Fabrique la miniature d'une image (Blob) ; renvoie une adresse data: ou null */
+B.makeThumb = async (blob) => {
+  const url = URL.createObjectURL(blob);
+  try {
+    const img = new Image();
+    img.src = url;
+    await img.decode();
+    const k = Math.min(1, B.THUMB_PX / Math.max(img.naturalWidth || 0, img.naturalHeight || 0, 1));
+    const w = Math.max(1, Math.round(img.naturalWidth * k)), h = Math.max(1, Math.round(img.naturalHeight * k));
+    if (!img.naturalWidth || !img.naturalHeight) return null;
+    const c = document.createElement('canvas');
+    c.width = w; c.height = h;
+    const ctx = c.getContext('2d');
+    ctx.drawImage(img, 0, 0, w, h);
+    let data = c.toDataURL('image/webp', 0.72);
+    if (!data.startsWith('data:image/webp')) { // Safari ne sait pas écrire le WebP : JPEG sur fond de carte
+      ctx.globalCompositeOperation = 'destination-over';
+      ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--card').trim() || 'white';
+      ctx.fillRect(0, 0, w, h);
+      data = c.toDataURL('image/jpeg', 0.75);
+    }
+    if (data.length > 60000) data = c.toDataURL('image/jpeg', 0.5);
+    return data.length <= 60000 ? data : null;
+  } catch {
+    return null; // format que ce navigateur ne sait pas lire
+  } finally {
+    URL.revokeObjectURL(url);
+  }
+};
+/** Fabrique et enregistre la miniature d'un document image ; renvoie l'adresse data: ou null (jamais d'erreur) */
+B.saveThumb = async (f, blob) => {
+  if (!f?.id || !B.canPreview({ mime: f.mime || blob.type, name: f.name }) || blob.size > 30 * 1024 * 1024) return null;
+  const data = await B.makeThumb(blob);
+  if (!data) return null;
+  const { error } = await B.sb.rpc('set_file_thumb', { p_file: f.id, p_data: data });
+  return error ? null : data;
 };
 
 /** Envoie un contenu dans le stockage du projet ; renvoie son chemin "<project_id>/<uuid>-<nom>" */
@@ -252,6 +301,7 @@ B.saveFileVersion = async (f, blob) => {
     await B.sb.storage.from('project-files').remove([path]).catch(() => {});
     throw new Error(/add_file_version/.test(error.message || '') ? tr('Les versions de documents ne sont pas encore installées sur le serveur (migration 015).') : error.message);
   }
+  await B.saveThumb(f, blob).catch(() => {}); // la miniature suit la nouvelle version
   return data;
 };
 
@@ -292,6 +342,9 @@ B.restoreFileVersion = async (f, old) => {
   if (!res.ok) throw new Error(tr('Téléchargement impossible (erreur {n}).', { n: res.status }));
   return B.saveFileVersion(f, await res.blob());
 };
+
+/** Adresse temporaire (5 min) d'un fichier du projet */
+B.fileUrl = (path) => signedUrl(path);
 
 B.deleteFile = async (f) => {
   await B.deleteRow('files', f.id);
