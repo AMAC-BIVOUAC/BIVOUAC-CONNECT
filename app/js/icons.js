@@ -7,7 +7,8 @@ const ICONS = {
   home: '<path d="M3 11l9-7 9 7"/><path d="M5 10v10h5v-6h4v6h5V10"/>',
   folder: '<path d="M3 6h6l2 2h10v11H3z"/>',
   bell: '<path d="M6 16V11a6 6 0 0112 0v5l2 2H4z"/><path d="M10 20a2 2 0 004 0"/>',
-  settings: '<circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/>',
+  // Paramètres = couteau suisse (manche + lame ouverte + croix), demande d'Apo du 23/11
+  settings: '<rect x="2.5" y="12" width="19" height="7.5" rx="3.75"/><path d="M6 12L19.5 3.5c-1 4-3.8 7-7.5 8.5"/><path d="M15.5 14v3.5M13.75 15.75h3.5"/><path d="M6.25 15.75h.01"/>',
   search: '<circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/>',
   plus: '<path d="M12 5v14M5 12h14"/>',
   chat: '<path d="M4 5h16v11H9l-5 4z"/>',
