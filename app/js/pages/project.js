@@ -121,6 +121,7 @@ async function renderDiscussion(el, p, channelId, { atelier = false } = {}) {
         ? `<span class="my-ais-line">${tr('Vos IA')} : ${mine.map((id) => `<span class="my-ai">${aiAvatar(id, 20, B.me)}<span>${esc(PROVIDERS[id].label)}</span></span>`).join('')}</span>`
         : `${tr('Aucune IA branchée.')} <a href="#/settings">${tr('Ajouter une IA')}</a>`}</p>
       ${subs.length ? `<p>${tr("Avec l'abonnement, parlez à votre IA depuis son application : « Dans Bivouac, projet {project}, … ».", { project: esc(p.name) })}</p>` : ''}
+      <span class="channel-tools"><span class="pins-slot"></span></span>
     </header>`;
   };
 
@@ -141,10 +142,10 @@ async function renderDiscussion(el, p, channelId, { atelier = false } = {}) {
           <a class="icon-btn conv-back" href="#/p/${p.id}/discussion" aria-label="${tr('Retour aux salons')}">${icon('back', 20)}</a>
           <h2><span class="conv-name"># ${esc(current.name)}<small class="conv-sub" translate="no">${esc(p.name)}</small></span></h2><p>${esc(current.description || '')}</p>
           <button class="btn small voice-toggle" id="voice-toggle" aria-expanded="false">${icon('headphones', 16)} ${tr('Vocal')}</button>
-          ${B.isManager(p.id) ? `<span class="channel-tools">
+          <span class="channel-tools"><span class="pins-slot"></span>${B.isManager(p.id) ? `
             <button class="icon-btn" id="ch-rename" title="${tr('Renommer le salon')}">${icon('edit', 15)}</button>
-            ${current.id !== channels[0].id ? `<button class="icon-btn" id="ch-delete" title="${tr('Supprimer le salon')}">${icon('trash', 15)}</button>` : ''}
-          </span>` : ''}</header>
+            ${current.id !== channels[0].id ? `<button class="icon-btn" id="ch-delete" title="${tr('Supprimer le salon')}">${icon('trash', 15)}</button>` : ''}` : ''}
+          </span></header>
         <div class="voice-strip"></div>` : ''}
         <div class="chat-slot"></div>
       </section>

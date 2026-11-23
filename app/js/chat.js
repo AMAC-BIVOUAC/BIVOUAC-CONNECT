@@ -17,6 +17,8 @@ B.chat = async (root, { project, channel, mode }) => {
     editing: null,        // { id, draft } : message en cours de modification
     pins: [],             // messages épinglés du salon (du plus récent au plus ancien)
     pinsReady: true,      // false si la migration 013 n'est pas encore appliquée
+    replyTo: null,        // message auquel je réponds (barre au-dessus de la zone de saisie)
+    parents: new Map(),   // messages cités par une réponse mais pas chargés dans le fil (null = supprimé)
     ac: null,             // menu d'autocomplétion ouvert
     unfolded: new Set()   // longs messages dépliés par moi (le reste montre le début, puis « Afficher le message complet »)
   };
@@ -32,10 +34,10 @@ B.chat = async (root, { project, channel, mode }) => {
         <span class="spacer"></span>
         <button type="button" class="pill ai-brief-btn" data-ai-brief title="${esc(tr('Un texte tout prêt pour que votre IA travaille sur ce projet sans avoir à lui redire « dans Bivouac »'))}">${icon('spark', 14)} ${tr('Préparer pour mon IA')}</button>
       </div>` : ''}
-      <div class="pin-bar hidden"></div>
       <div class="pending-requests"></div>
       <div class="messages"><div class="loading">${tr('Chargement…')}</div></div>
       <form class="composer">
+        <div class="reply-bar hidden"></div>
         <div class="attach-chips"></div>
         <div class="composer-row">
           <button type="button" class="icon-btn attach" title="${tr('Joindre un fichier')}">${icon('plus', 20)}</button>
@@ -128,6 +130,8 @@ B.chat = async (root, { project, channel, mode }) => {
   st.messages = msgs.reverse();
   st.hasMore = msgs.length === PAGE;
   const myJoin = (B.members.get(project.id) || []).find((m) => m.user_id === B.me.id)?.joined_at || null;
+  let pinsBtn = null, pinsPop = null; // bouton « Messages épinglés » et sa fenêtre ouverte
+  mountPinsButton();
   await Promise.all([loadExtras(st.messages.map((m) => m.id)), loadPins()]);
   render();
 
@@ -148,6 +152,26 @@ B.chat = async (root, { project, channel, mode }) => {
       if (!st.files.has(x.message_id)) st.files.set(x.message_id, []);
       st.files.get(x.message_id).push(x);
     });
+    await loadParents(st.messages.filter((m) => ids.includes(m.id)));
+  }
+
+  /** Messages cités par des réponses, quand ils ne sont pas (encore) dans le fil chargé */
+  async function loadParents(msgs) {
+    const need = [...new Set(msgs.map((m) => m.reply_to).filter((id) => id && !st.parents.has(id) && !st.messages.some((x) => x.id === id)))];
+    if (!need.length) return;
+    const { data } = await B.sb.from('messages').select('id, author_id, content, is_ai, ai_provider, created_at').in('id', need);
+    need.forEach((id) => st.parents.set(id, (data || []).find((x) => x.id === id) || null));
+  }
+  function parentOf(m) { return st.messages.find((x) => x.id === m.reply_to) || st.parents.get(m.reply_to) || null; }
+  function whoWrote(m) { return m.is_ai ? aiName(m.ai_provider, B.person(m.author_id)) : B.person(m.author_id).display_name; }
+
+  /** Citation au-dessus d'une réponse (clic = aller au message cité) */
+  function replyQuoteHtml(m) {
+    if (!m.reply_to) return '';
+    const p = parentOf(m);
+    if (!p) return `<div class="msg-reply gone">${icon('reply', 13)} <span>${tr('Message supprimé')}</span></div>`;
+    return `<button type="button" class="msg-reply" data-jump-reply="${p.id}" title="${tr('Aller au message')}">${icon('reply', 13)}
+      <strong translate="no">${esc(whoWrote(p))}</strong><span translate="no">${esc(firstLine(p.content))}</span></button>`;
   }
 
   // ---------------- Affichage ----------------
@@ -230,6 +254,7 @@ B.chat = async (root, { project, channel, mode }) => {
       ${m.is_ai ? aiAvatar(m.ai_provider, 38, author) : avatar(author, 38)}
       <div class="msg-body">
         <div class="msg-head">${head}${m.pinned_at ? `<span class="pin-tag">${icon('pin', 12)} ${tr('Épinglé')}</span>` : ''}</div>
+        ${replyQuoteHtml(m)}
         ${editing ? editorHtml() : isLong(m) ? `<div class="msg-text ${st.unfolded.has(m.id) ? '' : 'folded'}" id="mt-${m.id}" translate="no">${md(m.content)}</div>
           <button type="button" class="msg-more" data-more aria-controls="mt-${m.id}" aria-expanded="${st.unfolded.has(m.id)}">${st.unfolded.has(m.id) ? tr('Réduire') : tr('Afficher le message complet')}${icon(st.unfolded.has(m.id) ? 'up' : 'down', 14)}</button>`
           : `<div class="msg-text" translate="no">${md(m.content)}</div>`}
@@ -238,13 +263,10 @@ B.chat = async (root, { project, channel, mode }) => {
         ${mine && !m.is_ai ? `<small class="msg-read muted">${readersIndicator(m.id)}</small>` : ''}
       </div>
       <div class="msg-tools">
-        <button type="button" class="icon-btn msg-menu" data-msg-menu aria-label="${tr('Actions du message')}" aria-expanded="false">⋯</button><div class="msg-actions" hidden>
-        <button class="icon-btn" data-react title="${tr('Réagir')}">${icon('smile', 16)}</button>
-        ${st.pinsReady ? `<button class="icon-btn ${m.pinned_at ? 'on' : ''}" data-pin title="${m.pinned_at ? tr('Désépingler') : tr('Épingler en haut du salon')}">${icon('pin', 16)}</button>` : ''}
-        ${mine && !m.is_ai && !editing ? `<button class="icon-btn" data-edit title="${tr('Modifier')}">${icon('edit', 16)}</button>` : ''}
-        ${mine || B.isManager(project.id) ? `<button class="icon-btn" data-del title="${mine ? tr('Supprimer') : tr('Supprimer (modération)')}">${icon('trash', 16)}</button>` : ''}
-        ${mine ? '' : `<button class="icon-btn" data-report title="${tr('Signaler ce message')}" aria-label="${tr('Signaler ce message')}">${icon('flag', 16)}</button>`}
-      </div></div>
+        <button type="button" class="icon-btn" data-quick="reply" title="${tr('Répondre')}" aria-label="${tr('Répondre')}">${icon('reply', 16)}</button>
+        <button type="button" class="icon-btn" data-quick="react" title="${tr('Ajouter une réaction')}" aria-label="${tr('Ajouter une réaction')}">${icon('smile', 16)}</button>
+        <button type="button" class="icon-btn msg-menu" data-msg-menu aria-haspopup="menu" aria-expanded="false" title="${tr('Plus d’actions (ou clic droit sur le message)')}" aria-label="${tr('Actions du message')}">⋯</button>
+      </div>
     </div>`;
   }
 
@@ -304,44 +326,201 @@ B.chat = async (root, { project, channel, mode }) => {
       if (!open && msgEl.getBoundingClientRect().top < list.getBoundingClientRect().top) msgEl.scrollIntoView({ block: 'start' });
       return;
     }
-    if (e.target.closest('[data-msg-menu]')) {
-      const menu = $('.msg-actions', msgEl), button = $('[data-msg-menu]', msgEl);
-      const open = menu.hidden;
-      $$('.msg-actions', list).forEach(el => { el.hidden = true; });
-      $$('[data-msg-menu]', list).forEach(el => el.setAttribute('aria-expanded', 'false'));
-      menu.hidden = !open; button.setAttribute('aria-expanded', String(open)); return;
-    }
-    if (e.target.closest('[data-react]')) {
-      B.openMediaPicker({ emojisOnly: true, onEmoji: emoji => toggleReaction(id, emoji) });
-      return;
-    }
+    const menuBtn = e.target.closest('[data-msg-menu]');
+    if (menuBtn) return openMsgMenu(id, { anchor: menuBtn });
+    const quick = e.target.closest('[data-quick]');
+    if (quick) return act(quick.dataset.quick, id);
+    const jump = e.target.closest('[data-jump-reply]');
+    if (jump) return jumpTo(jump.dataset.jumpReply);
 
-    if (e.target.closest('[data-pin]')) return togglePin(st.messages.find((m) => m.id === id));
-    if (e.target.closest('[data-report]')) {
-      const target = st.messages.find((m) => m.id === id);
-      if (target) B.reportContent({ projectId: project.id, type: 'message', targetId: id, targetUser: target.author_id, excerpt: target.content });
-      return;
-    }
-
-    if (e.target.closest('[data-edit]')) return startEdit(id);
     if (e.target.closest('[data-edit-cancel]')) return stopEdit();
     if (e.target.closest('[data-edit-save]')) return saveEdit();
+  });
 
-    if (e.target.closest('[data-del]')) {
-      const target = st.messages.find((x) => x.id === id);
-      const other = target && target.author_id !== B.me.id;
+  // ---------------- Actions sur un message (menu du clic droit / appui long, et boutons au survol) ----------------
+
+  /** Une action sur le message id : reply, copy, react, pin, edit, del, report */
+  async function act(action, id) {
+    const m = st.messages.find((x) => x.id === id);
+    if (!m) return;
+    if (action === 'reply') return startReply(m);
+    if (action === 'copy') return copyMessage(m);
+    if (action === 'react') return B.openMediaPicker({ emojisOnly: true, onEmoji: (emoji) => toggleReaction(id, emoji) });
+    if (action === 'pin') return togglePin(m);
+    if (action === 'edit') return startEdit(id);
+    if (action === 'report') return B.reportContent({ projectId: project.id, type: 'message', targetId: id, targetUser: m.author_id, excerpt: m.content });
+    if (action === 'del') {
+      const other = m.author_id !== B.me.id;
       const question = other
         ? tr('Supprimer le message de {who} ? En tant que responsable du projet, vous pouvez le faire : ce sera noté dans l\'activité du projet.',
-          { who: target.is_ai ? aiName(target.ai_provider, B.person(target.author_id)) : B.person(target.author_id).display_name })
+          { who: whoWrote(m) })
         : tr('Supprimer ce message ?');
       if (!(await B.confirm(question, tr('Supprimer')))) return;
       try { await B.deleteRow('messages', id); } catch (err) { return B.error(err); }
-      st.messages = st.messages.filter((m) => m.id !== id);
+      st.messages = st.messages.filter((x) => x.id !== id);
       if (st.editing?.id === id) st.editing = null;
+      if (st.replyTo?.id === id) cancelReply();
       render();
       if (st.pins.some((p) => p.id === id)) { st.pins = st.pins.filter((p) => p.id !== id); renderPins(); }
     }
+  }
+
+  /** Copie le message entier (texte tel qu'il a été écrit), avec les noms des pièces jointes */
+  async function copyMessage(m) {
+    const files = (st.files.get(m.id) || []).map((f) => `📎 ${f.name}`);
+    const text = [m.content, ...files.filter((f) => !String(m.content).includes(f))].join('\n');
+    let ok = false;
+    try { await navigator.clipboard.writeText(text); ok = true; } catch {
+      const tmp = h('<textarea class="copy-tmp" aria-hidden="true"></textarea>');
+      tmp.value = text; document.body.appendChild(tmp); tmp.select();
+      try { ok = document.execCommand('copy'); } catch { ok = false; }
+      tmp.remove();
+    }
+    B.toast(esc(ok ? tr('Message copié.') : tr('Impossible de copier ce message.')), { type: ok ? 'success' : 'error', timeout: 2000 });
+  }
+
+  const QUICK_EMOJIS = ['👍', '❤️', '😂', '😮', '😢', '🙏'];
+  let ctx = null; // menu ouvert : { el, back, id, opener, off }
+
+  function closeMsgMenu({ focus = false } = {}) {
+    if (!ctx) return;
+    const { el, back, id, opener, off } = ctx;
+    ctx = null;
+    off();
+    el.remove(); back?.remove();
+    $(`.msg[data-id="${id}"]`, list)?.classList.remove('ctx-on');
+    opener?.setAttribute('aria-expanded', 'false');
+    if (focus) opener?.focus();
+  }
+
+  /** Ouvre le menu d'un message : au pointeur (clic droit), sous un bouton (⋯), ou en bas d'écran (téléphone) */
+  function openMsgMenu(id, { x, y, anchor } = {}) {
+    const m = st.messages.find((z) => z.id === id);
+    if (!m) return;
+    const wasSame = ctx?.id === id && anchor && ctx.opener === anchor;
+    closeMsgMenu();
+    if (wasSame) return; // second clic sur ⋯ = refermer
+    const mine = m.author_id === B.me.id;
+    const mine_reacts = (st.reactions.get(id) || []).filter((r) => r.user_id === B.me.id).map((r) => r.emoji);
+    const item = (a, ic, label, cls = '') => `<button type="button" role="menuitem" class="ctx-item ${cls}" data-act="${a}">${icon(ic, 16)}<span>${label}</span></button>`;
+    const sheet = B.isPhone?.();
+    const el = h(`<div class="msg-ctx ${sheet ? 'sheet' : ''}" role="menu" aria-label="${tr('Actions du message')}">
+      <div class="ctx-emojis" role="group" aria-label="${tr('Ajouter une réaction')}">
+        ${QUICK_EMOJIS.map((e) => `<button type="button" role="menuitem" class="ctx-emoji ${mine_reacts.includes(e) ? 'on' : ''}" data-emoji="${e}" aria-label="${tr('Réagir avec {emoji}', { emoji: e })}">${e}</button>`).join('')}
+        <button type="button" role="menuitem" class="ctx-emoji more" data-act="react" title="${tr('Autres réactions')}" aria-label="${tr('Autres réactions')}">${icon('plus', 16)}</button>
+      </div>
+      ${item('reply', 'reply', tr('Répondre'))}
+      ${item('copy', 'copy', tr('Copier le message'))}
+      ${st.pinsReady ? item('pin', 'pin', m.pinned_at ? tr('Désépingler') : tr('Épingler')) : ''}
+      ${mine && !m.is_ai ? item('edit', 'edit', tr('Modifier')) : ''}
+      ${mine || B.isManager(project.id) ? item('del', 'trash', mine ? tr('Supprimer') : tr('Supprimer (modération)'), 'danger') : ''}
+      ${mine ? '' : item('report', 'flag', tr('Signaler'))}
+    </div>`);
+    const back = sheet ? h('<div class="msg-ctx-back"></div>') : null;
+    if (back) document.body.appendChild(back);
+    document.body.appendChild(el);
+    paintIcons(el);
+    const msgEl = $(`.msg[data-id="${id}"]`, list);
+    msgEl?.classList.add('ctx-on');
+    if (!sheet) {
+      // Placé au pointeur ou sous le bouton, sans jamais sortir de la fenêtre
+      const r = anchor?.getBoundingClientRect();
+      const px = r ? r.right : (x ?? msgEl?.getBoundingClientRect().left ?? 0);
+      const py = r ? r.bottom + 4 : (y ?? msgEl?.getBoundingClientRect().top ?? 0);
+      const w = el.offsetWidth, hgt = el.offsetHeight, pad = 8;
+      const left = Math.max(pad, Math.min(r ? px - w : px, innerWidth - w - pad));
+      const top = py + hgt + pad > innerHeight ? Math.max(pad, (r ? r.top - 4 : py) - hgt) : py;
+      el.style.left = `${left}px`; el.style.top = `${top}px`;
+    }
+    anchor?.setAttribute('aria-expanded', 'true');
+
+    el.addEventListener('click', (e) => {
+      const em = e.target.closest('[data-emoji]');
+      const a = e.target.closest('[data-act]');
+      if (!em && !a) return;
+      closeMsgMenu();
+      if (em) toggleReaction(id, em.dataset.emoji);
+      else act(a.dataset.act, id);
+    });
+    const items = () => $$('[role="menuitem"]', el);
+    el.addEventListener('keydown', (e) => {
+      const all = items(), i = all.indexOf(document.activeElement);
+      if (e.key === 'Escape') { e.preventDefault(); closeMsgMenu({ focus: true }); }
+      else if (e.key === 'ArrowDown' || e.key === 'ArrowRight') { e.preventDefault(); all[(i + 1) % all.length].focus(); }
+      else if (e.key === 'ArrowUp' || e.key === 'ArrowLeft') { e.preventDefault(); all[(i - 1 + all.length) % all.length].focus(); }
+      else if (e.key === 'Tab') closeMsgMenu();
+    });
+    // Se ferme dès qu'on clique ailleurs, qu'on fait défiler le fil, ou qu'on change de taille de fenêtre
+    const outside = (e) => { if (ctx?.el === el && !el.contains(e.target) && !anchor?.contains(e.target)) closeMsgMenu(); };
+    const onScroll = () => { if (ctx?.el === el) closeMsgMenu(); };
+    let alive = true;
+    setTimeout(() => { if (alive) document.addEventListener('pointerdown', outside, true); }, 0);
+    list.addEventListener('scroll', onScroll);
+    window.addEventListener('resize', onScroll);
+    ctx = { el, back, id, opener: anchor || null, off: () => {
+      alive = false;
+      document.removeEventListener('pointerdown', outside, true);
+      list.removeEventListener('scroll', onScroll);
+      window.removeEventListener('resize', onScroll);
+    } };
+    (anchor || !sheet ? items()[0] : null)?.focus({ preventScroll: true });
+  }
+  B.onLeave(() => closeMsgMenu());
+
+  // Clic droit sur un message (ordinateur) ; sur Android, l'appui long envoie aussi « contextmenu »
+  let pressed = null; // appui long en cours (téléphone) : { id, x, y, timer, fired }
+  list.addEventListener('contextmenu', (e) => {
+    const msgEl = e.target.closest('.msg');
+    if (!msgEl || e.target.closest('.msg-edit')) return; // dans la modification d'un message : menu habituel (couper, coller…)
+    e.preventDefault();
+    if (pressed?.fired || ctx?.id === msgEl.dataset.id) return; // déjà ouvert par l'appui long
+    const keyboard = !e.clientX && !e.clientY;
+    openMsgMenu(msgEl.dataset.id, keyboard ? {} : { x: e.clientX, y: e.clientY });
   });
+  // Appui long au doigt (iPhone n'envoie pas « contextmenu »)
+  list.addEventListener('touchstart', (e) => {
+    const msgEl = e.target.closest('.msg');
+    if (!msgEl || e.touches.length > 1 || e.target.closest('.msg-edit, button, a, .file-card')) { pressed = null; return; }
+    const t = e.touches[0];
+    pressed = { id: msgEl.dataset.id, x: t.clientX, y: t.clientY, fired: false };
+    pressed.timer = setTimeout(() => {
+      if (!pressed) return;
+      pressed.fired = true;
+      navigator.vibrate?.(10);
+      openMsgMenu(pressed.id, { x: pressed.x, y: pressed.y });
+    }, 450);
+  }, { passive: true });
+  list.addEventListener('touchmove', (e) => {
+    if (!pressed || pressed.fired) return;
+    const t = e.touches[0];
+    if (Math.hypot(t.clientX - pressed.x, t.clientY - pressed.y) > 10) { clearTimeout(pressed.timer); pressed = null; }
+  }, { passive: true });
+  list.addEventListener('touchend', (e) => {
+    if (!pressed) return;
+    clearTimeout(pressed.timer);
+    if (pressed.fired && e.cancelable) e.preventDefault(); // pas de « clic » juste après l'ouverture du menu
+    pressed = null;
+  });
+  list.addEventListener('touchcancel', () => { if (pressed) clearTimeout(pressed.timer); pressed = null; });
+
+  // ---------------- Répondre à un message ----------------
+
+  const replyBar = $('.reply-bar', root);
+  function startReply(m) {
+    st.replyTo = m;
+    replyBar.innerHTML = `${icon('reply', 15)}<span class="reply-text">${tr('Répondre à {who}', { who: `<strong translate="no">${esc(whoWrote(m))}</strong>` })}
+        <span class="muted" translate="no">${esc(firstLine(m.content))}</span></span>
+      <button type="button" class="icon-btn" data-reply-cancel title="${tr('Annuler la réponse')}" aria-label="${tr('Annuler la réponse')}">${icon('x', 15)}</button>`;
+    paintIcons(replyBar);
+    replyBar.classList.remove('hidden');
+    $('[data-reply-cancel]', replyBar).onclick = () => { cancelReply(); ta.focus(); };
+    ta.focus();
+  }
+  function cancelReply() {
+    st.replyTo = null;
+    replyBar.classList.add('hidden');
+    replyBar.innerHTML = '';
+  }
 
   // ---------------- Messages épinglés ----------------
 
@@ -359,53 +538,97 @@ B.chat = async (root, { project, channel, mode }) => {
     return line.length > 120 ? line.slice(0, 117) + '…' : line;
   }
 
+  // Bouton « Messages épinglés » en haut à droite de la discussion (en-tête du salon / de l'Atelier)
+  function mountPinsButton() {
+    const pinsSlot = root.closest('.channel-main')?.querySelector('.pins-slot') || $('.chat-filters', root);
+    if (!pinsSlot) return;
+    pinsBtn = h(`<button type="button" class="icon-btn pins-btn hidden" aria-haspopup="dialog" aria-expanded="false"
+      title="${tr('Messages épinglés')}" aria-label="${tr('Messages épinglés')}">${icon('pin', 17)}<span class="pins-count"></span></button>`);
+    pinsSlot.appendChild(pinsBtn);
+    paintIcons(pinsBtn);
+    pinsBtn.onclick = () => (pinsPop ? closePins() : openPins());
+    B.onLeave(() => { closePins(); pinsBtn.remove(); });
+  }
+
   function renderPins() {
-    const bar = $('.pin-bar', root);
-    if (!bar) return;
-    if (!st.pins.length) { bar.classList.add('hidden'); bar.innerHTML = ''; return; }
-    const last = st.pins[0];
-    bar.classList.remove('hidden');
-    bar.innerHTML = `<span class="pin-ico">${icon('pin', 15)}</span>
-      <button class="pin-last" data-jump="${last.id}" title="${tr('Aller au message')}">
-        <strong translate="no">${esc(last.is_ai ? aiName(last.ai_provider, B.person(last.author_id)) : B.person(last.author_id).display_name)}</strong>
-        <span translate="no">${esc(firstLine(last.content))}</span></button>
-      <button class="link small" data-pins>${st.pins.length > 1 ? tr('Voir les {n} épinglés', { n: st.pins.length }) : tr('Voir')}</button>`;
-    paintIcons(bar);
-    $('[data-jump]', bar).onclick = () => jumpTo(last.id);
-    $('[data-pins]', bar).onclick = openPins;
+    if (pinsBtn) {
+      pinsBtn.classList.toggle('hidden', !st.pinsReady);
+      const n = st.pins.length;
+      $('.pins-count', pinsBtn).textContent = n ? String(n) : '';
+      pinsBtn.classList.toggle('has-pins', n > 0);
+      pinsBtn.setAttribute('aria-label', n ? tr(n > 1 ? '{n} messages épinglés' : '{n} message épinglé', { n }) : tr('Messages épinglés'));
+    }
+    if (pinsPop) fillPins();
   }
 
   function jumpTo(id) {
     const el = $(`.msg[data-id="${id}"]`, list);
-    if (!el) return openPins(); // message trop ancien pour être chargé : on l'affiche dans la fenêtre
+    if (!el) return B.toast(esc(tr('Ce message est plus ancien que ceux affichés : chargez les messages plus anciens pour le retrouver.')), { timeout: 4000 });
     if (st.filter !== 'all' && el.offsetParent === null) { st.filter = 'all'; render(); return jumpTo(id); }
     el.scrollIntoView({ block: 'center', behavior: 'smooth' });
     el.classList.remove('flash'); void el.offsetWidth; el.classList.add('flash');
   }
 
-  function openPins() {
-    const m = B.modal(`
-      <h2>${icon('pin', 18)} ${tr('Messages épinglés')} · #${esc(channel.name)}</h2>
-      <div class="pin-list">${st.pins.map((p) => {
-        const who = p.is_ai ? aiName(p.ai_provider, B.person(p.author_id)) : B.person(p.author_id).display_name;
-        return `<div class="pin-item" data-id="${p.id}">
-          <div class="pin-item-head"><strong>${esc(who)}</strong><span class="muted small">${fmtTime(p.created_at)}
+  function closePins() {
+    if (!pinsPop) return;
+    pinsPop.off();
+    pinsPop.el.remove();
+    pinsPop = null;
+    pinsBtn?.setAttribute('aria-expanded', 'false');
+  }
+
+  function fillPins() {
+    const el = pinsPop.el;
+    const hint = B.isPhone?.() ? tr('Appui long sur un message, puis « Épingler ».') : tr('Clic droit sur un message, puis « Épingler ».');
+    el.innerHTML = `<div class="pins-head"><h3>${icon('pin', 16)} ${tr('Messages épinglés')}${st.pins.length ? ` <span class="muted">· ${st.pins.length}</span>` : ''}</h3>
+        <button type="button" class="icon-btn" data-pins-close aria-label="${tr('Fermer')}">${icon('x', 15)}</button></div>
+      ${st.pins.length ? `<div class="pins-list">${st.pins.map((p) => `
+        <div class="pin-item" data-id="${p.id}">
+          <div class="pin-item-head"><strong translate="no">${esc(whoWrote(p))}</strong><span class="muted small">${fmtTime(p.created_at)}
             ${p.pinned_by ? ` · ${tr('épinglé par {who}', { who: esc(B.person(p.pinned_by).display_name) })}` : ''}</span></div>
-          <div class="msg-text" translate="no">${md(p.content)}</div>
-          <div class="actions"><button class="btn small" data-go>${tr('Aller au message')}</button>
-            <button class="btn small danger-ghost" data-unpin>${icon('pin', 13)} ${tr('Désépingler')}</button></div>
-        </div>`;
-      }).join('')}</div>
-      <div class="actions"><span class="spacer"></span><button class="btn" data-close>${tr('Fermer')}</button></div>`, { wide: true });
-    $('[data-close]', m).onclick = B.closeModal;
-    $$('.pin-item', m).forEach((it) => {
+          <div class="msg-text pin-text" translate="no">${md(p.content)}</div>
+          <div class="pin-actions">
+            ${st.messages.some((x) => x.id === p.id) ? `<button type="button" class="btn small" data-go>${tr('Aller au message')}</button>` : ''}
+            <button type="button" class="btn small" data-unpin>${tr('Désépingler')}</button></div>
+        </div>`).join('')}</div>`
+      : `<p class="pins-empty muted">${tr('Aucun message épinglé dans ce salon.')}<br>${hint}</p>`}`;
+    paintIcons(el);
+    $('[data-pins-close]', el).onclick = () => { closePins(); pinsBtn?.focus(); };
+    $$('.pin-item', el).forEach((it) => {
       const p = st.pins.find((x) => x.id === it.dataset.id);
-      const loaded = st.messages.some((x) => x.id === p.id);
       const go = $('[data-go]', it);
-      if (!loaded) go.remove();
-      else go.onclick = () => { B.closeModal(); jumpTo(p.id); };
-      $('[data-unpin]', it).onclick = async () => { await togglePin(p); it.remove(); if (!st.pins.length) B.closeModal(); };
+      if (go) go.onclick = () => { closePins(); jumpTo(p.id); };
+      $('[data-unpin]', it).onclick = () => togglePin(p);
     });
+  }
+
+  /** Petite fenêtre sous le bouton ; se ferme dès qu'on clique ailleurs (ou Échap) */
+  function openPins() {
+    if (!pinsBtn) return;
+    const el = h(`<div class="pins-pop" role="dialog" aria-label="${tr('Messages épinglés')}"></div>`);
+    document.body.appendChild(el);
+    pinsPop = { el, off: () => {} };
+    fillPins();
+    const place = () => {
+      const r = pinsBtn.getBoundingClientRect(), pad = 8;
+      el.style.top = `${r.bottom + 6}px`;
+      el.style.left = `${Math.max(pad, Math.min(r.right - el.offsetWidth, innerWidth - el.offsetWidth - pad))}px`;
+    };
+    place();
+    const outside = (e) => { if (pinsPop?.el === el && !el.contains(e.target) && !pinsBtn.contains(e.target)) closePins(); };
+    const esc_ = (e) => { if (e.key === 'Escape' && pinsPop?.el === el) { closePins(); pinsBtn.focus(); } };
+    let alive = true;
+    setTimeout(() => { if (alive) document.addEventListener('pointerdown', outside, true); }, 0);
+    document.addEventListener('keydown', esc_);
+    window.addEventListener('resize', place);
+    pinsPop.off = () => {
+      alive = false;
+      document.removeEventListener('pointerdown', outside, true);
+      document.removeEventListener('keydown', esc_);
+      window.removeEventListener('resize', place);
+    };
+    pinsBtn.setAttribute('aria-expanded', 'true');
+    $('[data-go], [data-unpin], [data-pins-close]', el)?.focus({ preventScroll: true });
   }
 
   async function togglePin(m) {
@@ -420,7 +643,7 @@ B.chat = async (root, { project, channel, mode }) => {
     if (local) rerenderOne(m.id);
     st.pins = pin ? [m, ...st.pins.filter((x) => x.id !== m.id)] : st.pins.filter((x) => x.id !== m.id);
     renderPins();
-    if (pin) B.toast(esc(tr('Message épinglé en haut du salon.')), { type: 'success', timeout: 2500 });
+    if (pin) B.toast(esc(tr('Message épinglé : retrouvez-le avec le bouton 📌 en haut à droite.')), { type: 'success', timeout: 3000 });
   }
 
   // ---------------- Modification de ses messages ----------------
@@ -524,6 +747,7 @@ B.chat = async (root, { project, channel, mode }) => {
       if (!B.profiles.has(p.new.author_id)) await B.loadProjects();
       st.messages.push(p.new);
       st.reactions.set(p.new.id, []);
+      await loadParents([p.new]);
       if (visible(p.new)) {
         $('.empty-chat', list)?.remove();
         list.appendChild(h(msgHtml(p.new)));
@@ -704,6 +928,7 @@ B.chat = async (root, { project, channel, mode }) => {
       if (e.key === 'Enter' || e.key === 'Tab') { e.preventDefault(); return pick(st.ac.index); }
       if (e.key === 'Escape') return closeAc();
     }
+    if (e.key === 'Escape' && st.replyTo) { e.preventDefault(); return cancelReply(); }
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       $('.composer', root).requestSubmit();
@@ -726,9 +951,14 @@ B.chat = async (root, { project, channel, mode }) => {
   }
 
   async function post(content) {
-    const { data, error: err } = await B.sb.from('messages')
-      .insert({ channel_id: channel.id, content }).select().single();
+    const row = { channel_id: channel.id, content };
+    const replyTo = st.replyTo?.id && st.messages.some((m) => m.id === st.replyTo.id) ? st.replyTo.id : null;
+    if (replyTo) row.reply_to = replyTo;
+    let { data, error: err } = await B.sb.from('messages').insert(row).select().single();
+    // Base pas encore à jour (migration 038) : on envoie quand même, sans la citation
+    if (err && replyTo && /reply_to/.test(err.message || '')) ({ data, error: err } = await B.sb.from('messages').insert({ channel_id: channel.id, content }).select().single());
     if (err) throw err;
+    if (replyTo) cancelReply();
     addLocal(data);
     B.sendPush('message', data.id); // notifications app fermée (selon le niveau de chacun pour ce projet)
     if (st.pendingFiles.length) {

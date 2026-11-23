@@ -1691,7 +1691,26 @@ const EN = {
   "Vos IA et vos réglages": "Your AIs and settings",
   "Branchez votre IA (Claude, ChatGPT…) avec votre abonnement, réglez vos notifications, même quand l'app est fermée. Dans un projet, « Préparer pour mon IA » la met au travail sur ce projet.": "Connect your AI (Claude, ChatGPT…) with your subscription, set up your notifications, even when the app is closed. In a project, \"Set up for my AI\" puts it to work on that project.",
   "Recherche": "Search",
-  "Retrouvez un message, une idée, une tâche ou un projet.": "Find a message, an idea, a task or a project."
+  "Retrouvez un message, une idée, une tâche ou un projet.": "Find a message, an idea, a task or a project.",
+  // Discussion : menu d'un message, réponses, épingles (v0.8.54)
+  "Ajouter une réaction": "Add a reaction",
+  "Plus d’actions (ou clic droit sur le message)": "More actions (or right-click the message)",
+  "Message copié.": "Message copied.",
+  "Impossible de copier ce message.": "Couldn't copy this message.",
+  "Réagir avec {emoji}": "React with {emoji}",
+  "Autres réactions": "More reactions",
+  "Copier le message": "Copy message",
+  "Épingler": "Pin",
+  "Répondre à {who}": "Replying to {who}",
+  "Annuler la réponse": "Cancel reply",
+  "Ce message est plus ancien que ceux affichés : chargez les messages plus anciens pour le retrouver.": "This message is older than the ones shown: load older messages to find it.",
+  "Appui long sur un message, puis « Épingler ».": "Long-press a message, then \"Pin\".",
+  "Clic droit sur un message, puis « Épingler ».": "Right-click a message, then \"Pin\".",
+  "Aucun message épinglé dans ce salon.": "No pinned messages in this channel.",
+  "Message épinglé : retrouvez-le avec le bouton 📌 en haut à droite.": "Message pinned: find it with the 📌 button at the top right.",
+  "{n} messages épinglés": "{n} pinned messages",
+  "{n} message épinglé": "{n} pinned message",
+  "On ne peut répondre qu’à un message du même salon.": "You can only reply to a message in the same channel."
 };
 // ---- fin du dictionnaire
 

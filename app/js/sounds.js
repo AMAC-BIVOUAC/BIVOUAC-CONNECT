@@ -206,7 +206,13 @@ B.notifyMessage = async (msg) => {
     if (!data) return;
     ch = data; channelCache.set(ch.id, ch);
   }
-  if (B.levelWants && !B.levelWants(ch.project_id, msg.content)) return; // niveau du projet (Équipe) : mentions, moi, muet
+  // Réponse à l'un de mes messages : prévenu même au niveau « mentions » / « moi »
+  let repliedToMe = false;
+  if (msg.reply_to && B.projectNotifyLevel?.(ch.project_id) !== 'all') {
+    const { data: parent } = await B.sb.from('messages').select('author_id').eq('id', msg.reply_to).maybeSingle();
+    repliedToMe = parent?.author_id === B.me.id;
+  }
+  if (B.levelWants && !B.levelWants(ch.project_id, msg.content, repliedToMe)) return; // niveau du projet (Équipe) : mentions, moi, muet
   const project = B.project(ch.project_id);
   const isAtelier = ch.kind === 'ai';
   const where = isAtelier ? tr('Atelier IA') : `#${ch.name}`;

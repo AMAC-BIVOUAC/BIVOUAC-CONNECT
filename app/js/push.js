@@ -47,10 +47,10 @@ B.setProjectNotifyLevel = async (projectId, level) => {
 };
 
 /** Un message de salon me concerne-t-il, selon mon niveau pour ce projet ? (app ouverte) */
-B.levelWants = (projectId, text) => {
+B.levelWants = (projectId, text, repliedToMe = false) => {
   const level = B.projectNotifyLevel(projectId);
   if (level === 'mute') return false;
-  if (level === 'all') return true;
+  if (level === 'all' || repliedToMe) return true; // une réponse à mon message compte comme une mention
   const t = String(text || '');
   const cites = (h) => h && new RegExp(`(^|[^\\w@])@${h.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?![\\w-])`, 'iu').test(t);
   if (cites(B.me?.handle)) return true;

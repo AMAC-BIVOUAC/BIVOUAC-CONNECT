@@ -44,6 +44,7 @@ const ICONS = {
   rocket: '<path d="M12 15l-3-3c1-4 4-8 10-8 0 6-4 9-8 10z"/><path d="M9 12l-4 1 2-4h3M12 15l-1 4 4-2v-3M6 18l-2 2"/>',
   chevron: '<path d="M9 6l6 6-6 6"/>',
   back: '<path d="M15 5l-7 7 7 7"/>',
+  reply: '<path d="M9 14L4 9l5-5"/><path d="M4 9h10a6 6 0 016 6v4"/>',
   filter: '<path d="M4 6h16M7 12h10M10 18h4"/>',
   down: '<path d="M6 9l6 6 6-6"/>',
   up: '<path d="M6 15l6-6 6 6"/>',

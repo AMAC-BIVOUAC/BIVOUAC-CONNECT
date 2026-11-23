@@ -185,6 +185,7 @@ function errText(err) {
     'invite:quota_total': "Trop d'invitations par e-mail aujourd'hui sur BIVOUAC-TECH. Copiez le lien pour inviter cette personne.",
     'email:echec': "L'e-mail n'a pas pu partir. Réessayez, ou copiez le lien pour l'envoyer vous-même.",
     'equipe:interdit': "Vous n'avez pas le droit de faire ça dans cette équipe.",
+    'reponse:salon': 'On ne peut répondre qu’à un message du même salon.',
     'equipe:introuvable': 'Cette personne ne fait plus partie du projet.',
     'mineur:referent': "Ce projet n'a pas encore de référent adulte : un membre de moins de 18 ans ne peut le rejoindre que si le Créateur ou un Administrateur est majeur. Demandez au Créateur de nommer un adulte Administrateur.",
     'inscription:conditions': "Acceptez les conditions d'utilisation et la politique de confidentialité.",

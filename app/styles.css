@@ -1119,23 +1119,79 @@ label.check input { width: auto; }
 label.check.small { font-size: var(--fs-label); color: var(--muted); }
 
 /* ---------- Messages épinglés + suppression en direct (v0.8.5) ---------- */
-.pin-bar { display: flex; align-items: center; gap: 10px; padding: 7px 22px; background: var(--tint); border-bottom: 1px solid var(--wait-line); font-size: var(--fs-label); min-width: 0; }
-.pin-ico { color: var(--orange); display: inline-flex; flex: none; }
-.pin-last { font: inherit; background: none; border: 0; padding: 0; cursor: pointer; display: flex; gap: 6px; min-width: 0; flex: 1; text-align: left; color: var(--text); }
-.pin-last strong { flex: none; }
-.pin-last span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--muted); }
-.pin-last:hover span { color: var(--navy); }
-.pin-bar .link { flex: none; }
+/* Bouton « Messages épinglés » (en haut à droite du salon) et sa fenêtre (v0.8.54) */
+.channel-tools { align-items: center; }
+.pins-slot { display: inline-flex; }
+.pins-btn { position: relative; gap: 2px; }
+.pins-btn.has-pins { color: var(--action); }
+.pins-count:empty { display: none; }
+.pins-count { font-size: var(--fs-label); font-weight: var(--fw-strong); line-height: 1; }
+.pins-pop { position: fixed; z-index: 45; width: 380px; max-width: calc(100vw - 16px); max-height: min(70vh, 560px); overflow-y: auto;
+  background: var(--card); border: 1px solid var(--line); border-radius: var(--r-lg); box-shadow: var(--shadow-pop); padding: 12px; }
+.pins-head { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+.pins-head h3 { flex: 1; margin: 0; font-size: var(--fs-text); display: flex; align-items: center; gap: 6px; }
+.pins-list { display: flex; flex-direction: column; gap: 10px; }
+.pin-text { max-height: 7.5em; overflow: hidden; }
+.pin-actions { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
+.pins-empty { margin: 4px 2px 8px; line-height: 1.5; }
+
+/* Menu d'un message : clic droit (ordinateur), appui long (téléphone), ou bouton ⋯ (v0.8.54) */
+.msg-ctx { position: fixed; z-index: 46; min-width: 230px; background: var(--card); border: 1px solid var(--line); border-radius: var(--r-md);
+  box-shadow: var(--shadow-pop); padding: 6px; display: flex; flex-direction: column; }
+.ctx-emojis { display: flex; gap: 2px; padding: 2px 2px 6px; margin-bottom: 4px; border-bottom: 1px solid var(--line); }
+.ctx-emoji { font: inherit; font-size: var(--fs-strong); width: 34px; height: 34px; border: 0; background: none; border-radius: var(--r-round); cursor: pointer;
+  display: inline-grid; place-items: center; color: var(--muted); }
+.ctx-emoji:hover, .ctx-emoji:focus-visible { background: var(--tint); }
+.ctx-emoji.on { background: var(--orange-soft); }
+.ctx-item { font: inherit; display: flex; align-items: center; gap: 10px; padding: 8px 10px; border: 0; background: none; border-radius: var(--r-sm);
+  cursor: pointer; color: var(--text); text-align: left; }
+.ctx-item:hover, .ctx-item:focus-visible { background: var(--tint); }
+.ctx-item svg { color: var(--muted); flex: none; }
+.ctx-item.danger, .ctx-item.danger svg { color: var(--danger); }
+.msg-ctx.sheet { left: 0; right: 0; bottom: 0; top: auto; border-radius: var(--r-lg) var(--r-lg) 0 0; padding: 10px 10px max(12px, env(safe-area-inset-bottom)); }
+.msg-ctx.sheet .ctx-emojis { justify-content: space-around; }
+.msg-ctx.sheet .ctx-emoji { width: var(--touch); height: var(--touch); }
+.msg-ctx.sheet .ctx-item { min-height: var(--touch); font-size: var(--fs-touch); }
+.msg-ctx-back { position: fixed; inset: 0; z-index: 45; background: var(--overlay); }
+.msg.ctx-on { background: var(--tint); }
+/* Répondre et Réagir n'apparaissent qu'au survol (ou au clavier) ; ⋯ reste visible */
+.msg-tools [data-quick] { display: none; }
+.msg:hover .msg-tools [data-quick], .msg:focus-within .msg-tools [data-quick] { display: inline-flex; }
+.copy-tmp { position: fixed; left: -9999px; top: 0; opacity: 0; }
+
+/* Répondre à un message : citation au-dessus de la réponse, barre au-dessus de la zone de saisie (v0.8.54) */
+.msg-reply { font: inherit; font-size: var(--fs-label); display: flex; align-items: center; gap: 6px; min-width: 0; max-width: 100%;
+  margin: 2px 0 4px; padding: 3px 8px; border: 0; border-left: 3px solid var(--line-strong); border-radius: var(--r-sm);
+  background: var(--tint); color: var(--muted); cursor: pointer; text-align: left; }
+.msg-reply strong { color: var(--text); flex: none; }
+.msg-reply span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.msg-reply svg { flex: none; }
+.msg-reply:hover { color: var(--text); }
+.msg-reply.gone { cursor: default; font-style: italic; }
+.reply-bar { display: flex; align-items: center; gap: 8px; padding: 6px 10px; margin-bottom: 6px; background: var(--tint);
+  border-left: 3px solid var(--action); border-radius: var(--r-sm); font-size: var(--fs-label); min-width: 0; }
+.reply-bar.hidden { display: none; }
+.reply-text { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.reply-text .muted { margin-left: 4px; }
+@media (hover: none) {
+  /* Au doigt : l'appui long ouvre le menu du message, pas la sélection du texte ni la bulle de l'iPhone */
+  .messages .msg { -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; }
+  .messages .msg-edit textarea { -webkit-user-select: text; user-select: text; }
+}
+@media (max-width: 760px), (hover: none) {
+  .msg-tools [data-quick], .msg:hover .msg-tools [data-quick] { display: none; }
+}
+@media (max-width: 760px) {
+  .pins-pop { left: 8px !important; right: 8px; width: auto; }
+}
 .pin-tag { display: inline-flex; align-items: center; gap: 3px; font-size: var(--fs-label); font-weight: var(--fw-strong); color: var(--tag-wait); background: var(--orange-soft); border-radius: var(--r-sm); padding: 1px 7px; margin-left: 6px; }
 .msg.pinned { box-shadow: inset 3px 0 0 var(--orange); }
 .msg-tools .icon-btn.on { color: var(--action); }
 .msg.flash { animation: msg-flash 1.6s ease; }
 @keyframes msg-flash { 0%, 30% { background: var(--orange-soft); } 100% { background: transparent; } }
 .msg.vanish { opacity: 0; transform: translateX(8px); transition: opacity .25s, transform .25s; }
-.pin-list { display: flex; flex-direction: column; gap: 12px; max-height: 60vh; overflow-y: auto; margin: 6px 0; }
 .pin-item { border: 1px solid var(--line); border-radius: var(--r-md); padding: 10px 12px; }
 .pin-item-head { display: flex; gap: 8px; align-items: baseline; margin-bottom: 4px; }
-.pin-item .actions { margin-top: 8px; }
 
 /* ---------- Paramètres → Sons ---------- */
 .sound-list { display: flex; flex-direction: column; gap: 4px; margin-bottom: 10px; }
@@ -1362,8 +1418,6 @@ video.mirror { transform: scaleX(-1); }
   .discussion { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); }
   .channel-main, .chat, .messages, .msg-body { min-width: 0; }
   .msg-text { overflow-wrap: anywhere; }
-  .pin-bar { min-width: 0; }
-  .pin-last { min-width: 0; overflow: hidden; }
   .channels { flex-direction: row; align-items: center; gap: 4px; padding: 8px; overflow-x: auto; overflow-y: hidden; }
   .channels-title, .channels-note { display: none; }
   .channels a, .add-channel { flex: none; white-space: nowrap; padding: 7px 10px; }
@@ -1531,8 +1585,8 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--teal); }
   select, textarea, input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]):not([type="file"]) { min-height: var(--touch); }
   .btn:not(.tiny):not(.link), .composer .send { min-width: var(--touch); }
   h1 { font-size: var(--fs-title-sm); }
-  :where(.icon-btn, .tick, .btn.tiny, .link, .toast-close, .read-indicator, .menu-btn, .avatar-link, .pill, .who-chip, .cal-chip, .crumb, .mytask-title, .pin-last, .team-row > a, .reaction, .notif small a, .summit-title, .major-check) { position: relative; }
-  :where(.icon-btn, .tick, .btn.tiny, .link, .toast-close, .read-indicator, .menu-btn, .avatar-link, .pill, .who-chip, .cal-chip, .crumb, .mytask-title, .pin-last, .team-row > a, .reaction, .notif small a, .summit-title, .major-check)::after {
+  :where(.icon-btn, .tick, .btn.tiny, .link, .toast-close, .read-indicator, .menu-btn, .avatar-link, .pill, .who-chip, .cal-chip, .crumb, .mytask-title, .team-row > a, .reaction, .notif small a, .summit-title, .major-check) { position: relative; }
+  :where(.icon-btn, .tick, .btn.tiny, .link, .toast-close, .read-indicator, .menu-btn, .avatar-link, .pill, .who-chip, .cal-chip, .crumb, .mytask-title, .team-row > a, .reaction, .notif small a, .summit-title, .major-check)::after {
     content: ''; position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
     width: max(100%, var(--touch)); height: max(100%, var(--touch));
   }
