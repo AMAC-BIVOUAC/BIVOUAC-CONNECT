@@ -443,6 +443,8 @@ const EN = {
   'Version web : toujours à jour (rechargez la page pour la toute dernière version).': 'Web version: always up to date (reload the page for the very latest version).',
   "Télécharger l'application Windows": 'Download the Windows app',
   "Couper le son d'ambiance": 'Turn off the ambient sound',
+  'Afficher les cartes': 'Show the cards',
+  'Masquer les cartes pour voir le décor': 'Hide the cards to see the scenery',
   "Son d'ambiance": 'Ambient sound',
   'Volume': 'Volume',
   'clic droit : volume': 'right-click: volume',

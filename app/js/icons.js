@@ -66,6 +66,9 @@ const ICONS = {
   headphones: '<path d="M4 15v-3a8 8 0 0116 0v3"/><rect x="3" y="14" width="4" height="7" rx="1.5"/><rect x="17" y="14" width="4" height="7" rx="1.5"/>',
   headoff: '<path d="M4 15v-3a8 8 0 0116 0v3"/><rect x="3" y="14" width="4" height="7" rx="1.5"/><rect x="17" y="14" width="4" height="7" rx="1.5"/><path d="M3 3l18 18"/>',
   volume: '<path d="M4 10h4l5-4v12l-5-4H4z"/><path d="M16.5 9a4 4 0 010 6M19 6.5a8 8 0 010 11"/>',
+  // Afficher / masquer les bulles d'Aujourd'hui (23/11, Apo)
+  eye: '<path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>',
+  eyeoff: '<path d="M2 12s3.6-7 10-7c2 0 3.7.7 5.1 1.6M22 12s-3.6 7-10 7c-2 0-3.7-.7-5.1-1.6"/><path d="M9.9 9.9a3 3 0 004.2 4.2M3 3l18 18"/>',
   volumeoff: '<path d="M4 10h4l5-4v12l-5-4H4z"/><path d="M16 9.5l5 5M21 9.5l-5 5"/>',
   hangup: '<path d="M3 15c5-4 13-4 18 0l-2 3-4-1v-2a10 10 0 00-6 0v2l-4 1z"/>',
   // Icônes de projet (thème bivouac / montagne, demande d'Apo du 23/11)

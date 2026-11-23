@@ -160,6 +160,11 @@
     const btn = document.createElement('button');
     btn.type = 'button'; btn.className = 'amb-sound icon-btn';
     view.append(btn);
+    // À gauche du son : masquer les « bulles » (cartes et panneaux posés sur la scène) pour ne garder que le décor
+    // (23/11, Apo). Retenu sur l'appareil (store 'ambiance:bare').
+    const bare = document.createElement('button');
+    bare.type = 'button'; bare.className = 'amb-bare-btn icon-btn';
+    view.append(bare);
     view.classList.add('has-amb');
     // Téléphone : scène fixe (images seules, batterie et fluidité) ; ailleurs : réglage Animations et « réduire les animations »
     const still = () => B.isPhone?.() || !B.animationsOn() || matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -173,6 +178,9 @@
       const r = view.getBoundingClientRect();
       Object.assign(layer.style, { left: `${r.left}px`, top: `${r.top}px`, width: `${view.clientWidth}px`, height: `${r.height}px` });
       Object.assign(btn.style, { left: `${r.left + view.clientWidth - 60}px`, top: `${r.bottom - 60}px` });
+      // Téléphone : pas de bouton du son, celui-ci prend sa place
+      const shift = getComputedStyle(btn).display === 'none' ? 60 : 112;
+      Object.assign(bare.style, { left: `${r.left + view.clientWidth - shift}px`, top: `${r.bottom - 60}px` });
       syncMotion(); // passage ordinateur ↔ téléphone : animée ou fixe
     };
     place();
@@ -219,6 +227,17 @@
     };
     paintBtn();
 
+    const paintBare = () => {
+      const hidden = store.get('ambiance:bare', false) === true;
+      view.classList.toggle('amb-bare', hidden);
+      bare.setAttribute('aria-pressed', String(hidden));
+      const label = hidden ? tr('Afficher les cartes') : tr('Masquer les cartes pour voir le décor');
+      bare.title = label; bare.setAttribute('aria-label', label);
+      bare.innerHTML = icon(hidden ? 'eye' : 'eyeoff', 18);
+    };
+    bare.onclick = () => { store.set('ambiance:bare', !(store.get('ambiance:bare', false) === true)); paintBare(); };
+    paintBare();
+
     // Le navigateur n'autorise le son qu'après un geste : on (re)lance au premier clic ou touche si besoin
     const kick = () => { if (soundAllowed() && !B.isPhone?.()) { stopSound(); startSound(moment); } };
     const onGesture = () => { if (S.ctx?.state === 'running' && S.on) return; kick(); };
@@ -237,10 +256,11 @@
       removeEventListener('keydown', onGesture, { capture: true });
       document.removeEventListener('visibilitychange', sync);
       offs.forEach((off) => off?.());
-      view.classList.remove('has-amb');
+      view.classList.remove('has-amb', 'amb-bare');
       scene.destroy();
       layer.remove();
       btn.remove();
+      bare.remove();
     });
   };
 })();

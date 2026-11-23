@@ -1956,13 +1956,19 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--teal); }
 .land-lab.major { color: var(--navy); }
 
 /* Le chemin : une montée, du départ (en bas) au sommet (en haut) */
-.trail { list-style: none; margin: 0; padding: 0; position: relative; display: flex; flex-direction: column; gap: var(--s-1); }
-.trail::before { content: ''; position: absolute; left: 19.5px; /* axe du chemin à 21 px = centre des ronds */ top: 28px; bottom: 18px; border-left: 3px dotted var(--line-strong); }
-.trail-stop { position: relative; display: flex; align-items: center; gap: var(--s-3); min-height: 52px; }
-.trail-stop.done::before, .trail-stop.start::before, .trail-stop.here::before { content: ''; position: absolute; left: 19.5px; top: 0; bottom: 0; border-left: 3px solid var(--teal); }
+.trail { list-style: none; margin: 0; padding: 0; position: relative; display: flex; flex-direction: column; gap: 0; }
+/* La ligne (23/11, Apo) : un seul trait par étape, collé au suivant (aucun écart entre les étapes), centré sur l'axe à 21 px.
+   À venir = pointillé gris ; franchi (de « Vous êtes ici » au départ) = trait plein. */
+.trail-stop { position: relative; display: flex; align-items: center; gap: var(--s-3); min-height: 60px; }
+.trail-stop::before { content: ''; position: absolute; left: 19.5px; width: 0; top: 0; bottom: 0; border-left: 3px dotted var(--line-strong); }
+.trail-stop.summit::before { top: 24px; }
+.trail-stop.done::before, .trail-stop.start::before { border-left-style: solid; border-left-color: var(--teal); }
 .trail-stop.start::before { bottom: 50%; }
-.trail-stop.here::before { top: 50%; }
-.trail-btn { display: flex; align-items: center; gap: var(--s-3); width: 100%; min-height: 56px; padding: var(--s-2) var(--s-1) var(--s-2) 8px;
+/* « Vous êtes ici » : pointillé au-dessus, trait plein en dessous */
+.trail-stop.here::before { bottom: 50%; }
+.trail-stop.here::after { content: ''; position: absolute; left: 19.5px; width: 0; top: 50%; bottom: 0; border-left: 3px solid var(--teal); }
+.trail-stop.here:last-child::after, .trail-stop.start:first-child::before { display: none; }
+.trail-btn { display: flex; align-items: center; gap: var(--s-3); width: 100%; min-height: 56px; padding: var(--s-2) var(--s-1) var(--s-2) 8px; margin: 2px 0;
   background: none; border: 0; border-radius: var(--r-md); font: inherit; color: inherit; text-align: left; cursor: pointer; }
 .trail-btn:hover { background: var(--column); }
 .trail-btn > .ico:last-child { color: var(--muted); flex: none; }
@@ -2171,6 +2177,14 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--teal); }
 .amb-sound { position: fixed; z-index: 2; background: var(--card); border: 1px solid var(--line);
   box-shadow: var(--shadow); color: var(--navy); width: 44px; height: 44px; border-radius: var(--r-round); display: grid; place-items: center; }
 .amb-sound[aria-pressed="false"] { color: var(--muted); }
+/* Masquer les « bulles » (23/11, Apo) : tout le contenu de la page s'efface, seuls le décor et les deux boutons restent */
+.amb-bare-btn { position: fixed; z-index: 2; background: var(--card); border: 1px solid var(--line);
+  box-shadow: var(--shadow); color: var(--navy); width: 44px; height: 44px; border-radius: var(--r-round); display: grid; place-items: center; }
+.amb-bare-btn[aria-pressed="true"] { color: var(--action); }
+#view.has-amb > .page { transition: opacity .25s ease; }
+#view.has-amb.amb-bare > .page { opacity: 0; visibility: hidden; pointer-events: none; transition: opacity .25s ease, visibility 0s .25s; }
+.no-anim #view.has-amb > .page { transition: none; }
+@media (prefers-reduced-motion: reduce) { #view.has-amb > .page { transition: none; } }
 
 @media (max-width: 760px) {
   #view.has-amb .today-hero { background: var(--amb-chip); border: 1px solid var(--amb-chip-line); padding: var(--s-4);
