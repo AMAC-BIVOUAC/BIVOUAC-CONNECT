@@ -258,7 +258,7 @@ B.pages.calendar = async (el, p) => {
   let kinds = store.get(`cal-kinds:${pid}`, ['task', 'event', 'milestone']);
   if (!Array.isArray(kinds)) kinds = ['task', 'event', 'milestone'];
   let sideOpen = store.get(`cal-nodate:${pid}`, false) === true;
-  let filtersOpen = false;     // téléphone : filtres derrière un bouton
+  let filtersOpen = false;     // filtres derrière le bouton « Filtres » (ordinateur et téléphone)
   let quick = null;            // création rapide en cours : { day, value }
   let items = [];              // tout, y compris les tâches sans date (day = null)
   let eventsReady = true;
@@ -285,7 +285,7 @@ B.pages.calendar = async (el, p) => {
           <button class="btn small cal-add">${icon('plus', 15)} ${tr('Ajouter')}</button>
         </div>
       </div>
-      <div class="cal-filters">
+      <div class="cal-filters" role="group" aria-label="${tr('Filtres')}">
         <label><span>${tr('Personne')}</span><select class="cal-who-sel">
           <option value="">${tr('Tout le monde')}</option>
           ${members.map((m) => `<option value="${m.id}">${m.id === B.me.id ? tr('Moi') : esc(m.display_name)}</option>`).join('')}
@@ -294,6 +294,7 @@ B.pages.calendar = async (el, p) => {
         <div class="cal-kinds" role="group" aria-label="${tr('Afficher')}">
           ${KINDS.map(([k, l]) => `<button class="cal-kind ${k}" data-k="${k}"><i></i>${tr(l)}</button>`).join('')}
         </div>
+        <button class="link cal-reset" type="button">${tr('Réinitialiser')}</button>
       </div>
       <div class="cal-warning"></div>
       <div class="cal-main">
@@ -379,6 +380,8 @@ B.pages.calendar = async (el, p) => {
     const nf = activeFilters();
     $('.cal-filter-btn .cal-count', el).textContent = nf ? ` · ${nf}` : '';
     $('.cal-filter-btn', el).setAttribute('aria-expanded', String(filtersOpen));
+    $('.cal-filter-btn', el).classList.toggle('on', filtersOpen || nf > 0);
+    $('.cal-reset', el).hidden = !nf;
     root.classList.toggle('filters-open', filtersOpen);
     $('.cal-warning', el).innerHTML = eventsReady ? ''
       : `<p class="notice">${icon('key', 14)} ${tr("Les événements ne sont pas encore activés sur le serveur (migration 004_calendrier.sql). Les échéances et les étapes s'affichent quand même.")}</p>`;
@@ -460,6 +463,20 @@ B.pages.calendar = async (el, p) => {
     quick = null; render();
   }));
   $('.cal-filter-btn', el).onclick = () => { filtersOpen = !filtersOpen; render(); };
+  $('.cal-reset', el).onclick = () => {
+    who = ''; state = 'all'; kinds = ['task', 'event', 'milestone'];
+    store.set(`tasks-who:${pid}`, who); store.set(`cal-state:${pid}`, state); store.set(`cal-kinds:${pid}`, kinds);
+    $('.cal-who-sel', el).value = who; $('.cal-state-sel', el).value = state;
+    render();
+  };
+  // Le panneau des filtres se referme d'un clic ailleurs ou avec Échap (comme un menu)
+  const onDocDown = (e) => {
+    if (!filtersOpen || e.target.closest('.cal-filters, .cal-filter-btn')) return;
+    filtersOpen = false; render();
+  };
+  const onDocKey = (e) => { if (e.key === 'Escape' && filtersOpen) { filtersOpen = false; render(); $('.cal-filter-btn', el)?.focus(); } };
+  document.addEventListener('pointerdown', onDocDown);
+  document.addEventListener('keydown', onDocKey);
   $('.cal-nodate-btn', el).onclick = () => { sideOpen = !sideOpen; store.set(`cal-nodate:${pid}`, sideOpen); render(); };
   $('.cal-add', el).onclick = () => B.openAddOnDay(pid, phone ? selected : today, load, { eventsReady });
   $('.cal-who-sel', el).onchange = (e) => { who = e.target.value; store.set(`tasks-who:${pid}`, who); render(); };
@@ -641,6 +658,8 @@ B.pages.calendar = async (el, p) => {
     document.removeEventListener('pointerup', onUp);
     document.removeEventListener('pointercancel', endDrag);
     document.removeEventListener('touchmove', onTouchMove);
+    document.removeEventListener('pointerdown', onDocDown);
+    document.removeEventListener('keydown', onDocKey);
     window.removeEventListener('hashchange', onHash);
   };
   const onHash = () => setTimeout(stop, 0);

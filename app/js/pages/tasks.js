@@ -9,6 +9,18 @@ const STATUSES = [
   ['done', 'Terminé']
 ];
 
+/** Jour local (AAAA-MM-JJ) d'une date et heure, pour afficher la date de création */
+const localDay = (iso) => { const d = new Date(iso); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
+
+/** Colonnes triables de la Liste : valeur comparée (null = case vide, toujours en bas) */
+const SORTS = {
+  title: (t) => B.taskTitleText(t.title),
+  status: (t) => STATUSES.findIndex((x) => x[0] === t.status),
+  who: (t) => (t.assignee_id ? B.person(t.assignee_id)?.display_name || '' : null),
+  due: (t) => t.due_date || null,
+  created: (t) => t.created_at || null
+};
+
 /** Fenêtre de création / modification d'une tâche */
 B.openTask = (task, after) => {
   const isNew = !task.id;
@@ -81,11 +93,16 @@ B.pages.tasks = async (el, p, sub) => {
   // Filtre par personne (réglage de ce poste, par projet) : '' = tout le monde, 'none' = sans responsable
   let who = store.get(`tasks-who:${p.id}`, '');
   if (who && who !== 'none' && !B.projectMembers(p.id).some((m) => m.id === who)) who = '';
+  // « Masquer terminées » (Tableau, Liste, Par personne) et tri de la Liste : réglages de ce poste, par projet
+  let hideDone = store.get(`tasks-hide-done:${p.id}`, false) === true;
+  let sort = store.get(`tasks-sort:${p.id}`, null);
+  if (!sort || !SORTS[sort.col] || !['asc', 'desc'].includes(sort.dir)) sort = null;
 
   el.innerHTML = `
     <div class="tasks">
       <div class="tasks-head">
         <h2>${esc(p.name)}</h2>
+        <button class="btn small hide-done-btn" id="hide-done" aria-pressed="false"></button>
         <div class="seg">
           <button data-v="kanban">${icon('kanban', 15)} ${tr('Tableau')}</button>
           <button data-v="list">${icon('list', 15)} ${tr('Liste')}</button>
@@ -129,7 +146,18 @@ B.pages.tasks = async (el, p, sub) => {
     e.currentTarget.setAttribute('aria-expanded', String(open));
   };
   $('#fab-task', el).onclick = () => $('#new-task', el).click();
+  const paintHideDone = () => {
+    const b = $('#hide-done', el);
+    b.setAttribute('aria-pressed', String(hideDone));
+    // Texte court sur téléphone (comme les boutons du chemin), texte complet pour les lecteurs d'écran
+    const label = (long, short) => `<span class="lbl-long">${long}</span><span class="lbl-short" aria-hidden="true">${short}</span>`;
+    b.innerHTML = `${icon(hideDone ? 'eye' : 'eyeoff', 15)} ${hideDone ? label(tr('Afficher terminées'), tr('Voir finies')) : label(tr('Masquer terminées'), tr('Masquer finies'))}`;
+    b.title = hideDone ? tr('Les tâches terminées sont masquées') : tr('Ne montrer que les tâches à faire et en cours');
+  };
+  paintHideDone();
+  $('#hide-done', el).onclick = () => { hideDone = !hideDone; store.set(`tasks-hide-done:${p.id}`, hideDone); paintHideDone(); render(); };
   if (onCalendar) {
+    $('#hide-done', el).hidden = true; // le calendrier a son filtre « État »
     $$('.seg button', el).forEach((b) => b.classList.toggle('on', b.dataset.v === 'calendar'));
     $('.who-filter', el).hidden = true;
     $('.tasks', el).classList.add('on-calendar'); // le calendrier a ses propres filtres (même réglage « personne »)
@@ -164,7 +192,7 @@ B.pages.tasks = async (el, p, sub) => {
       + chip('none', tr('Sans responsable'), count((x) => !x.assignee_id));
   }
   const isLate = (t) => t.due_date && t.status !== 'done' && t.due_date < new Date().toISOString().slice(0, 10);
-  const shown = () => tasks.filter((x) => !who || (who === 'none' ? !x.assignee_id : x.assignee_id === who));
+  const shown = () => tasks.filter((x) => (!hideDone || x.status !== 'done') && (!who || (who === 'none' ? !x.assignee_id : x.assignee_id === who)));
 
   async function load() {
     const { data, error } = await B.sb.from('tasks').select('*').eq('project_id', p.id).order('position');
@@ -193,7 +221,7 @@ B.pages.tasks = async (el, p, sub) => {
     renderFilter();
     const tasks = shown();
     if (view === 'kanban') {
-      body.innerHTML = `<div class="kanban">${STATUSES.map(([s, label]) => {
+      body.innerHTML = `<div class="kanban ${hideDone ? 'no-done' : ''}">${STATUSES.filter(([s]) => !hideDone || s !== 'done').map(([s, label]) => {
         const col = tasks.filter((t) => t.status === s);
         return `<div class="col col-${s}" data-status="${s}">
           <div class="col-head">${tr(label)} (${col.length})</div>
@@ -204,21 +232,40 @@ B.pages.tasks = async (el, p, sub) => {
       bindDnd();
     } else if (view === 'list' && phone) {
       body.innerHTML = tasks.length ? phoneList(tasks)
-        : `<div class="empty">${icon('checksq', 30)}<p>${who ? tr('Aucune tâche pour ce filtre.') : tr('Aucune tâche. Créez-en une, ou transformez une idée de « Camp de base ».')}</p></div>`;
+        : `<div class="empty">${icon('checksq', 30)}<p>${who || hideDone ? tr('Aucune tâche pour ce filtre.') : tr('Aucune tâche. Créez-en une, ou transformez une idée de « Camp de base ».')}</p></div>`;
     } else if (view === 'list') {
+      const head = (col, label) => {
+        const on = sort?.col === col;
+        return `<th aria-sort="${on ? (sort.dir === 'asc' ? 'ascending' : 'descending') : 'none'}"><button class="th-sort ${on ? 'on' : ''}" data-sort="${col}"
+          title="${tr('Trier par « {col} »', { col: label })}">${label}<span class="th-arrow" aria-hidden="true">${icon(on && sort.dir === 'asc' ? 'up' : 'down', 12)}</span></button></th>`;
+      };
       body.innerHTML = tasks.length ? `<table class="task-table">
-        <thead><tr><th></th><th>${tr('Tâche')}</th><th>${tr('Statut')}</th><th>${tr('Responsable')}</th><th>${tr('Échéance')}</th></tr></thead>
-        <tbody>${tasks.map((t) => {
+        <thead><tr><th></th>${head('title', tr('Tâche'))}${head('status', tr('Statut'))}${head('who', tr('Responsable'))}${head('due', tr('Échéance'))}${head('created', tr('Création'))}</tr></thead>
+        <tbody>${sorted(tasks).map((t) => {
           const who = t.assignee_id ? B.person(t.assignee_id) : null;
           return `<tr data-id="${t.id}" class="${t.status}">
             <td><label class="tick"><input type="checkbox" aria-label="${tr('Marquer comme terminée')}" ${t.status === 'done' ? 'checked' : ''} />${icon('check', 12)}</label></td>
             <td class="task-title">${B.taskCodeHtml(t.title)}<span translate="no">${esc(B.taskTitleText(t.title))}</span></td>
             <td><span class="status s-${t.status}">${tr(STATUSES.find((x) => x[0] === t.status)[1])}</span></td>
             <td>${who ? `${avatar(who, 22)} ${esc(who.display_name)}` : '<span class="muted">—</span>'}</td>
-            <td>${t.due_date ? fmtDate(t.due_date) : '<span class="muted">—</span>'}</td></tr>`;
+            <td>${t.due_date ? `<span class="due ${isLate(t) ? 'late' : ''}">${fmtDate(t.due_date)}</span>` : '<span class="muted">—</span>'}</td>
+            <td class="t-created">${t.created_at ? `<span title="${esc(new Date(t.created_at).toLocaleString(B.locale()))}">${fmtDate(localDay(t.created_at))}</span>` : '<span class="muted">—</span>'}</td></tr>`;
         }).join('')}</tbody></table>`
-        : `<div class="empty">${icon('checksq', 30)}<p>${who ? tr('Aucune tâche pour ce filtre.') : tr('Aucune tâche. Créez-en une, ou transformez une idée de « Camp de base ».')}</p></div>`;
+        : `<div class="empty">${icon('checksq', 30)}<p>${who || hideDone ? tr('Aucune tâche pour ce filtre.') : tr('Aucune tâche. Créez-en une, ou transformez une idée de « Camp de base ».')}</p></div>`;
     }
+  }
+
+  /** Tri de la Liste : clic sur un en-tête = croissant, puis décroissant, puis l'ordre habituel.
+   *  Les cases vides (pas de responsable, pas d'échéance) restent toujours en bas. */
+  function sorted(list) {
+    if (!sort) return list;
+    const get = SORTS[sort.col];
+    const sign = sort.dir === 'asc' ? 1 : -1;
+    return list.map((t, i) => ({ t, i, v: get(t) })).sort((x, y) => {
+      if (x.v === null || y.v === null) return ((x.v === null) - (y.v === null)) || x.i - y.i;
+      const c = typeof x.v === 'number' ? x.v - y.v : x.v.localeCompare(y.v, B.locale(), { sensitivity: 'base', numeric: true });
+      return c * sign || x.i - y.i;
+    }).map((x) => x.t);
   }
 
   /** Téléphone : une liste groupée. « À vous » d'abord, puis À faire ; En cours et Terminé repliés.
@@ -243,10 +290,12 @@ B.pages.tasks = async (el, p, sub) => {
   /** Vue Par personne : vision globale de l'équipe, puis une carte par membre (moi d'abord) et « Sans responsable » */
   function renderPeople() {
     const members = B.projectMembers(p.id).sort((a, b) => (a.id === B.me.id ? -1 : b.id === B.me.id ? 1 : a.display_name.localeCompare(b.display_name)));
+    // « Masquer terminées » : les barres et les compteurs ne parlent plus que des tâches à faire et en cours
+    const pool = hideDone ? tasks.filter((t) => t.status !== 'done') : tasks;
     const groups = [
-      ...members.map((m) => ({ person: m, list: tasks.filter((t) => t.assignee_id === m.id) })),
+      ...members.map((m) => ({ person: m, list: pool.filter((t) => t.assignee_id === m.id) })),
       // Tâches de personne ou d'un ancien membre : regroupées à la fin
-      { person: null, list: tasks.filter((t) => !t.assignee_id || !members.some((m) => m.id === t.assignee_id)) }
+      { person: null, list: pool.filter((t) => !t.assignee_id || !members.some((m) => m.id === t.assignee_id)) }
     ].filter((g) => g.person || g.list.length);
     const count = (list, s) => list.filter((x) => x.status === s).length;
     const done = (n) => tr(n > 1 ? '{n} terminées' : '{n} terminée', { n });
@@ -266,7 +315,7 @@ B.pages.tasks = async (el, p, sub) => {
           <span>${tr('{n} à faire', { n: count(tasks, 'todo') })}</span>
           <span class="c-doing">${tr('{n} en cours', { n: count(tasks, 'doing') })}</span>
           ${lateAll ? `<span class="c-late">${tr('{n} en retard', { n: lateAll })}</span>` : ''}
-          <span class="c-done">${done(count(tasks, 'done'))}</span>
+          ${hideDone ? '' : `<span class="c-done">${done(count(tasks, 'done'))}</span>`}
         </span>
         <span class="to-pct">${tr('{n} % terminé', { n: pct })}</span>
       </div>
@@ -276,11 +325,11 @@ B.pages.tasks = async (el, p, sub) => {
         const late = list.filter(isLate).length;
         return `<button class="to-row" data-who="${person ? person.id : 'none'}" title="${tr('Voir ses tâches')}">
           <span class="to-name">${person ? avatar(person, 22) : `<span class="avatar none sm">${icon('users', 12)}</span>`}<span>${name(person)}</span></span>
-          <span class="to-bar"><span class="b-todo" style="width:${w('todo')}%"></span><span class="b-doing" style="width:${w('doing')}%"></span><span class="b-done" style="width:${w('done')}%"></span></span>
+          <span class="to-bar"><span class="b-todo" style="width:${w('todo')}%"></span><span class="b-doing" style="width:${w('doing')}%"></span>${hideDone ? '' : `<span class="b-done" style="width:${w('done')}%"></span>`}</span>
           <span class="to-num">${count(list, 'todo') + count(list, 'doing')}${late ? ` <span class="c-late">· ${tr('{n} en retard', { n: late })}</span>` : ''}</span>
         </button>`;
       }).join('')}</div>
-      <p class="muted small to-legend"><i class="b-todo"></i>${tr('À faire')} <i class="b-doing"></i>${tr('En cours')} <i class="b-done"></i>${tr('Terminé')}</p>
+      <p class="muted small to-legend"><i class="b-todo"></i>${tr('À faire')} <i class="b-doing"></i>${tr('En cours')}${hideDone ? '' : ` <i class="b-done"></i>${tr('Terminé')}`}</p>
     </section>`;
 
     body.innerHTML = overview + `<div class="people-board">${groups.map(({ person, list }) => {
@@ -294,7 +343,7 @@ B.pages.tasks = async (el, p, sub) => {
               <span>${tr('{n} à faire', { n: count(list, 'todo') })}</span>
               <span class="c-doing">${tr('{n} en cours', { n: count(list, 'doing') })}</span>
               ${late ? `<span class="c-late">${tr('{n} en retard', { n: late })}</span>` : ''}
-              <span class="c-done">${done(count(list, 'done'))}</span>
+              ${hideDone ? '' : `<span class="c-done">${done(count(list, 'done'))}</span>`}
             </span></div>
           <button class="icon-btn add-for" data-for="${person?.id || ''}" title="${tr('Nouvelle tâche')}">${icon('plus', 14)}</button>
         </header>
@@ -311,6 +360,13 @@ B.pages.tasks = async (el, p, sub) => {
 
   // Clics : cocher, ouvrir, ajouter
   body.addEventListener('click', async (e) => {
+    const th = e.target.closest('[data-sort]');
+    if (th) {
+      const col = th.dataset.sort;
+      sort = sort?.col !== col ? { col, dir: 'asc' } : sort.dir === 'asc' ? { col, dir: 'desc' } : null;
+      store.set(`tasks-sort:${p.id}`, sort);
+      return render();
+    }
     const add = e.target.closest('.col-add');
     if (add) return B.openTask(draft(add.dataset.status), load);
     // Vision globale : clic sur une personne = ses tâches en Kanban

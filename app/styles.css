@@ -876,7 +876,11 @@ details.advanced[open] summary { margin-bottom: 10px; }
 .cal-tools .seg { margin: 0; }
 .cal-tools .btn.on { border-color: var(--teal); background: var(--teal-soft); color: var(--link); }
 .cal-count { font-size: var(--fs-label); font-weight: var(--fw-strong); }
-.cal-filters { display: flex; align-items: center; gap: var(--s-2) var(--s-4); flex-wrap: wrap; margin-bottom: var(--s-3); }
+/* Filtres derrière le bouton « Filtres » (23/11) : panneau sous la barre, aligné à droite, refermé d'un clic ailleurs */
+.cal-filters { display: none; align-items: center; gap: var(--s-2) var(--s-4); flex-wrap: wrap; margin: 0 0 var(--s-3) auto; width: fit-content; max-width: 100%;
+  background: var(--card); border: 1px solid var(--line); border-radius: var(--r-lg); box-shadow: var(--shadow); padding: var(--s-3) var(--s-4); }
+.cal2.filters-open .cal-filters { display: flex; }
+.cal-reset[hidden] { display: none; }
 .cal-filters label { display: inline-flex; align-items: center; gap: var(--s-2); margin: 0; font-size: var(--fs-small); color: var(--muted); font-weight: var(--fw-strong); }
 .cal-filters select { width: auto; min-width: 0; padding: 6px 10px; font-size: var(--fs-small); }
 .cal-kinds { display: inline-flex; gap: var(--s-1); flex-wrap: wrap; }
@@ -974,7 +978,7 @@ details.advanced[open] summary { margin-bottom: 10px; }
 .cal2.is-phone .cal-tools { width: 100%; flex-wrap: nowrap; }
 .cal2.is-phone .cal-tools .seg { flex: none; }
 .cal2.is-phone .cal-tools .btn { min-height: var(--touch); white-space: nowrap; }
-.cal2.is-phone.filters-open .cal-filters { display: flex; flex-direction: column; align-items: stretch; background: var(--card); border: 1px solid var(--line); border-radius: var(--r-lg); padding: var(--s-3); }
+.cal2.is-phone.filters-open .cal-filters { display: flex; flex-direction: column; align-items: stretch; width: auto; margin-left: 0; box-shadow: none; padding: var(--s-3); }
 .cal2.is-phone .cal-filters label { justify-content: space-between; }
 .cal2.is-phone .cal-filters select { flex: 1; max-width: 70%; }
 .cal2.is-phone .cal-main, .cal2.is-phone.side-open .cal-main { grid-template-columns: minmax(0, 1fr); }
@@ -2307,3 +2311,25 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--teal); }
 .scn-debug .scn-a, .scn-debug .scn-fire, .scn-debug .scn-glow { outline: 1px dashed var(--scene-debug); }
 .scn-debug .scn-pivot { display: block; position: absolute; width: 8px; height: 8px; margin: -4px 0 0 -4px; border-radius: var(--r-round);
   background: var(--scene-debug); z-index: 1; }
+
+/* ---------- Tâches : « Masquer terminées » et tri de la Liste (23/11, Apo) ---------- */
+.tasks-head .hide-done-btn { display: inline-flex; align-items: center; gap: var(--s-1); white-space: nowrap; }
+.tasks-head .hide-done-btn[aria-pressed="true"] { border-color: var(--link); color: var(--link); }
+.tasks-head .hide-done-btn[hidden] { display: none; }
+.hide-done-btn .lbl-short { display: none; }
+.kanban.no-done { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.task-table th:has(.th-sort) { padding: 0; }
+.th-sort { font: inherit; color: inherit; background: none; border: 0; width: 100%; display: flex; align-items: center; gap: var(--s-1);
+  padding: 10px 12px; cursor: pointer; text-align: left; white-space: nowrap; }
+.th-sort:hover, .th-sort.on { color: var(--navy); }
+.th-sort .th-arrow { display: inline-flex; opacity: 0; transition: opacity .15s; }
+.th-sort:hover .th-arrow, .th-sort:focus-visible .th-arrow, .th-sort.on .th-arrow { opacity: 1; }
+.task-table .t-created { color: var(--muted); font-size: var(--fs-small); white-space: nowrap; }
+@media (max-width: 760px) {
+  .kanban.no-done { grid-template-columns: minmax(0, 1fr); }
+  /* sous la vue et le filtre : « Masquer finies » */
+  .tasks-phone-bar { order: 1; }
+  .tasks-head .hide-done-btn { order: 2; min-height: var(--touch); }
+  .hide-done-btn .lbl-long { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+  .hide-done-btn .lbl-short { display: inline; }
+}
