@@ -305,3 +305,63 @@ B.connectorRefresh = (provider, onDone = null) => {
     if (onDone) onDone();
   };
 };
+
+// ---------------------------------------------------------------------
+// « Préparer pour mon IA » (23/11, Apo) : un texte d'instructions tout prêt pour un projet, à coller dans un projet
+// Claude, un projet ChatGPT ou l'espace d'une autre IA reliée au connecteur. Ensuite, toutes les conversations de cet
+// espace travaillent sur ce projet Bivouac sans qu'on ait à le redire. Même texte que les raccourcis du connecteur
+// (supabase/functions/bivouac-mcp/tools.js → projectBrief) : garder les deux pareils. Le texte pour l'IA reste en
+// français (l'IA répond dans la langue de la personne).
+// ---------------------------------------------------------------------
+
+B.aiBrief = (p) => `Pour cette conversation, nous travaillons sur le projet BIVOUAC-TECH « ${p.name} » (identifiant ${p.id}).
+Utilise le connecteur BIVOUAC-TECH sans que je te le redise : au début, lis l'Atelier IA (read_atelier) et la vue d'ensemble (get_project_overview) de ce projet, puis dis-moi en quelques lignes où on en est et ce qui m'attend.
+Ensuite, à chaque question, appuie-toi sur les données à jour du projet (tâches, chemin, décisions, documents, calendrier) en les relisant au besoin, et range ce qui est structurant au bon endroit (tâches, décisions, idées). Tu n'écris que dans l'Atelier IA.`;
+
+/** Où coller le texte, selon l'IA */
+const BRIEF_STEPS = (name) => ({
+  anthropic: [
+    tr('Dans Claude : « Projets » → « Créer un projet », avec le nom de ce projet.'),
+    tr('Dans le projet Claude : « Instructions du projet » → collez le texte, puis enregistrez.'),
+    tr("C'est tout : chaque conversation de ce projet Claude travaille sur ce projet Bivouac."),
+    tr('Plus rapide, sans projet Claude : dans une conversation, bouton « + » de la zone de saisie → BIVOUAC-TECH → « Travailler sur « {name} » ».', { name })
+  ],
+  openai: [
+    tr('Dans ChatGPT : « Projets » → « Nouveau projet », avec le nom de ce projet.'),
+    tr('Dans le projet ChatGPT : « Instructions » → collez le texte, puis enregistrez.'),
+    tr('Vérifiez que le connecteur BIVOUAC-TECH est activé dans les conversations du projet.')
+  ],
+  other: [
+    tr('Votre IA doit être reliée au connecteur BIVOUAC-TECH (Paramètres → Mes IA).'),
+    tr("Collez le texte dans les instructions de l'espace, du projet ou de l'agent de votre IA, ou tout simplement au début d'une conversation."),
+    tr('Si votre IA propose les raccourcis du connecteur, choisissez « Travailler sur « {name} » ».', { name })
+  ]
+});
+
+B.openAiBrief = (p) => {
+  const mine = B.me?.connector_providers || [];
+  let ai = mine.includes('anthropic') || !mine.includes('openai') ? 'anthropic' : 'openai';
+  const text = B.aiBrief(p);
+  const m = B.modal(`
+    <h2>${icon('spark', 18)} ${tr('Préparer pour mon IA')}</h2>
+    <p class="muted">${tr('Un texte tout prêt pour que votre IA travaille sur « {name} » sans que vous ayez à le redire. Il lui demande de relire le projet à jour à chaque conversation : rien à refaire quand le projet avance.', { name: `<span translate="no">${esc(p.name)}</span>` })}</p>
+    <div class="brief-ais" role="radiogroup" aria-label="${esc(tr('Mon IA'))}">
+      ${[['anthropic', 'Claude'], ['openai', 'ChatGPT'], ['other', tr('Autre IA')]].map(([v, l]) => `<label class="check brief-ai">
+        <input type="radio" name="brief-ai" value="${v}" ${v === ai ? 'checked' : ''} />
+        ${v === 'other' ? '' : aiAvatar(v, 22)} <span>${l}</span></label>`).join('')}
+    </div>
+    <textarea class="brief-text" readonly rows="6" translate="no">${esc(text)}</textarea>
+    <div class="actions"><button type="button" class="btn primary" id="brief-copy">${icon('copy', 15)} ${tr('Copier le texte')}</button></div>
+    <ol class="brief-steps"></ol>
+    <p class="muted small">${tr('Pas encore relié ?')} <button type="button" class="link small" id="brief-connect">${tr('Brancher mon IA')}</button></p>
+    <div class="actions"><span class="spacer"></span><button type="button" class="btn" data-close>${tr('Fermer')}</button></div>`, { wide: true });
+  const paint = () => { $('.brief-steps', m).innerHTML = BRIEF_STEPS(p.name)[ai].map((s) => `<li>${esc(s)}</li>`).join(''); };
+  $$('[name="brief-ai"]', m).forEach((r) => (r.onchange = () => { ai = r.value; paint(); }));
+  $('#brief-copy', m).onclick = async (e) => {
+    const btn = e.currentTarget;
+    try { await navigator.clipboard.writeText(text); btn.innerHTML = `${icon('check', 15)} ${tr('Copié !')}`; } catch { $('.brief-text', m).select(); }
+  };
+  $('#brief-connect', m).onclick = () => { B.closeModal(); B.connectWizard(); };
+  $('[data-close]', m).onclick = () => B.closeModal();
+  paint();
+};

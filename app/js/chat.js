@@ -29,6 +29,8 @@ B.chat = async (root, { project, channel, mode }) => {
         <button class="pill on" data-f="all">${tr('Tous')}</button>
         <button class="pill" data-f="human">${tr('Humains')}</button>
         <button class="pill" data-f="ai">${tr('IA')}</button>
+        <span class="spacer"></span>
+        <button type="button" class="pill ai-brief-btn" data-ai-brief title="${esc(tr('Un texte tout prêt pour que votre IA travaille sur ce projet sans avoir à lui redire « dans Bivouac »'))}">${icon('spark', 14)} ${tr('Préparer pour mon IA')}</button>
       </div>` : ''}
       <div class="pin-bar hidden"></div>
       <div class="pending-requests"></div>
@@ -507,8 +509,9 @@ B.chat = async (root, { project, channel, mode }) => {
 
   // ---------------- Filtres (Atelier) ----------------
 
-  $$('.chat-filters .pill', root).forEach((b) => (b.onclick = () => {
-    $$('.chat-filters .pill', root).forEach((x) => x.classList.toggle('on', x === b));
+  $('[data-ai-brief]', root)?.addEventListener('click', () => B.openAiBrief(project));
+  $$('.chat-filters .pill[data-f]', root).forEach((b) => (b.onclick = () => {
+    $$('.chat-filters .pill[data-f]', root).forEach((x) => x.classList.toggle('on', x === b));
     st.filter = b.dataset.f;
     render();
   }));

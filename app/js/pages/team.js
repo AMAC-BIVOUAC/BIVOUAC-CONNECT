@@ -114,6 +114,12 @@ B.pages.team = async (el, p) => {
         <p class="muted small">${tr("Vaut pour vous seul, sur tous vos appareils, app ouverte ou fermée. Son, vibreur et messages privés : Paramètres → Notifications.")}</p>
       </section>
 
+      <section class="card" id="t-ai">
+        <div class="card-head"><h2>${icon('spark', 16)} ${tr('Mon IA sur ce projet')}</h2></div>
+        <p class="muted">${tr("Faites travailler Claude, ChatGPT ou une autre IA sur ce projet sans avoir à lui redire « dans Bivouac » : un texte tout prêt à coller dans un projet de votre IA.")}</p>
+        <div class="actions"><button type="button" class="btn" id="t-ai-brief">${icon('spark', 15)} ${tr('Préparer pour mon IA')}</button></div>
+      </section>
+
       ${B.isManager(p.id) ? '<section class="card hidden" id="t-reports"></section>' : ''}
       <section class="card">
         <div class="card-head"><h2>${tr('Réglages du projet')}</h2></div>
@@ -129,6 +135,7 @@ B.pages.team = async (el, p) => {
     </div>`;
 
   $('#t-invite', el)?.addEventListener('click', () => B.openInvite(p.id));
+  $('#t-ai-brief', el).onclick = () => B.openAiBrief(p);
   // Mon niveau de notifications pour ce projet (tous, mentions, seulement moi, muet)
   $$('[name="t-level"]', el).forEach((r) => (r.onchange = async () => {
     const before = B.projectNotifyLevel(p.id);
