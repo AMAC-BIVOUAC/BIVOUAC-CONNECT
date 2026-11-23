@@ -1289,6 +1289,13 @@ img.avatar.photo { object-fit: cover; background: var(--card); padding: 0; }
 .vote-opt.mine .vote-box { border-color: var(--teal); }
 .follow-btn { align-self: flex-start; display: inline-flex; align-items: center; gap: 5px; margin-top: 2px; }
 .follow-done { font-size: var(--fs-label); color: var(--done-text); display: inline-flex; align-items: center; gap: 5px; }
+.follow-actions { display: flex; flex-wrap: wrap; gap: 6px; }
+.no-follow-btn { color: var(--muted); }
+/* Décision classée sans suite (migration 039) : reste dans la liste, atténuée, avec son état */
+.follow-none { display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.follow-none-tag { display: inline-flex; align-items: center; gap: 4px; font-weight: var(--fw-title); font-size: var(--fs-label); text-transform: uppercase; letter-spacing: .03em; border-radius: var(--r-sm); padding: 1px 6px; background: var(--column); color: var(--muted); }
+.item.no-follow > .item-title { color: var(--muted); }
+.item.no-follow .vote-opt.win { opacity: .75; }
 .follow-types { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-bottom: 4px; }
 .follow-type { display: flex; align-items: center; gap: 6px; border: 1px solid var(--line); border-radius: var(--r-sm); padding: 7px 10px; cursor: pointer; font-size: var(--fs-small); margin: 0; }
 .follow-type input { display: none; }

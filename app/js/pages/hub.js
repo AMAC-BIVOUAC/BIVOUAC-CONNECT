@@ -98,7 +98,7 @@ B.pages.hub = async (el, p) => {
         ? tr('Égalité : {list}', { list: `<span translate="no">${winners.map(esc).join(' / ')}</span>` })
         : tr('Résultat : {choice}', { choice: `<strong translate="no">${esc(winners[0])}</strong>` })}`;
     }
-    const follow = i.followup_type ? followLink(i) : '';
+    const follow = i.followup_type === 'none' ? noFollowState() : i.followup_type ? followLink(i) : '';
     return `<div class="vote ${open ? '' : 'closed'} ${i.vote_multi ? 'multi' : ''}">
       <div class="vote-head">${icon('users', 13)} ${head}${i.vote_multi ? ` <span class="vote-kind">${tr('plusieurs réponses possibles')}</span>` : ''}</div>
       ${i.vote_options.map((o, k) => `<button class="vote-opt ${myChoices.has(k) ? 'mine' : ''} ${!open && counts[k] === max && max > 0 ? 'win' : ''}" data-choice="${k}" ${open ? '' : 'disabled'}
@@ -107,7 +107,8 @@ B.pages.hub = async (el, p) => {
           <span class="vote-bar" style="width:${people ? Math.round((counts[k] / people) * 100) : 0}%"></span>
           <span class="vote-label" translate="no">${esc(o)}</span><span class="vote-count">${counts[k]}</span></button>`).join('')}
       <div class="vote-foot muted small">${tr(people > 1 ? '{n} votants sur {m} membres' : '{n} votant sur {m} membres', { n: people, m: voters })}${open && mine ? ` · ${tr('vous pouvez changer d\'avis jusqu\'à la clôture')}` : ''}</div>
-      ${!open && vs.length ? (follow || `<button class="btn small follow-btn" data-follow>${icon('arrow', 13)} ${tr('Donner suite')}</button>`) : ''}
+      ${!open && vs.length ? (follow || `<div class="follow-actions"><button class="btn small follow-btn" data-follow>${icon('arrow', 13)} ${tr('Donner suite')}</button>
+        <button class="btn small follow-btn no-follow-btn" data-no-follow title="${tr('Garder la décision, sans en faire une tâche ni une étape')}">${icon('x', 13)} ${tr('Ne pas donner suite')}</button></div>`) : ''}
     </div>`;
   };
 
@@ -115,6 +116,16 @@ B.pages.hub = async (el, p) => {
   const FOLLOW_LABEL = () => ({ task: tr('Tâche'), idea: tr('Idée'), objective: tr('Objectif'), decision: tr('Décision'), milestone: tr('Étape') });
   const followLink = (i) => `<div class="follow-done">${icon('check', 13)} ${tr('Suite donnée')} :
     <a href="#/p/${p.id}/${i.followup_type === 'task' ? 'taches' : 'projet'}">${FOLLOW_LABEL()[i.followup_type] || ''}</a></div>`;
+  /** Décision classée sans suite (migration 039) : reste dans la liste, état visible, annulable */
+  const noFollowState = () => `<div class="follow-none"><span class="follow-none-tag">${icon('x', 12)} ${tr('Classée sans suite')}</span>
+    <button class="link small" data-undo-no-follow>${tr('Annuler')}</button></div>`;
+  /** Classer sans suite (`none`) ou annuler (`null`) */
+  const setNoFollow = async (item, on) => {
+    const { error } = await B.sb.from('items').update({ followup_type: on ? 'none' : null, followup_id: null }).eq('id', item.id);
+    if (error) return B.error(new Error(/followup/.test(error.message || '') ? tr('« Ne pas donner suite » n\'est pas encore installé sur le serveur (migration 039).') : errText(error)));
+    await load();
+    if (on) B.toast(tr('Décision classée sans suite.'), { type: 'success', actions: [[tr('Annuler'), '', () => setNoFollow(item, false)]] });
+  };
 
   /** Le sommet, en haut de la carte « Le chemin » */
   const renderSummit = () => {
@@ -157,7 +168,7 @@ B.pages.hub = async (el, p) => {
 
   /** Une ligne d'élément (étape, idée, décision) */
   const itemRow = (i, type) => `
-        <li class="item ${i.done ? 'done' : ''} ${i.major ? 'major' : ''}" data-id="${i.id}">
+        <li class="item ${i.done ? 'done' : ''} ${i.major ? 'major' : ''} ${i.followup_type === 'none' ? 'no-follow' : ''}" data-id="${i.id}">
           ${type === 'idea' ? `<span class="bullet"></span>` : `<input type="checkbox" ${i.done ? 'checked' : ''} title="${type === 'decision' ? tr('Appliquée') : tr('Étape franchie')}" aria-label="${type === 'decision' ? tr('Appliquée') : tr('Étape franchie')}" />`}
           <span class="item-title">${type === 'milestone' && i.major ? `<span class="major-tag">${tr('Étape majeure')}</span>` : ''}${esc(i.title)}${i.body ? `<small>${esc(i.body.slice(0, 120))}</small>` : ''}${i.vote_options ? voteHtml(i) : ''}</span>
           ${i.due_date ? `<span class="due">${icon('calendar', 13)} ${fmtDate(i.due_date)}</span>` : ''}
@@ -358,6 +369,8 @@ B.pages.hub = async (el, p) => {
       return load();
     }
     if (e.target.closest('[data-follow]')) return followUp(item);
+    if (e.target.closest('[data-no-follow]')) return setNoFollow(item, true);
+    if (e.target.closest('[data-undo-no-follow]')) return setNoFollow(item, false);
     if (e.target.closest('.vote')) return;
     if (e.target.closest('.item-title')) openItem(item);
   });
@@ -463,7 +476,9 @@ B.pages.hub = async (el, p) => {
       <div class="actions">
         ${B.canDelete(p.id, item.author_id, { voted: Boolean(item.vote_options) }) ? `<button class="btn danger-ghost" id="it-del">${icon('trash', 15)} ${tr('Supprimer')}</button>` : ''}
         ${item.type === 'decision' && !item.vote_options ? `<button class="btn" id="it-vote">${icon('users', 14)} ${tr('Soumettre au vote')}</button>` : ''}
-        ${item.type === 'decision' && !(item.vote_options && new Date(item.vote_until) > new Date()) ? `<button class="btn" id="it-follow">${icon('arrow', 14)} ${tr('Donner suite')}</button>` : ''}
+        ${item.type === 'decision' && !(item.vote_options && new Date(item.vote_until) > new Date()) ? `<button class="btn" id="it-follow">${icon('arrow', 14)} ${tr('Donner suite')}</button>
+          ${item.followup_type === 'none' ? `<button class="btn" id="it-no-follow-undo">${tr('Annuler « sans suite »')}</button>`
+            : !item.followup_type ? `<button class="btn" id="it-no-follow">${icon('x', 14)} ${tr('Ne pas donner suite')}</button>` : ''}` : ''}
         <span class="spacer"></span>
         <button class="btn" data-close>${tr('Annuler')}</button><button class="btn primary" id="it-save">${tr('Enregistrer')}</button>
       </div>`, { wide: true });
@@ -481,6 +496,8 @@ B.pages.hub = async (el, p) => {
       load();
     };
     $('#it-follow', m)?.addEventListener('click', () => followUp(item));
+    $('#it-no-follow', m)?.addEventListener('click', () => { B.closeModal(); setNoFollow(item, true); });
+    $('#it-no-follow-undo', m)?.addEventListener('click', () => { B.closeModal(); setNoFollow(item, false); });
     $('#it-vote', m)?.addEventListener('click', () => newVote(item));
     $('#it-del', m)?.addEventListener('click', async () => {
       if (!(await B.confirm(tr('Supprimer « {name} » ?', { name: item.title }), tr('Supprimer')))) return;
