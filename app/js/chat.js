@@ -727,6 +727,7 @@ B.chat = async (root, { project, channel, mode }) => {
       .insert({ channel_id: channel.id, content }).select().single();
     if (err) throw err;
     addLocal(data);
+    B.sendPush('message', data.id); // notifications app fermée (selon le niveau de chacun pour ce projet)
     if (st.pendingFiles.length) {
       const files = st.pendingFiles.splice(0);
       renderChips();
@@ -751,7 +752,8 @@ B.chat = async (root, { project, channel, mode }) => {
     const handles = mentionedHandles(text);
     const where = isAi ? tr("l'Atelier IA") : `#${channel.name}`;
     const link = isAi ? `#/p/${project.id}/atelier` : `#/p/${project.id}/discussion/${channel.id}`;
-    others().filter((p) => handles.includes(p.handle) && !skip.includes(p.id)).forEach((p) =>
+    const everyone = handles.some((x) => ['tous', 'all', 'everyone', 'equipe'].includes(x)); // @tous : toute l'équipe
+    others().filter((p) => (everyone || handles.includes(p.handle)) && !skip.includes(p.id)).forEach((p) =>
       B.notify(p.id, { projectId: project.id, type: 'mention', text: tr("{who} t'a mentionné dans {where} ({project}) : « {text} »", { who: B.me.display_name, where, project: project.name, text: text.slice(0, 140) }), link }));
   }
 

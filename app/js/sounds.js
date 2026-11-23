@@ -167,12 +167,17 @@ B.paintPresence = (root = document) => $$('[data-online]', root).forEach((d) => 
 });
 
 /** Notification Windows / navigateur, sauf en statut « Occupé ». `link` : adresse ouverte au clic (#/…) */
-B.pcNotify = (title, body, silent, link = null) => (B.myStatus().state === 'busy' ? Promise.resolve() : window.bivouac.notify(title, body, silent, link));
+B.pcNotify = (title, body, silent, link = null) => {
+  if (B.myStatus().state === 'busy') return Promise.resolve();
+  // Web avec notifications app fermée actives : onglet caché = la notification arrive déjà par le service worker
+  if (window.BIVOUAC_WEB && B.pushActive && document.hidden) return Promise.resolve();
+  return window.bivouac.notify(title, body, silent, link);
+};
 
-// ---------- Réglages des notifications (Paramètres → Notifications, réglage de ce poste) ----------
-// messages : 'all' = chaque nouveau message des salons et de l'Atelier ; 'mentions' = seulement quand on me mentionne
-// tray : fermer la fenêtre la cache près de l'horloge (Windows) pour continuer à prévenir
-const NOTIFY_DEFAULTS = { messages: 'all', tray: true };
+// ---------- Réglages des notifications de ce poste ----------
+// tray : fermer la fenêtre la cache près de l'horloge (Windows) pour continuer à prévenir.
+// Quels messages préviennent : niveau par projet (onglet Équipe, B.projectNotifyLevel, push.js).
+const NOTIFY_DEFAULTS = { tray: true };
 B.notifyPrefs = () => ({ ...NOTIFY_DEFAULTS, ...(store.get('notify') || {}) });
 B.setNotifyPrefs = (patch) => {
   store.set('notify', { ...B.notifyPrefs(), ...patch });
@@ -189,7 +194,7 @@ window.bivouac.onNotifyClick?.((link) => { if (typeof link === 'string' && link.
 const channelCache = new Map();
 const lastByChannel = new Map();
 B.notifyMessage = async (msg) => {
-  if (B.notifyPrefs().messages !== 'all' || !B.me) return;
+  if (!B.me) return;
   const handle = (B.me.handle || '').toLowerCase();
   if (handle && new RegExp(`(^|\\s)@${handle}\\b`, 'i').test(msg.content || '')) return;
   const now = Date.now();
@@ -201,6 +206,7 @@ B.notifyMessage = async (msg) => {
     if (!data) return;
     ch = data; channelCache.set(ch.id, ch);
   }
+  if (B.levelWants && !B.levelWants(ch.project_id, msg.content)) return; // niveau du projet (Équipe) : mentions, moi, muet
   const project = B.project(ch.project_id);
   const isAtelier = ch.kind === 'ai';
   const where = isAtelier ? tr('Atelier IA') : `#${ch.name}`;

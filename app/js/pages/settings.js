@@ -165,9 +165,16 @@ B.pages.settings = async (view) => {
         <p class="muted">${window.BIVOUAC_WEB
           ? tr("Une notification s'affiche quand l'onglet n'est pas regardé, si votre navigateur l'autorise. Un clic ouvre le bon endroit.")
           : tr("Une notification Windows s'affiche quand le message n'est pas sous vos yeux. Un clic ouvre le bon endroit. En statut Occupé, rien ne s'affiche.")}</p>
-        <p><strong>${tr("Messages des salons et de l'Atelier IA")}</strong></p>
-        <label class="check"><input type="radio" name="n-msg" value="all" ${B.notifyPrefs().messages === 'all' ? 'checked' : ''} /> ${tr('Chaque nouveau message')}</label>
-        <label class="check"><input type="radio" name="n-msg" value="mentions" ${B.notifyPrefs().messages === 'mentions' ? 'checked' : ''} /> ${tr('Seulement quand on me mentionne')}</label>
+        ${window.BIVOUAC_WEB ? `<div class="push-box" id="push-box">
+          <p><strong>${tr("Quand l'app est fermée (cet appareil)")}</strong></p>
+          <div class="actions"><span class="muted small" id="push-state">…</span><span class="spacer"></span>
+            <button type="button" class="btn hidden" id="push-toggle"></button></div>
+        </div>` : ''}
+        <p><strong>${tr('Pour moi, sur tous mes appareils')}</strong></p>
+        <label class="check"><input type="checkbox" id="n-dm" ${B.notifySettings.prefs.dm ? 'checked' : ''} /> ${tr('Messages privés')}</label>
+        <label class="check"><input type="checkbox" id="n-sound" ${B.notifySettings.prefs.sound ? 'checked' : ''} /> ${tr('Son')}</label>
+        <label class="check"><input type="checkbox" id="n-vibrate" ${B.notifySettings.prefs.vibrate ? 'checked' : ''} /> ${tr('Vibreur (téléphone)')}</label>
+        <p class="muted small">${tr("Pour chaque projet, choisissez quels messages vous préviennent (tous, mentions, seulement vous, muet) : onglet Équipe du projet.")}</p>
         ${window.BIVOUAC_WEB ? '' : `<label class="check"><input type="checkbox" id="n-tray" ${B.notifyPrefs().tray ? 'checked' : ''} /> ${tr("Quand je ferme la fenêtre, BIVOUAC-TECH reste ouvert près de l'horloge pour me prévenir")}</label>
         <p class="muted small">${tr("Pour le fermer vraiment : clic droit sur son icône près de l'horloge → Quitter.")}</p>`}
       </section>
@@ -230,7 +237,8 @@ B.pages.settings = async (view) => {
         <div class="card-head"><h2>${tr('Mises à jour')}</h2></div>
         <div class="actions"><span class="muted small" id="up-text">${esc(B.updateText(B.update))}</span><span class="spacer"></span>
           <button class="btn" id="up-check">${tr('Rechercher une mise à jour')}</button>
-          ${window.BIVOUAC_WEB ? `<a class="btn primary" id="win-download" href="https://github.com/AMAC-BIVOUAC/BIVOUAC-CONNECT/releases/latest" target="_blank" rel="noopener">${icon('download', 15)} ${tr("Télécharger l'application Windows")}</a>` : ''}
+          ${window.BIVOUAC_WEB && !B.isAndroidApp() ? `<a class="btn primary" id="win-download" href="https://github.com/AMAC-BIVOUAC/BIVOUAC-CONNECT/releases/latest" target="_blank" rel="noopener">${icon('download', 15)} ${tr("Télécharger l'application Windows")}</a>` : ''}
+          ${!B.isAndroidApp() ? `<a class="btn ${B.isAndroidBrowser() ? 'primary' : ''}" id="android-download" href="${B.ANDROID_APK_URL}" target="_blank" rel="noopener">${icon('download', 15)} ${tr("Télécharger l'application Android (APK)")}</a>` : ''}
           <button class="btn primary hidden" id="up-install">${tr('Redémarrer maintenant')}</button></div>
         <hr />
         <div class="actions"><span class="muted small">BIVOUAC-TECH v<span id="app-version">${esc(B.update.current || '')}</span> · ${tr('une création AMAC')} (Apollonius MANDON & Amaury CHARRIER)</span><span class="spacer"></span>
@@ -402,8 +410,37 @@ B.pages.settings = async (view) => {
   const helpMail = $('#help-mail', view);
   if (helpMail) helpMail.onclick = () => window.bivouac.openExternal(`mailto:${B.CONTACT_EMAIL}?subject=BIVOUAC-TECH`);
 
-  // Notifications (réglage de ce poste)
-  $$('[name="n-msg"]', view).forEach((r) => r.onchange = () => B.setNotifyPrefs({ messages: r.value }));
+  // Notifications : mes réglages (base, tous mes appareils) et cet appareil (notifications app fermée)
+  [['#n-dm', 'dm'], ['#n-sound', 'sound'], ['#n-vibrate', 'vibrate']].forEach(([sel, key]) => {
+    const c = $(sel, view);
+    c.onchange = () => B.saveNotifyPrefs({ [key]: c.checked })
+      .then(() => B.toast(tr('Réglage enregistré.'), { type: 'success', timeout: 2000 }), (e) => { c.checked = !c.checked; B.error(e); });
+  });
+  const pushBox = $('#push-box', view);
+  if (pushBox) {
+    const stateEl = $('#push-state', pushBox);
+    const btn = $('#push-toggle', pushBox);
+    const paint = async () => {
+      const st = await B.pushStatus();
+      stateEl.textContent = {
+        unsupported: tr("Ce navigateur ne reçoit pas de notifications quand l'app est fermée. Sur téléphone : installez l'app Android ou ajoutez la version web à l'écran d'accueil."),
+        denied: tr("Notifications bloquées par le navigateur : autorisez-les dans ses réglages (cadenas à gauche de l'adresse)."),
+        on: tr('Activées sur cet appareil.'),
+        off: tr('Désactivées sur cet appareil.')
+      }[st];
+      btn.classList.toggle('hidden', st === 'unsupported' || st === 'denied');
+      btn.textContent = st === 'on' ? tr('Désactiver') : tr('Activer');
+      btn.classList.toggle('primary', st === 'off');
+      btn.dataset.on = st === 'on' ? '1' : '';
+    };
+    btn.onclick = async () => {
+      btn.disabled = true;
+      try { await (btn.dataset.on ? B.disablePush() : B.enablePush()); } catch (e) { B.toast(esc(e.message), { type: 'error', timeout: 9000 }); }
+      btn.disabled = false;
+      paint();
+    };
+    paint();
+  }
   const nTray = $('#n-tray', view);
   if (nTray) nTray.onchange = () => B.setNotifyPrefs({ tray: nTray.checked });
 
@@ -441,6 +478,7 @@ B.pages.settings = async (view) => {
     const sel = $('#v-cam', view);
     if (!sel) return;
     const cams = await B.listVideoDevices().catch(() => []);
+    if (!sel.isConnected) return; // on a quitté les Paramètres pendant la recherche des caméras
     const cur = B.voiceDevices().cam;
     sel.innerHTML = cams.length
       ? [`<option value="">${tr('Par défaut (Windows)')}</option>`].concat(cams.map((d, i) => `<option value="${esc(d.deviceId)}" ${d.deviceId === cur ? 'selected' : ''}>${esc(d.label || `${tr('Caméra')} ${i + 1}`)}</option>`)).join('')
@@ -504,7 +542,7 @@ B.pages.settings = async (view) => {
     showUpdate(B.update);
   };
   $('#up-install', view).onclick = () => window.bivouac.installUpdate();
-  $('#s-logout', view).onclick = () => B.sb.auth.signOut();
+  $('#s-logout', view).onclick = async () => { await B.forgetPushDevice?.(); await B.sb.auth.signOut(); };
 
   // IA
   $$('.provider', view).forEach(async (card) => {

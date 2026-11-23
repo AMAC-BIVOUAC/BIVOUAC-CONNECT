@@ -150,10 +150,12 @@ B.removeMember = async (projectId, userId) => {
 
 B.notify = async (userId, { projectId = null, type, text, link = null, refId = null }) => {
   if (!userId || userId === B.me.id) return;
+  const id = crypto.randomUUID();
   const { error } = await B.sb.from('notifications').insert({
-    user_id: userId, project_id: projectId, type, text: text.slice(0, 500), link, ref_id: refId
+    id, user_id: userId, project_id: projectId, type, text: text.slice(0, 500), link, ref_id: refId
   });
   if (error) console.warn('notification non envoyée', error);
+  else if (type !== 'mention') B.sendPush?.('notification', id); // les mentions partent avec le message lui-même
 };
 
 // ---------------------------------------------------------------------

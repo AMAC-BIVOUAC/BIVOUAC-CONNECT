@@ -104,6 +104,16 @@ B.pages.team = async (el, p) => {
         <p class="muted small">${tr("Chaque IA appartient à un membre et tourne sur sa clé API ou son abonnement. Pour la solliciter dans l'Atelier IA, écrivez la commande indiquée : son propriétaire devra accepter.")}</p>
       </section>
 
+      <section class="card" id="t-notify">
+        <div class="card-head"><h2>${icon('bell', 16)} ${tr('Mes notifications pour ce projet')}</h2></div>
+        <div class="notify-levels" role="radiogroup" aria-label="${esc(tr('Mes notifications pour ce projet'))}">
+          ${B.NOTIFY_LEVELS().map(([v, label, hint]) => `<label class="check notify-level">
+            <input type="radio" name="t-level" value="${v}" ${B.projectNotifyLevel(p.id) === v ? 'checked' : ''} />
+            <span><strong>${label}</strong> <span class="muted small">· ${hint}</span></span></label>`).join('')}
+        </div>
+        <p class="muted small">${tr("Vaut pour vous seul, sur tous vos appareils, app ouverte ou fermée. Son, vibreur et messages privés : Paramètres → Notifications.")}</p>
+      </section>
+
       ${B.isManager(p.id) ? '<section class="card hidden" id="t-reports"></section>' : ''}
       <section class="card">
         <div class="card-head"><h2>${tr('Réglages du projet')}</h2></div>
@@ -119,6 +129,17 @@ B.pages.team = async (el, p) => {
     </div>`;
 
   $('#t-invite', el)?.addEventListener('click', () => B.openInvite(p.id));
+  // Mon niveau de notifications pour ce projet (tous, mentions, seulement moi, muet)
+  $$('[name="t-level"]', el).forEach((r) => (r.onchange = async () => {
+    const before = B.projectNotifyLevel(p.id);
+    try {
+      await B.setProjectNotifyLevel(p.id, r.value);
+      B.toast(tr('Notifications de ce projet : {level}.', { level: B.NOTIFY_LEVELS().find(([v]) => v === r.value)[1].toLowerCase() }), { type: 'success', timeout: 2500 });
+    } catch (err) {
+      $(`[name="t-level"][value="${before}"]`, el).checked = true;
+      B.error(err);
+    }
+  }));
   if ($('#t-reports', el)) renderReports($('#t-reports', el), p);
   B.paintDmBadges?.(); // pastille « messages privés non lus » sur la photo de chacun
 

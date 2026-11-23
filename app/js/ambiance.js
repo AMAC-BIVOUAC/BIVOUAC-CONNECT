@@ -161,7 +161,8 @@
     btn.type = 'button'; btn.className = 'amb-sound icon-btn';
     view.append(btn);
     view.classList.add('has-amb');
-    const still = () => !B.animationsOn() || matchMedia('(prefers-reduced-motion: reduce)').matches;
+    // Téléphone : scène fixe (images seules, batterie et fluidité) ; ailleurs : réglage Animations et « réduire les animations »
+    const still = () => B.isPhone?.() || !B.animationsOn() || matchMedia('(prefers-reduced-motion: reduce)').matches;
     // La scène peinte (scene.js) : fond, animaux, feu ; jour ou nuit
     const fr = (m) => (m === 'night' ? 'nuit' : 'jour');
     const scene = B.Scene(layer, { mode: fr(moment), animated: !still() });
@@ -172,6 +173,7 @@
       const r = view.getBoundingClientRect();
       Object.assign(layer.style, { left: `${r.left}px`, top: `${r.top}px`, width: `${view.clientWidth}px`, height: `${r.height}px` });
       Object.assign(btn.style, { left: `${r.left + view.clientWidth - 60}px`, top: `${r.bottom - 60}px` });
+      syncMotion(); // passage ordinateur ↔ téléphone : animée ou fixe
     };
     place();
     const ro = new ResizeObserver(place); ro.observe(view);

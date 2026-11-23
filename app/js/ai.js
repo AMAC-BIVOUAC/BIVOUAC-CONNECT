@@ -138,6 +138,7 @@ B.runMyAi = async ({ provider, projectId, channelId, question, askedById }) => {
     requested_by: askedById
   }).select().single();
   if (error) throw error;
+  B.sendPush('message', data.id);
   return data;
 };
 

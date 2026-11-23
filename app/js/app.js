@@ -198,6 +198,10 @@ async function onSession(session) {
     await Promise.all([B.loadProjects(), B.loadMyProviders()]);
     const joined = await useInvite(); // arrivé par un lien d'invitation : on rejoint le projet
     B.renderSidebar();
+    await B.loadNotifySettings().catch(() => {});
+    B.refreshPush().catch(() => {});
+    setTimeout(() => B.offerPush().catch(() => {}), 4000);
+    setTimeout(() => B.checkAndroidUpdate().catch(() => {}), 6000);
     B.loadUnread();
     B.startGlobalLive();
     B.startDmLive();
@@ -222,6 +226,7 @@ B.on('unread', () => B.paintUnread());
 B.on('me', () => { if (B.me) B.renderSidebar(); });
 B.on('notification', (n) => {
   B.refreshBadge();
+  if (n.project_id && B.projectNotifyLevel(n.project_id) === 'mute') return; // projet en sourdine : la cloche seulement
   if (n.type !== 'ai_request') {
     B.playSound('notif');
     B.pcNotify('BIVOUAC-TECH', n.text, B.soundPrefs().notif, n.link || null);

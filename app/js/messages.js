@@ -86,6 +86,7 @@ B.startDmLive = () => {
       if (msg.sender_id === B.dmOpen && !document.hidden && document.hasFocus() && B.dmAtBottom?.()) return;
       B.dmUnread.set(msg.sender_id, (B.dmUnread.get(msg.sender_id) || 0) + 1);
       dmChanged();
+      if (B.notifySettings?.prefs.dm === false) return; // Paramètres → Notifications : messages privés coupés
       B.playSound('notif');
       const who = B.person(msg.sender_id).display_name;
       B.pcNotify('BIVOUAC-TECH', tr('Message privé de {name}', { name: who }), B.soundPrefs().notif, `#/messages/${msg.sender_id}`);
@@ -387,6 +388,7 @@ B.pages.messages = async (view, [otherId]) => {
       const { data, error: err } = await B.sb.from('direct_messages').insert(payload).select().single();
       if (err) throw new Error(/row-level security/.test(err.message || '') ? tr('Vous ne partagez plus de projet avec cette personne.') : errText(err));
       committed = true;
+      B.sendPush('dm', data.id);
       ta.value = '';
       B.grammarReset?.(ta);
       pending = [];
