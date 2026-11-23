@@ -1553,6 +1553,7 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--teal); }
 .l-tent { fill: var(--teal); } .l-tent-door { fill: var(--land-tent-door); }
 .l-ground { stroke: var(--land-ground); stroke-width: 2; stroke-linecap: round; }
 .l-step { fill: var(--card); stroke: var(--navy); stroke-width: 2.6; opacity: .75; }
+.l-start { fill: var(--orange); stroke: var(--card); stroke-width: 3; } /* point de départ du chemin (dessin) */
 .l-step.next { stroke-width: 3.5; opacity: 1; }
 .l-flag { fill: var(--orange); stroke: var(--orange); stroke-width: 2.5; stroke-linejoin: round; stroke-linecap: round; }
 .l-here-ring { fill: var(--navy); }
