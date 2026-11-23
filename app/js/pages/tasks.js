@@ -132,6 +132,7 @@ B.pages.tasks = async (el, p, sub) => {
   if (onCalendar) {
     $$('.seg button', el).forEach((b) => b.classList.toggle('on', b.dataset.v === 'calendar'));
     $('.who-filter', el).hidden = true;
+    $('.tasks', el).classList.add('on-calendar'); // le calendrier a ses propres filtres (même réglage « personne »)
     $('#new-task', el).onclick = () => B.openTask({ project_id: p.id, status: 'todo' }, () => B.route());
     body.classList.add('in-calendar');
     return B.pages.calendar(body, p);
