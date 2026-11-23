@@ -296,7 +296,7 @@ textarea { resize: vertical; }
 #sidebar { background: var(--navy); color: var(--on-navy); display: flex; flex-direction: column; padding: 18px 14px; min-height: 0; }
 #sidebar .brand { display: flex; align-items: center; gap: 10px; padding: 4px 8px 22px; }
 #sidebar .brand .wordmark { color: var(--card); font-size: var(--fs-logo); }
-#sidebar .brand .brand-logo { display: block; width: 170px; height: auto; margin-left: -6px; } /* logo officiel (22/11) */
+#sidebar .brand .brand-logo { display: block; width: 210px; height: auto; margin-left: -6px; } /* logo officiel (22/11), agrandi le 23/11 (Apo) */
 .login-logo { display: block; width: min(360px, 80%); height: auto; }
 .nav a, .space, .nav-add {
   display: flex; align-items: center; gap: 12px;
