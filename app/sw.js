@@ -4,7 +4,7 @@
 // sans connexion. Seuls les fichiers du site sont gardés (jamais les données de Supabase).
 // Le numéro est remplacé à la construction du site (scripts/build-web.mjs).
 // =====================================================================
-const CACHE = 'bivouac-0.8.64-mwuob1p5';
+const CACHE = 'bivouac-0.8.66-mwupht5b';
 const SHELL = ['./', 'index.html', 'styles.css', 'manifest.webmanifest'];
 
 self.addEventListener('install', (e) => {

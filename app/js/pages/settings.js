@@ -223,7 +223,7 @@ B.pages.settings = async (view) => {
             <strong>${tr("J'ai l'habitude")}</strong><span>${tr('Accompagnement discret, pas de suggestions.')}</span></label>
         </div>
         <label class="check"><input type="checkbox" id="s-today" ${B.todayTasksEnabled() ? 'checked' : ''} /> ${tr("Afficher « Mes tâches du jour » à l'ouverture de l'app")}</label>
-        <div class="actions"><button class="btn" id="s-tour">${icon('compass', 15)} ${tr('Revoir la visite guidée')}</button></div>
+        <div class="actions"><button class="btn" id="s-intro">${icon('mountain', 15)} ${tr('Revoir la présentation')}</button><button class="btn" id="s-tour">${icon('compass', 15)} ${tr('Revoir la visite guidée')}</button></div>
       </section>
 
       <section class="card">
@@ -526,7 +526,8 @@ B.pages.settings = async (view) => {
   }));
   $('#s-anim', view).onchange = (e) => B.setAnimations(e.target.checked);
   $('#s-today', view).onchange = (e) => B.setTodayTasksEnabled(e.target.checked);
-  $('#s-tour', view).onclick = () => { location.hash = '#/home'; setTimeout(() => B.startTour(), 400); };
+  $('#s-intro', view).onclick = () => B.showIntro();
+  $('#s-tour', view).onclick = () => B.startTour();
 
   // Mises à jour
   const showUpdate = (u) => {

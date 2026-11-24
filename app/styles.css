@@ -153,6 +153,7 @@
   --land-cloud: #FFFFFF;
   --land-pine: #2F6656; --land-pine-light: #4C8B6E; --land-trunk: #6E4A32;
   --land-grass: #8FB06A; --land-flower: #F2A35E;
+  --land-bird: #4A3A31; --land-bird-belly: #7A6656; --land-bird-ink: #2E241E; /* oiseaux du ciel du chemin (24/11) */
   /* Ambiance d'Aujourd'hui et paysage du chemin : quelques couleurs encore utilisées (pastilles, étoiles, oiseaux) */
   --amb-d-snow: #FBFDFF; --amb-n-snow: #C9D8EE;  /* neige */
   --amb-d-pine: #2E6150; --amb-n-pine: #0F2A28;  /* sapins */
@@ -644,6 +645,7 @@ textarea { resize: vertical; }
 .drop-zone { border: 2px dashed var(--line-strong); border-radius: var(--r-lg); padding: 26px; text-align: center; color: var(--muted); margin-bottom: 18px; background: var(--card); }
 .drop-zone.over { border-color: var(--teal); background: var(--teal-soft); }
 .drop-zone p { margin: 8px 0 0; }
+.docs-add { display: none; }
 .file-link { font: inherit; font-weight: var(--fw-strong); background: none; border: 0; color: var(--navy); cursor: pointer; display: flex; align-items: center; gap: 8px; }
 .file-link:hover { color: var(--link); }
 
@@ -825,6 +827,34 @@ details.advanced[open] summary { margin-bottom: 10px; }
 .pick:hover { border-color: var(--teal); }
 .onb { text-align: left; }
 .onb img { display: block; margin-bottom: 10px; }
+/* Présentation (24/11) : 3 écrans courts, image du chemin, lignes icône + texte */
+.onb-dots { display: flex; gap: 6px; margin-bottom: var(--s-3); }
+.onb-dots i { width: 8px; height: 8px; border-radius: var(--r-round); background: var(--line-strong); }
+.onb-dots i.on { width: 22px; background: var(--action); }
+.onb .onb-hero { width: 100%; height: auto; aspect-ratio: 1000 / 424; object-fit: cover; border-radius: var(--r-md); margin-bottom: var(--s-4); }
+.onb-lead { font-size: var(--fs-strong); font-weight: var(--fw-strong); color: var(--navy); margin: 0 0 var(--s-2); }
+.onb-rows { list-style: none; margin: var(--s-3) 0; padding: 0; display: flex; flex-direction: column; gap: var(--s-3); }
+.onb-rows li { display: flex; gap: var(--s-3); align-items: flex-start; }
+.onb-rows strong { display: block; color: var(--navy); }
+.onb-rows span:not(.onb-ico) { color: var(--muted); font-size: var(--fs-small); line-height: 1.45; }
+.onb-ico { flex: none; width: 40px; height: 40px; border-radius: var(--r-md); background: var(--tint); color: var(--orange); display: grid; place-items: center; }
+.onb .onb-tent { flex: none; width: 40px; height: 40px; object-fit: contain; margin: 0; }
+.onb .info { display: flex; gap: var(--s-2); align-items: flex-start; line-height: 1.45; }
+.onb .info .ico { flex: none; margin-top: 2px; }
+.onb-actions { margin-top: var(--s-4); }
+/* Le guide (24/11) : en grand, debout à côté de la fenêtre de présentation et des bulles de la visite (fitGuide) */
+#modal.onb-modal { width: 620px; }
+@media (min-width: 1000px) { #modal.onb-modal { margin-left: min(300px, calc(100vw - 700px)); } } /* place pour le guide à gauche */
+.guide-float, .tour-guide { position: fixed; z-index: 1; pointer-events: none; }
+.guide-float.hidden, .tour-guide.hidden { display: none; }
+.guide-float .guide-img, .tour-guide .guide-img { display: block; width: 100%; height: 100%; object-fit: contain; object-position: bottom; filter: drop-shadow(0 10px 14px var(--overlay-strong)); }
+.guide-float.flip .guide-img, .tour-guide.flip .guide-img { transform: scaleX(-1); }
+.guide-float.flip .guide-img.pop, .tour-guide.flip .guide-img.pop { animation: none; }
+#modal-backdrop > #modal { position: relative; z-index: 2; }
+.guide-img.pop { animation: guide-pop .35s ease-out; }
+@keyframes guide-pop { from { transform: translateY(6px) scale(.97); opacity: .4; } }
+.no-anim .guide-img.pop { animation: none; }
+@media (prefers-reduced-motion: reduce) { .guide-img.pop { animation: none; } }
 
 #toasts { position: fixed; right: 20px; bottom: 20px; z-index: 60; display: flex; flex-direction: column; gap: 10px; width: 380px; }
 .toast { position: relative; background: var(--navy); color: var(--on-navy); border-radius: var(--r-lg); padding: 14px 40px 14px 16px; box-shadow: var(--shadow-pop); font-size: var(--fs-small); line-height: 1.45; animation: up .2s ease-out; }
@@ -840,11 +870,28 @@ details.advanced[open] summary { margin-bottom: 10px; }
 
 #tour { position: fixed; inset: 0; z-index: 70; }
 .tour-hole { position: fixed; border-radius: var(--r-md); outline: 3px solid var(--orange); outline-offset: 2px; box-shadow: 0 0 0 9999px var(--overlay-strong); pointer-events: none; transition: all .25s; }
-.tour-tip { position: fixed; width: 320px; background: var(--card); border-radius: var(--r-lg); padding: 16px 18px; box-shadow: var(--shadow-pop); }
+.tour-hole.hidden { display: none; }
+.tour-shade { position: fixed; inset: 0; background: var(--overlay-strong); }
+.tour-tip { position: fixed; width: 360px; background: var(--card); border-radius: var(--r-lg); padding: 16px 18px; box-shadow: var(--shadow-pop); }
 .tour-tip small { color: var(--tag-wait); font-weight: var(--fw-title); }
-.tour-tip h3 { margin: 4px 0 6px; }
+.tour-bar { height: 4px; border-radius: var(--r-round); background: var(--line); margin: 6px 0 2px; overflow: hidden; }
+.tour-bar i { display: block; height: 100%; background: var(--action); border-radius: var(--r-round); transition: width .25s; }
+.tour-tip h3 { margin: 8px 0 6px; }
 .tour-tip p { margin: 0; color: var(--muted); line-height: 1.5; font-size: var(--fs-small); }
 .tour-tip .actions { margin-top: 14px; }
+/* Téléphone : une feuille sur toute la largeur, en bas ou en haut de l'écran, texte plus grand, boutons de 44 px */
+.tour-guide { transition: none; }
+/* La bulle « parle » : petite pointe tournée vers le guide */
+.tour-tip.tail-left::before, .tour-tip.tail-right::before { content: ''; position: absolute; top: 34px; width: 14px; height: 14px; background: var(--card); transform: rotate(45deg); }
+.tour-tip.tail-left::before { left: -7px; }
+.tour-tip.tail-right::before { right: -7px; }
+.tour-tip.sheet.tail-left::before, .tour-tip.sheet.tail-right::before { top: auto; bottom: 34px; }
+#tour .tour-guide { z-index: 2; }
+.tour-tip.sheet { padding: 16px; }
+.tour-tip.sheet p { font-size: var(--fs-text); }
+.tour-tip.sheet .actions { flex-wrap: nowrap; gap: 8px; }
+.tour-tip.sheet .btn { min-height: 44px; }
+@media (prefers-reduced-motion: reduce) { .tour-hole, .tour-bar i, .tour-guide { transition: none; } }
 
 /* ---------- Vocal (v0.4) ---------- */
 .voice-strip { display: flex; align-items: center; gap: 12px; padding: 8px 22px; border-bottom: 1px solid var(--line); background: var(--bg); flex-wrap: wrap; }
@@ -1441,8 +1488,22 @@ video.mirror { transform: scaleX(-1); }
   .team-row { grid-template-columns: 10px 36px minmax(0, 1fr); row-gap: 4px; }
   .team-row > .tag, .team-row > .team-role, .team-row > .team-extra { grid-column: 3; justify-self: start; }
 
+  /* Documents (24/11) : au doigt, un vrai bouton « Ajouter un fichier » plutôt qu'une zone où déposer */
+  .drop-zone { display: none; }
+  .docs-add { display: flex; width: 100%; justify-content: center; margin-bottom: var(--s-3); }
+  .channel-head h2 .conv-name .ai-mark { display: inline-grid; } /* téléphone : le sujet du salon est caché, le repère reste */
+  .doc-table th:nth-child(2), .doc-table td:nth-child(2), .doc-table th:nth-child(3), .doc-table td:nth-child(3) { display: none; } /* « Taille », « Modifié par » : trop serré au doigt */
+  /* Cases à cocher des listes (tâches, étapes) : assez grandes pour le doigt */
+  li.item > input[type="checkbox"] { width: 24px; height: 24px; flex: none; margin: 0; } /* étapes de « Tout le projet » */
+
   /* Fenêtres : plein écran ou presque */
   #modal, #modal.wide { width: 100%; max-width: calc(100vw - 16px); max-height: 92vh; padding: 18px 16px; border-radius: var(--r-lg); }
+  #modal.onb-modal { width: 100%; margin-top: 26vh; min-height: 0; max-height: 72vh; display: flex; flex-direction: column; } /* le guide se tient au-dessus */
+  #modal.onb-modal .onb, #modal.onb-modal .onb-step:not(.hidden) { flex: 1; display: flex; flex-direction: column; }
+  #modal.onb-modal .onb-actions { margin-top: auto; padding-top: var(--s-4); flex-wrap: nowrap; }
+  #modal.onb-modal .onb-actions .btn { min-height: 44px; }
+  #modal.onb-modal .levels { grid-template-columns: minmax(0, 1fr); }
+  #modal.onb-modal .levels.big .level { padding: 14px 16px; }
   .actions { flex-wrap: wrap; }
   .voice-strip { padding: 8px 12px; }
 
@@ -1556,6 +1617,25 @@ video.mirror { transform: scaleX(-1); }
 .message-image:not([src]), .message-image[hidden] { display: none; }
 .file-card:has(.message-image) { flex-wrap: wrap; max-width: 100%; }
 .file-card .message-image { flex-basis: 100%; }
+/* Vidéos et sons joints à un message (24/11) : lecteur intégré, la carte du fichier dessous pour l'ouvrir */
+.file-media { display: flex; flex-direction: column; gap: 6px; width: min(420px, 100%); }
+.message-video { display: block; width: 100%; max-height: 320px; border-radius: var(--r-md); background: var(--navy); }
+.message-audio { display: block; width: 100%; min-width: 240px; max-width: 360px; }
+.message-video:not([src]), .message-audio:not([src]), .message-video[hidden], .message-audio[hidden] { display: none; }
+/* Les IA dans un salon (migration 043) : choix à la création / modification, repère dans la liste et l'en-tête */
+.ai-access { border: 0; padding: 0; margin: var(--s-4) 0 0; display: flex; flex-direction: column; gap: 6px; }
+.ai-access legend { font-weight: var(--fw-strong); color: var(--navy); margin-bottom: 4px; font-size: var(--fs-small); }
+.ai-access-opt { display: flex; gap: 10px; align-items: flex-start; padding: 10px 12px; border: 1px solid var(--line); border-radius: var(--r-md); cursor: pointer; margin: 0; font-weight: var(--fw-text); }
+.ai-access-opt:has(input:checked) { border-color: var(--action); background: var(--tint); }
+.ai-access-opt input { margin-top: 3px; accent-color: var(--action); }
+.ai-access-opt strong { display: block; color: var(--navy); font-size: var(--fs-small); }
+.ai-access-opt small { color: var(--muted); font-size: var(--fs-label); line-height: 1.4; }
+.ai-access-ico { color: var(--link); display: grid; place-items: center; margin-top: 1px; }
+.ai-mark { display: inline-grid; place-items: center; margin-left: 4px; color: var(--muted); }
+.ai-mark-write { color: var(--link); }
+.channel-head h2 .ai-mark { display: none; } /* ordinateur : la pastille en clair suffit */
+.ai-chip { display: inline-flex; align-items: center; gap: 4px; padding: 1px 8px; border-radius: var(--r-round); font-size: var(--fs-label); font-weight: var(--fw-strong); background: var(--teal-soft); color: var(--navy); vertical-align: middle; }
+.ai-chip-none { background: var(--bg); color: var(--muted); border: 1px solid var(--line); }
 .pending-image { width: 54px; height: 44px; object-fit: contain; border-radius: var(--r-sm); }
 .dm-compose-row textarea { min-width: 0; }
 @media (max-width: 600px) {
@@ -1729,11 +1809,21 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--teal); }
 .lp-star { fill: var(--amb-star); animation: amb-twinkle 3s ease-in-out var(--dl) infinite; }
 .lp-tent-glow { fill: url(#land-tent-glow); animation: lp-glow 2.4s ease-in-out infinite alternate; }
 @keyframes lp-glow { from { opacity: .55; } to { opacity: .9; } }
-.lp-bird { fill: none; stroke: var(--amb-d-ink); stroke-width: 1.8; stroke-linecap: round; }
-.lp-birds { animation: lp-birds 40s linear infinite; }
-@keyframes lp-birds { from { transform: translate(-60px, 60px); } to { transform: translate(var(--w), 20px); } }
-.no-anim .l-cloud, .no-anim .l-flag, .no-anim .lp-star, .no-anim .lp-tent-glow, .no-anim .lp-birds { animation: none; }
-@media (prefers-reduced-motion: reduce) { .lp-star, .lp-tent-glow, .lp-birds { animation: none; } }
+.lp-bird-body, .lp-bird-wing { fill: var(--land-bird); stroke: var(--land-bird-ink); stroke-width: .9; stroke-linejoin: round; }
+.lp-bird-belly { fill: var(--land-bird-belly); }
+/* le vol : le groupe traverse le ciel ; chaque oiseau monte et descend un peu et bat des ailes (retournées vers le bas) */
+.lp-birds { transform: translate(calc(var(--w) * .74), var(--ya)); animation: lp-birds 40s linear infinite; }
+@keyframes lp-birds {
+  from { transform: translate(calc(var(--w) + 60px), var(--ya)); }
+  45%  { transform: translate(calc(var(--w) * .6), var(--yb)); }
+  to   { transform: translate(-90px, var(--yc)); }
+}
+.lp-bob { animation: lp-bob 3.2s ease-in-out var(--bd, 0s) infinite alternate; }
+@keyframes lp-bob { from { transform: translateY(-4px); } to { transform: translateY(5px); } }
+.lp-bird-wing { transform-box: view-box; transform-origin: 0 0; animation: lp-flap var(--f, .5s) ease-in-out var(--fd, 0s) infinite alternate; }
+@keyframes lp-flap { from { transform: scaleY(1); } to { transform: scaleY(-.45); } }
+.no-anim .l-cloud, .no-anim .l-flag, .no-anim .lp-star, .no-anim .lp-tent-glow, .no-anim .lp-birds, .no-anim .lp-bob, .no-anim .lp-bird-wing { animation: none; }
+@media (prefers-reduced-motion: reduce) { .lp-star, .lp-tent-glow, .lp-birds, .lp-bob, .lp-bird-wing { animation: none; } }
 @media (prefers-reduced-motion: reduce) { .l-cloud, .l-flag { animation: none; } }
 .l-dots { fill: none; stroke: var(--navy); stroke-width: 3; stroke-dasharray: 1 9; stroke-linecap: round; opacity: .55; }
 .l-dots.up { stroke: var(--card); opacity: .9; }

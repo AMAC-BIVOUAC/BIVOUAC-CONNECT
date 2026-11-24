@@ -44,7 +44,7 @@ B.summaryPref = () => {
 
 /** Rassemble ce qui a changé dans le projet depuis « since » */
 B.missedData = async (pid, since, { countOnly = false } = {}) => {
-  const { data: channels } = await B.sb.from('channels').select('id, name, kind').eq('project_id', pid).order('created_at');
+  const { data: channels } = await B.sb.from('channels').select('id, name, kind, ai_read').eq('project_id', pid).order('created_at');
   const ids = (channels || []).map((c) => c.id);
   const [msgs, acts] = await Promise.all([
     ids.length
@@ -122,6 +122,7 @@ B.missedMaterial = (d, project) => {
   const when = (iso) => new Date(iso).toLocaleString(B.locale(), { dateStyle: 'short', timeStyle: 'short' });
   const lines = [`Projet « ${project.name} » — depuis le ${when(d.since)}. Utilisateur : ${B.me.display_name} (@${B.me.handle}).`];
   for (const c of d.channels) {
+    if (c.kind === 'team' && c.ai_read === false) continue; // salon fermé aux IA (migration 043) : rien pour l'IA
     const list = d.messages.filter((m) => m.channel_id === c.id);
     if (!list.length) continue;
     lines.push(`\n${c.kind === 'ai' ? 'Atelier IA' : '#' + c.name} :`);

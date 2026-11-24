@@ -155,8 +155,15 @@
   };
   B.messageImage = (file, bucket) => /^image\/(gif|png|jpeg|webp)$/.test(file.mime || '')
     ? `<img class="message-image" data-media-path="${esc(file.path || file.storage_path)}" data-media-bucket="${bucket}" alt="${esc(file.name)}" loading="lazy"/>` : '';
+  /** Vidéo ou son joint à un message : lecteur intégré (24/11). '' si le fichier n'en est pas un */
+  B.messageMedia = (file, bucket) => {
+    const m = file.mime || '', path = esc(file.path || file.storage_path), name = esc(file.name);
+    if (/^video\/(mp4|webm|ogg|quicktime)$/.test(m)) return `<video class="message-video" controls preload="metadata" playsinline data-media-path="${path}" data-media-bucket="${bucket}" aria-label="${name}"></video>`;
+    if (/^audio\/(mpeg|mp4|aac|wav|x-wav|ogg|webm|flac)$/.test(m)) return `<audio class="message-audio" controls preload="none" data-media-path="${path}" data-media-bucket="${bucket}" aria-label="${name}"></audio>`;
+    return '';
+  };
   B.watchMessageImages = root => {
-    const paint = () => $$('img[data-media-path]:not([data-loading])', root).forEach(async img => {
+    const paint = () => $$('[data-media-path]:not([data-loading])', root).forEach(async img => {
       img.dataset.loading = 'true';
       const { data, error } = await B.sb.storage.from(img.dataset.mediaBucket).createSignedUrl(img.dataset.mediaPath, 3600);
       if (!img.isConnected) return;

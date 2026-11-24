@@ -37,7 +37,11 @@ B.pages.docs = async (el, p) => {
         <p class="muted small">${tr('{max} Mo maximum par fichier.', { max: B.MAX_FILE_MB })}</p>
         <input type="file" id="doc-input" class="hidden" multiple />
       </div>
-      <p class="muted small docs-hint">${icon('edit', 14)} ${tr('Cliquez sur un document pour l\'ouvrir dans le logiciel de votre PC (Word, Excel…). Quand vous l\'enregistrez, la nouvelle version est envoyée toute seule au projet ; les précédentes restent dans « Versions ».')} ${tr('Les images s\'ouvrent d\'abord en aperçu.')}</p>
+      <button class="btn primary docs-add" id="pick-phone">${icon('plus', 18)} ${tr('Ajouter un fichier')}</button>
+      <p class="muted small docs-hint">${icon('edit', 14)} ${window.BIVOUAC_WEB
+        // version web et téléphone : pas de modification sur place (web.js), le document s'ouvre ou se télécharge
+        ? tr('Touchez un document pour l’ouvrir ou le télécharger ; les anciennes versions restent dans « Versions ».')
+        : tr('Cliquez sur un document pour l\'ouvrir dans le logiciel de votre PC (Word, Excel…). Quand vous l\'enregistrez, la nouvelle version est envoyée toute seule au projet ; les précédentes restent dans « Versions ».')} ${tr('Les images s\'ouvrent d\'abord en aperçu.')}</p>
       <div class="docs-tools">
         <label class="docs-search">${icon('search', 16)}<span class="sr-only">${tr('Rechercher un document')}</span>
           <input type="search" id="doc-q" placeholder="${tr('Rechercher un document…')}" autocomplete="off" /></label>
@@ -320,6 +324,7 @@ B.pages.docs = async (el, p) => {
 
   const input = $('#doc-input', el);
   $('#pick', el).onclick = () => input.click();
+  $('#pick-phone', el).onclick = () => input.click(); // téléphone : un vrai bouton (pas de glisser-déposer au doigt)
   input.onchange = () => { upload([...input.files]); input.value = ''; };
   const zone = $('.drop-zone', el);
   zone.addEventListener('dragover', (e) => { e.preventDefault(); zone.classList.add('over'); });

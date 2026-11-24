@@ -274,6 +274,11 @@ B.chat = async (root, { project, channel, mode }) => {
 
   function fileCard(f) {
     const isImg = (f.mime || '').startsWith('image/');
+    const media = B.messageMedia(f, 'project-files');
+    if (media) {
+      return `<div class="file-media">${media}<button class="file-card" data-file="${esc(f.id)}" data-msg="${esc(f.message_id)}" title="${tr('Ouvrir')}">
+        <span class="file-ico">${icon('file', 20)}</span><span><strong>${esc(f.name)}</strong><small>${fmtSize(f.size)}</small></span></button></div>`;
+    }
     return `<button class="file-card" data-file="${esc(f.id)}" data-msg="${esc(f.message_id)}" title="${tr('Ouvrir')}">
       <span class="file-ico">${icon(isImg ? 'image' : 'file', 20)}</span>${B.messageImage(f, 'project-files')}
       <span><strong>${esc(f.name)}</strong><small>${fmtSize(f.size)}</small></span></button>`;

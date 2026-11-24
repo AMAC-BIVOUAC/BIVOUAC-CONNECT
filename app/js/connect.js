@@ -316,7 +316,7 @@ B.connectorRefresh = (provider, onDone = null) => {
 
 B.aiBrief = (p) => `Pour cette conversation, nous travaillons sur le projet BIVOUAC-TECH « ${p.name} » (identifiant ${p.id}).
 Utilise le connecteur BIVOUAC-TECH sans que je te le redise : au début, lis l'Atelier IA (read_atelier) et la vue d'ensemble (get_project_overview) de ce projet, puis dis-moi en quelques lignes où on en est et ce qui m'attend.
-Ensuite, à chaque question, appuie-toi sur les données à jour du projet (tâches, chemin, décisions, documents, calendrier) en les relisant au besoin, et range ce qui est structurant au bon endroit (tâches, décisions, idées). Tu n'écris que dans l'Atelier IA.`;
+Ensuite, à chaque question, appuie-toi sur les données à jour du projet (tâches, chemin, décisions, documents, calendrier) en les relisant au besoin, et range ce qui est structurant au bon endroit (tâches, décisions, idées). Tu n'écris que dans l'Atelier IA (et dans les salons que l'équipe a ouverts aux IA).`;
 
 /** Où coller le texte, selon l'IA */
 const BRIEF_STEPS = (name) => ({

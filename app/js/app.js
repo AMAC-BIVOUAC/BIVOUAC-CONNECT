@@ -215,7 +215,7 @@ async function onSession(session) {
     if (tour) {
       location.hash = '#/home';
       await B.route();
-      setTimeout(() => B.startTour({ then: () => { if (joined) location.hash = `#/p/${joined}`; } }), 400);
+      setTimeout(() => B.startTour({ pid: joined, then: () => { if (joined) location.hash = `#/p/${joined}`; } }), 400);
       (await B.pendingRequestsForMe()).forEach(B.showIncomingRequest);
       return;
     }

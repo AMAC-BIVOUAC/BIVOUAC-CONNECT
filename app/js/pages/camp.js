@@ -18,6 +18,23 @@
 // relevé automatiquement sur le dessin. Changer d'image = refaire ces coordonnées (et PHOTO_STARS pour la nuit).
 const PHOTO = { w: 2000, h: 848 };
 const PHOTO_VIEW = [30, 848]; // lignes de l'image toujours visibles : du drapeau jusqu'en bas (voir photoFit)
+/**
+ * Oiseaux du ciel (jour, 24/11, Amaury) : trois petits oiseaux dessinés dans le style du décor (corps et ailes pleins,
+ * contour brun), qui battent des ailes chacun à son rythme et traversent le ciel de droite à gauche en ~40 s. Couleurs = jetons --land-bird*.
+ * Animations CSS (transform seulement), coupées par .no-anim et prefers-reduced-motion (le groupe reste alors posé dans le ciel).
+ */
+function birds(W, H, s) {
+  const k = Math.max(0.8, 2.3 * s); // taille, suivant l'échelle du dessin
+  const bird = (x, y, size, flap, delay, bob) => `<g transform="translate(${x} ${y}) scale(${(size * k).toFixed(2)})"><g class="lp-bob" style="--bd:${bob}s">
+    <path class="lp-bird-wing" style="--f:${flap}s;--fd:${delay}s" d="M-1,0 C-5,-3 -10,-7 -15,-6 C-12,-4 -8,-1 -4,1.5 Z"/>
+    <path class="lp-bird-wing" style="--f:${flap}s;--fd:${delay}s" d="M1,0 C5,-3 10,-7 15,-6 C12,-4 8,-1 4,1.5 Z"/>
+    <path class="lp-bird-body" d="M-5,0.5 C-3,-1.2 3,-1.2 5,0.5 C3,2 -3,2 -5,0.5 Z"/>
+    <path class="lp-bird-belly" d="M-3,0.9 C-1,1.6 1,1.6 3,0.9 C1,1.3 -1,1.3 -3,0.9 Z"/></g></g>`;
+  // de droite à gauche : haut dans le ciel à droite, puis plus bas, sous l'encart du sommet (en haut à gauche)
+  return `<g class="lp-birds" style="--w:${W}px;--ya:${Math.round(H * 0.1)}px;--yb:${Math.round(H * 0.31)}px;--yc:${Math.round(H * 0.35)}px">
+    ${bird(0, 0, 1, 0.42, 0, 0)}${bird(-30 * k, 12 * k, 0.82, 0.5, -0.2, -1.1)}${bird(-52 * k, -4 * k, 0.7, 0.46, -0.35, -2)}</g>`;
+}
+
 const PHOTO_TRAIL = [[19, 827], [75, 816], [132, 808], [187, 798], [245, 793], [296, 769], [343, 742], [396, 726], [448, 707],
   [501, 689], [556, 676], [610, 664], [666, 653], [722, 645], [779, 643], [835, 650], [891, 662], [947, 671], [1002, 681],
   [1059, 687], [1118, 686], [1176, 681], [1232, 672], [1268, 660], [1283, 640], [1274, 618], [1250, 605], [1207, 595],
@@ -110,7 +127,7 @@ function landscape(path, W, H) {
     <defs><radialGradient id="land-tent-glow"><stop offset="0" class="l-sun" stop-opacity=".55"/><stop offset="1" class="l-sun" stop-opacity="0"/></radialGradient></defs>
     <image href="${img(scene)}" x="${ox.toFixed(1)}" y="${oy.toFixed(1)}" width="${iw.toFixed(1)}" height="${ih.toFixed(1)}" preserveAspectRatio="none"/>
     ${night ? stars
-      : `<g class="lp-birds" style="--w:${W}px"><path class="lp-bird" d="M0,0 q5,-5 10,0 q5,-5 10,0"/><path class="lp-bird" d="M18,9 q4,-4 8,0 q4,-4 8,0"/></g>`}
+      : birds(W, H, s)}
     <path class="l-dots" d="${line(ahead)}"/>
     <circle class="l-start" cx="${start[0].toFixed(1)}" cy="${start[1].toFixed(1)}" r="9"/>
     ${path.done ? `<path class="l-walk-under" pathLength="1" d="${line(walked)}"/><path class="l-walk" pathLength="1" d="${line(walked)}"/>` : ''}
