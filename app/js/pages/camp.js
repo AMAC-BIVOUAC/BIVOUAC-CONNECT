@@ -17,6 +17,7 @@
 // PHOTO_TRAIL = le milieu du sentier, en pixels de l'image, du premier plan (en bas à gauche) jusqu'au pied du drapeau,
 // relevé automatiquement sur le dessin. Changer d'image = refaire ces coordonnées (et PHOTO_STARS pour la nuit).
 const PHOTO = { w: 2000, h: 848 };
+const PHOTO_VIEW = [30, 848]; // lignes de l'image toujours visibles : du drapeau jusqu'en bas (voir photoFit)
 const PHOTO_TRAIL = [[19, 827], [75, 816], [132, 808], [187, 798], [245, 793], [296, 769], [343, 742], [396, 726], [448, 707],
   [501, 689], [556, 676], [610, 664], [666, 653], [722, 645], [779, 643], [835, 650], [891, 662], [947, 671], [1002, 681],
   [1059, 687], [1118, 686], [1176, 681], [1232, 672], [1268, 660], [1283, 640], [1274, 618], [1250, 605], [1207, 595],
@@ -45,10 +46,14 @@ function smooth(pts, n = 8) {
 
 /** Cadrage « cover » : tout le sentier et le sommet restent visibles autant que possible */
 function photoFit(W, H) {
-  const s = Math.max(W / PHOTO.w, H / PHOTO.h);
+  // Bandes de l'image qui doivent rester visibles quel que soit l'écran (24/11, Apo : rien de coupé en bas) :
+  // du bout du drapeau (y ≈ 30) jusqu'au bas de l'image, où le sentier commence (premier plan, en bas à gauche).
+  const [top, bottom] = PHOTO_VIEW;
+  let s = Math.max(W / PHOTO.w, H / PHOTO.h);
+  if (H / s < bottom - top) s = H / (bottom - top); // carte très large : on réduit plutôt que de couper
   const iw = PHOTO.w * s, ih = PHOTO.h * s;
-  const ox = Math.min(0, Math.max(W - iw, (W - 1700 * s) / 2)); // du départ (à gauche) au sommet
-  const oy = Math.min(0, Math.max(H - ih, 8 - 40 * s)); // le drapeau dessiné au sommet reste visible
+  const ox = iw <= W ? (W - iw) / 2 : Math.min(0, Math.max(W - iw, (W - 1700 * s) / 2)); // du départ (à gauche) au sommet
+  const oy = Math.min(0, Math.max(H - ih, (H - (top + bottom) * s) / 2));
   return { s, ox, oy, iw, ih };
 }
 
@@ -79,7 +84,7 @@ function landscape(path, W, H) {
   const slots = path.total + 1;
   // le départ : premier endroit du chemin bien visible (le bas de l'image peut être coupé par la carte)
   let f0 = 0;
-  while (f0 < 0.3 && at(f0).pt[1] > H - 16) f0 += 0.005;
+  while (f0 < 0.3 && (at(f0).pt[1] > H - 12 || at(f0).pt[0] < 14)) f0 += 0.005;
   const spot = (n) => at(f0 + (1 - f0) * ((n + 1) / (slots + 1)));
   const start = at(f0).pt;
   const here = spot(path.done);
@@ -299,7 +304,7 @@ async function renderCampHome(el, p) {
     const W = Math.max(280, Math.round(box.clientWidth));
     // Téléphone : le titre au-dessus du dessin (deux espaces distincts, jamais de collision avec « Vous êtes ici »)
     const stacked = W < 560;
-    const H = stacked ? 190 : Math.round(Math.min(400, Math.max(300, W * 0.36)));
+    const H = stacked ? 190 : Math.round(Math.min(640, Math.max(300, W * 0.41))); // assez haut pour tout le sentier (photoFit)
     lastW = W;
     const head = `<div class="land-head">
           <div class="eyebrow">${reached ? tr('Sommet atteint') : tr('Le sommet')}${summitDay ? ` · ${esc(B.longDate(summitDay))}` : ''}</div>
