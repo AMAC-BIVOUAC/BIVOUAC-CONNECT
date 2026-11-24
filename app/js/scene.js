@@ -1,5 +1,5 @@
 // =====================================================================
-// La scène du bivouac (22/11, Apo) : fond peint + animaux détourés + feu, de jour ou de nuit.
+// La scène du bivouac (22/11, Apo) : fond peint + personnages détourés (animaux jusqu'au 24/11) + feu, de jour ou de nuit.
 //   const scene = B.Scene(conteneur, { mode: 'jour' | 'nuit', animated: true, debug: false });
 //   scene.setMode('nuit') (fondu de toute la scène) · scene.setAnimated(false) · scene.setDebug(true) · scene.destroy()
 // Aucune bibliothèque : calques HTML placés en % du fond, animations Web Animations (transform et opacity seulement).
@@ -167,6 +167,7 @@ window.B = window.B || {};
       img.alt = ''; img.decoding = 'async';
       img.src = `${C.folder}/${mode}/${name}.webp`;
       img.onerror = () => box.remove(); // image absente : l'animal n'apparaît pas, rien ne casse
+      if (A.flip) img.style.transform = 'scaleX(-1)'; // en miroir (le robot regarde vers le feu)
       breath.append(img, pivotDot('50% 100%'));
       move.append(breath);
       if (moveSpec) move.append(pivotDot(moveSpec.pivot));
@@ -189,6 +190,7 @@ window.B = window.B || {};
       const withEyes = (host, name) => probe(`${dir}${name}-yeux-fermes.webp`, (url) => {
         const eyes = el('img', 'scn-eyes', { opacity: '0' });
         eyes.alt = ''; eyes.src = url;
+        if (a.A.flip) eyes.style.transform = 'scaleX(-1)';
         host.append(eyes);
         a.eyes = eyes;
         onReady();

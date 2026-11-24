@@ -14,36 +14,26 @@ B.SCENE_CONFIG = {
   // Fond : image pleine taille, ou la version légère (-1000) quand la scène s'affiche sur 1100 pixels réels ou moins
   background: { jour: 'camp-jour', nuit: 'camp-nuit', small: '-1000', smallUnder: 1100 },
   // Écran plus étroit que le fond : on recadre autour de ce point (le feu), placé à cet endroit de l'écran
-  focal: { x: 1150, y: 900 },
+  focal: { x: 1157, y: 880 },
   focalOnScreen: { x: 0.5, y: 0.72 },
   crossfadeMs: 1500, // passage jour ↔ nuit (toute la scène en fondu)
 
   // Respiration : étirement vertical léger, pivot en bas
   breath: { scaleY: 1.012, minMs: 3500, maxMs: 4500 },
 
+  // Les personnages (24/11, Apo : les animaux sont retirés pour l'instant). Même mécanique que les anciens animaux
+  // (respiration, rotation lente…) ; flip = image retournée en miroir (le robot regarde vers le feu, à droite).
   animals: {
-    ours: {
-      breath: true,
-      // Tête et bras de l'ours (si ours-corps.webp + ours-tete-bras.webp existent) : tourne de ±3° (jamais plus de ±5°)
-      split: { body: 'ours-corps', head: 'ours-tete-bras', pivot: '60% 75%', angle: 3, minMs: 6000, maxMs: 9000 }
-    },
-    renard: { breath: true, turn: { angle: 2, pivot: '50% 50%', minMs: 7000, maxMs: 11000 } },
-    marmotte: { breath: true },
-    chamois: { breath: true, turn: { angle: 2, pivot: '50% 50%', minMs: 8000, maxMs: 12000 } },
-    // Hibou : tourne la tête par à-coups (250 ms), puis reste immobile 2 à 5 s
-    hibou: { breath: true, jerk: { angle: 8, pivot: '50% 50%', moveMs: 250, minStill: 2000, maxStill: 5000 } },
-    // Écureuils : petit sursaut (2 px vers le haut, 120 ms) toutes les 2 à 6 s, avec ±2° de rotation
-    ecureuil: { twitch: { lift: 2, angle: 2, pivot: '50% 100%', ms: 120, minGap: 2000, maxGap: 6000 } },
-    'ecureuil-1': { twitch: { lift: 2, angle: 2, pivot: '50% 100%', ms: 120, minGap: 2000, maxGap: 6000 } },
-    'ecureuil-2': { twitch: { lift: 2, angle: 2, pivot: '50% 100%', ms: 120, minGap: 2000, maxGap: 6000 } }
+    humain: { breath: true },
+    robot: { breath: true, flip: true }
   },
 
-  // Clignement : seulement si <animal>-yeux-fermes.webp existe. 140 ms en tout, toutes les 3 à 7 s, parfois double.
+  // Clignement : seulement si <nom>-yeux-fermes.webp existe (pas livré pour l'humain et le robot, 24/11). 140 ms en tout, toutes les 3 à 7 s, parfois double.
   blink: { ms: 140, minGap: 3000, maxGap: 7000, doubleChance: 0.25 },
 
   fire: {
-    jour: { x: 1135, y: 925, h: 120, opacity: 0.6, glow: false, sparks: 0 },
-    nuit: { x: 1160, y: 930, h: 210, opacity: 1, glow: true, sparks: 14 },
+    jour: { x: 1157, y: 915, h: 120, opacity: 0.6, glow: false, sparks: 0 },
+    nuit: { x: 1157, y: 918, h: 210, opacity: 1, glow: true, sparks: 14 },
     files: ['flammes-1', 'flammes-2'], // 3 ou 4 variantes possibles ; une seule = étirement + opacité seulement
     swapMinMs: 300, swapMaxMs: 500,  // fondu entre deux variantes
     scaleMin: 0.97, scaleMax: 1.04,  // étirement vertical, pivot en bas
