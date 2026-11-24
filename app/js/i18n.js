@@ -1719,7 +1719,10 @@ const EN = {
   "On ne peut répondre qu’à un message du même salon.": "You can only reply to a message in the same channel.",
   "Les images s'ouvrent d'abord en aperçu.": "Images open in a preview first.",
   "Aperçu de l'image": "Image preview",
-  "Ouvrir le fichier": "Open the file",
+  "Téléchargement impossible.": "Download failed.",
+  "Téléchargement de « {name} »…": "Downloading “{name}”…",
+  "« {name} » enregistré dans Téléchargements.": "“{name}” saved to Downloads.",
+  "Le téléchargement de « {name} » n'a pas abouti.": "The download of “{name}” failed.",
   "Image précédente": "Previous image",
   "Image suivante": "Next image",
   "Aperçu impossible. Ouvrez le fichier pour le voir.": "No preview available. Open the file to see it."

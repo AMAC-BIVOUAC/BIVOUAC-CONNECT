@@ -105,6 +105,7 @@
     // Fichiers : ouverts (ou téléchargés) par le navigateur ; pas de modification sur place
     openFile: async ({ url }) => { open(url); return { ok: true, web: true }; },
     onFileChanged: () => {},
+    onDownloadDone: () => {}, // le navigateur affiche lui-même ses téléchargements
     readOpenedFile: async () => null,
     fileSaved: async () => {},
 

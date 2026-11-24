@@ -388,7 +388,7 @@ B.pages.docs = async (el, p) => {
     v.innerHTML = `
       <div class="iv-top">
         <span class="iv-name" translate="no"></span><span class="iv-count"></span>
-        <button class="icon-btn iv-open" title="${tr('Ouvrir le fichier')}" aria-label="${tr('Ouvrir le fichier')}">${icon('download', 20)}</button>
+        <button class="icon-btn iv-download" title="${tr('Télécharger')}" aria-label="${tr('Télécharger')}">${icon('download', 20)}</button>
         <button class="icon-btn iv-close" title="${tr('Fermer')}" aria-label="${tr('Fermer')}">${icon('x', 20)}</button>
       </div>
       <div class="iv-stage">
@@ -445,7 +445,7 @@ B.pages.docs = async (el, p) => {
     $('.iv-close', v).onclick = close;
     $('.iv-prev', v).onclick = () => go(-1);
     $('.iv-next', v).onclick = () => go(1);
-    $('.iv-open', v).onclick = () => B.openFile(list[i]).catch(B.error);
+    $('.iv-download', v).onclick = () => B.downloadFile(list[i]).catch(B.error);
     $('.iv-stage', v).addEventListener('click', (e) => { if (e.target.classList.contains('iv-stage')) close(); });
     let x0 = null;
     v.addEventListener('touchstart', (e) => { x0 = e.touches.length === 1 ? e.touches[0].clientX : null; }, { passive: true });

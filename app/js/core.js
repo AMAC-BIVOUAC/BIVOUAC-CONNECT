@@ -346,6 +346,23 @@ B.restoreFileVersion = async (f, old) => {
 /** Adresse temporaire (5 min) d'un fichier du projet */
 B.fileUrl = (path) => signedUrl(path);
 
+/**
+ * Télécharge un fichier du projet tel quel (24/11, Apo : bouton de la visionneuse). Le stockage le renvoie « en pièce
+ * jointe » sous son vrai nom : le navigateur l'enregistre dans ses téléchargements, l'app Windows directement dans le
+ * dossier Téléchargements (main.js, will-download). Rien ne s'ouvre.
+ */
+B.downloadFile = async (f) => {
+  const { data, error } = await B.sb.storage.from('project-files').createSignedUrl(f.path, 300, { download: f.name });
+  if (error || !data?.signedUrl) throw new Error(error?.message || tr('Téléchargement impossible.'));
+  const a = document.createElement('a');
+  a.href = data.signedUrl; a.download = f.name; a.rel = 'noopener';
+  document.body.appendChild(a); a.click(); a.remove();
+  if (window.BIVOUAC_WEB) B.toast(tr('Téléchargement de « {name} »…', { name: esc(f.name) }), { timeout: 2500 });
+};
+window.bivouac?.onDownloadDone?.(({ name, ok }) => B.toast(ok
+  ? tr('« {name} » enregistré dans Téléchargements.', { name: esc(name) })
+  : tr('Le téléchargement de « {name} » n\'a pas abouti.', { name: esc(name) }), { type: ok ? 'success' : 'error', timeout: 5000 }));
+
 B.deleteFile = async (f) => {
   await B.deleteRow('files', f.id);
   await B.sb.storage.from('project-files').remove([f.path]);
