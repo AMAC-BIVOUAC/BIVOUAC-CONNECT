@@ -2276,6 +2276,49 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--teal); }
 #t-reports .n { background: var(--action); color: var(--card); border-radius: var(--r-round); padding: 1px 8px; font-size: var(--fs-label); }
 .seg.doc-views button { min-width: var(--touch); justify-content: center; }
 
+/* Administration de l'application (migration 042) : équipe Bivouac (admins, modérateurs) */
+.admin-page .page-head { display: flex; align-items: center; gap: var(--s-3); }
+.admin-tabs { padding: 0; margin: var(--s-3) 0 var(--s-4); border-radius: var(--r-md); }
+.admin-tools { display: flex; flex-wrap: wrap; gap: var(--s-2); align-items: center; margin-bottom: var(--s-3); }
+.admin-tools input[type=search] { flex: 1; min-width: 0; max-width: 420px; }
+.admin-row { display: flex; align-items: flex-start; gap: var(--s-3); padding: var(--s-3) 0; border-top: 1px solid var(--line); min-width: 0; }
+.admin-row > * { min-width: 0; }
+.admin-row.urgent { border-left: 3px solid var(--danger); padding-left: var(--s-3); }
+.admin-btns { display: flex; flex-wrap: wrap; gap: var(--s-2); justify-content: flex-end; }
+.admin-row select { width: auto; }
+.tag.danger-tag { background: var(--danger-soft); color: var(--danger); }
+.tag.late { background: var(--late-bg); color: var(--late-text); }
+.chips { display: flex; flex-wrap: wrap; gap: var(--s-1); }
+.admin-target { border: 1px solid var(--line); border-radius: var(--r-md); padding: var(--s-3); margin: var(--s-2) 0; }
+.admin-ctx-list { display: flex; flex-direction: column; gap: var(--s-2); max-height: 50vh; overflow: auto; }
+.admin-ctx { padding: var(--s-2) var(--s-3); border-radius: var(--r-sm); background: var(--bg); overflow-wrap: anywhere; }
+.admin-ctx.target { background: var(--late-bg); color: var(--late-text); }
+.admin-ctx.is-hidden { opacity: .7; }
+.admin-ctx .link { margin-left: var(--s-2); }
+.admin-chan { margin: var(--s-2) 0; }
+.admin-chan summary { cursor: pointer; font-weight: var(--fw-strong); padding: var(--s-2) 0; }
+.admin-members { display: flex; flex-wrap: wrap; gap: var(--s-1); }
+.admin-actions { flex-wrap: wrap; }
+.log-row { font-size: var(--fs-small); }
+.log-row > .muted { flex: none; width: 120px; }
+.admin-mfa { max-width: 560px; }
+.mfa-form { display: flex; flex-wrap: wrap; gap: var(--s-2); align-items: flex-end; }
+.mfa-form label { width: 100%; margin: 0; }
+.mfa-form input { max-width: 160px; letter-spacing: 4px; font-size: var(--fs-strong); }
+.mfa-qr { display: flex; flex-direction: column; align-items: flex-start; gap: var(--s-2); margin: var(--s-3) 0; }
+.mfa-qr img { background: var(--card); border-radius: var(--r-sm); border: 1px solid var(--line); }
+.mfa-qr code { overflow-wrap: anywhere; }
+.hidden-note { display: inline-flex; align-items: center; gap: var(--s-1); font-size: var(--fs-label); color: var(--late-text);
+  background: var(--late-bg); border-radius: var(--r-sm); padding: 1px 6px; }
+.staff-av { display: inline-flex; align-items: center; justify-content: center; border-radius: var(--r-round); background: var(--navy); color: var(--card); flex: none; }
+.staff-notice .dm-bubble { background: var(--teal-soft); color: var(--text); }
+.report-urgent { background: var(--danger-soft); color: var(--danger); border-radius: var(--r-sm); padding: var(--s-2) var(--s-3); margin: var(--s-2) 0 0; }
+@media (max-width: 760px) {
+  .admin-row { flex-wrap: wrap; }
+  .admin-btns { width: 100%; justify-content: flex-start; }
+  .log-row > .muted { width: 100%; }
+}
+
 /* =====================================================================
    Paysage de fond (22/11) : « Les prochains pas » (animé, boucle de 5 min) et bas de « Le chemin » (calme).
    Décoratif : jamais sous du texte, s'efface vers le haut ; image fixe si .no-anim ou « réduire les animations ».

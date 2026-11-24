@@ -16,7 +16,19 @@ B.teammates = () => {
   return [...ids].map((id) => B.person(id)).sort((a, b) => a.display_name.localeCompare(b.display_name, B.locale()));
 };
 
-const dmTotal = () => [...B.dmUnread.values()].reduce((a, b) => a + b, 0);
+const dmTotal = () => [...B.dmUnread.values()].reduce((a, b) => a + b, 0) + (B.noticesUnread || 0);
+
+// ---------- Avis de l'équipe Bivouac (migration 042) : contenu masqué, suspension, signalement traité… ----------
+// Une conversation en lecture seule « Équipe Bivouac » en tête de Messages (#/messages/equipe).
+B.notices = [];
+B.noticesUnread = 0;
+B.loadNotices = async () => {
+  const { data, error } = await B.sb.from('staff_notices').select('*').order('created_at', { ascending: false }).limit(100);
+  if (error) return; // migration 042 pas encore en ligne
+  B.notices = data || [];
+  B.noticesUnread = B.notices.filter((n) => !n.read_at).length;
+  paintDmBadges();
+};
 
 function paintDmBadges() {
   const total = dmTotal();
@@ -94,6 +106,13 @@ B.startDmLive = () => {
         B.toast(`${tr('Message privé de {name}', { name: `<span translate="no">${esc(who)}</span>` })} <a href="#/messages/${msg.sender_id}">${tr('Ouvrir')}</a>`);
       }
     })
+    .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'staff_notices', filter: `user_id=eq.${B.me.id}` }, (p) => {
+      B.notices.unshift(p.new);
+      B.noticesUnread += 1;
+      paintDmBadges();
+      B.toast(`${tr('Message de l’équipe Bivouac')} <a href="#/messages/equipe">${tr('Ouvrir')}</a>`);
+      if (/^#\/messages(\/equipe)?$/.test(location.hash)) B.route();
+    })
     .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'direct_messages', filter: `sender_id=eq.${B.me.id}` }, (p) => { B.emit('dm-read', p.new); B.emit('dm-change', p.new); })
     .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'direct_messages', filter: `recipient_id=eq.${B.me.id}` }, (p) => { B.emit('dm-change', p.new); if (p.new.deleted_at) B.loadDmUnread(); })
     .subscribe();
@@ -118,7 +137,37 @@ B.openDmFile = async (file, messageId, index) => {
 
 // ---------- Page « Messages » ----------
 
+/** Ligne « Équipe Bivouac » de la liste des conversations (seulement si elle a déjà écrit) */
+const noticesRow = (on) => B.notices.length ? `<a class="dm-person ${on ? 'on' : ''} ${B.noticesUnread ? 'unread' : ''}" href="#/messages/equipe">
+  <span class="online-av"><span class="avatar staff-av" style="width:34px;height:34px">${icon('lock', 16)}</span>${B.noticesUnread ? `<span class="av-badge">${B.noticesUnread}</span>` : ''}</span>
+  <span class="dm-person-text"><strong>${tr('Équipe Bivouac')}</strong><small translate="no">${esc(B.notices[0].text.slice(0, 60))}</small></span></a>` : '';
+
+async function renderNotices(view) {
+  view.innerHTML = `<div class="page dm-page has-conv">
+    <div class="page-head"><h1>${tr('Messages')}</h1></div>
+    <div class="dm card"><aside class="dm-list">${noticesRow(true)}</aside>
+      <section class="dm-conv"><header class="dm-head"><a class="icon-btn dm-back" href="#/messages" title="${tr('Retour')}">${icon('arrow', 16)}</a>
+        <span class="avatar staff-av" style="width:32px;height:32px">${icon('lock', 15)}</span><div><strong>${tr('Équipe Bivouac')}</strong>
+        <small>${tr('Modération de l’application · lecture seule')}</small></div></header>
+        <div class="dm-msgs">${B.notices.slice().reverse().map((n) => `<div class="dm-msg staff-notice">
+          <div class="dm-bubble"><p translate="no">${esc(n.text)}</p>
+            ${n.excerpt ? `<blockquote class="small report-quote" translate="no">${esc(n.excerpt)}</blockquote>` : ''}
+            ${n.reason ? `<p class="small"><b>${tr('Raison :')}</b> <span translate="no">${esc(n.reason)}</span></p>` : ''}</div>
+          <small>${fmtDate(n.created_at)} ${fmtTime(n.created_at)}</small></div>`).join('') || `<p class="muted small dm-pad">${tr('Aucun message pour l\'instant.')}</p>`}</div>
+        <p class="muted small dm-pad">${tr('Une question sur une décision de l’équipe ? Écrivez à {email}.', { email: B.CONTACT_EMAIL || 'contact@bivouac-tech.com' })}</p>
+      </section></div></div>`;
+  const box = $('.dm-msgs', view);
+  box.scrollTop = box.scrollHeight;
+  if (B.noticesUnread) {
+    await B.sb.rpc('mark_staff_notices_read');
+    B.notices.forEach((n) => { n.read_at = n.read_at || new Date().toISOString(); });
+    B.noticesUnread = 0;
+    paintDmBadges();
+  }
+}
+
 B.pages.messages = async (view, [otherId]) => {
+  if (otherId === 'equipe') { await B.loadNotices(); return renderNotices(view); }
   const people = B.teammates();
   const other = otherId ? people.find((m) => m.id === otherId) : null;
   B.dmOpen = other?.id || null;
@@ -148,14 +197,14 @@ B.pages.messages = async (view, [otherId]) => {
     for (const d of data || []) { const o = d.sender_id === B.me.id ? d.recipient_id : d.sender_id; if (!last.has(o)) last.set(o, d); }
     const sorted = [...people].sort((a, b) => (last.get(b.id)?.created_at || '').localeCompare(last.get(a.id)?.created_at || '')
       || a.display_name.localeCompare(b.display_name, B.locale()));
-    $('.dm-list', view).innerHTML = sorted.map((m) => {
+    $('.dm-list', view).innerHTML = noticesRow(false) + sorted.map((m) => {
       const l = last.get(m.id);
       const unread = B.dmUnread.get(m.id);
       return `<a class="dm-person ${m.id === other?.id ? 'on' : ''} ${unread ? 'unread' : ''}" href="#/messages/${m.id}">
         ${B.dmAvatar(m, 34)}
         <span class="dm-person-text"><strong translate="no">${esc(m.display_name)}</strong>
           <small translate="no">${l ? `${l.sender_id === B.me.id ? tr('Vous :') + ' ' : ''}${esc(((l.deleted_at ? tr('Message supprimé') : l.content) || (l.attachments?.length ? tr('Pièce jointe') : '')).replace(/[*`#]/g, '').replace(/\s+/g, ' ').slice(0, 60))}` : `<em>${tr('Aucun message')}</em>`}</small></span></a>`;
-    }).join('') || `<p class="muted small dm-pad">${tr('Personne pour l\'instant.')}</p>`;
+    }).join('') || (B.notices.length ? '' : `<p class="muted small dm-pad">${tr('Personne pour l\'instant.')}</p>`);
     paintDmBadges();
   };
   await renderList();
@@ -212,7 +261,10 @@ B.pages.messages = async (view, [otherId]) => {
       : d.content ? `<div class="dm-bubble" translate="no">${md(d.content)}</div>` : ''}
     ${(d.attachments || []).map((f, i) => `<button type="button" class="file-card dm-file" data-dm-file="${i}" title="${tr('Ouvrir')}">
       ${B.messageImage(f, 'dm-files')}${icon('file', 20)}<span><strong translate="no">${esc(f.name)}</strong><small>${fmtSize(f.size)}</small></span></button>`).join('')}
+    ${d.hidden_at && !d.deleted_at ? `<small class="hidden-note">${icon('eyeoff', 12)} ${tr('Masqué par l’équipe Bivouac : vous seul le voyez.')}</small>` : ''}
     <small>${fmtTime(d.created_at)}${d.edited_at && !d.deleted_at ? ` · ${tr('(modifié)')}` : ''}${receipt(d)}</small>
+    ${d.sender_id !== B.me.id && !d.deleted_at ? `<div class="dm-tools"><button type="button" class="icon-btn" data-dm-menu aria-label="${tr('Actions du message')}" aria-expanded="false">⋯</button>
+      <div class="dm-actions" hidden><button type="button" class="btn small" data-dm-report>${icon('flag', 13)} ${tr('Signaler')}</button></div></div>` : ''}
     ${d.sender_id === B.me.id && !d.deleted_at ? `<div class="dm-tools"><button type="button" class="icon-btn" data-dm-menu aria-label="${tr('Actions du message')}" aria-expanded="false">⋯</button>
       <div class="dm-actions" hidden><button type="button" class="btn small" data-dm-edit>${tr('Modifier')}</button><button type="button" class="btn small" data-dm-delete>${tr('Supprimer')}</button></div></div>` : ''}</div>`;
   const repaint = id => {
@@ -268,7 +320,10 @@ B.pages.messages = async (view, [otherId]) => {
       cancelEdit(); editing = { id: d.id, draft: d.content }; repaint(d.id);
       const ta = box.querySelector(`[data-dm-id="${d.id}"] textarea`); ta.focus(); ta.setSelectionRange(ta.value.length, ta.value.length); return;
     }
-    if (e.target.closest('[data-dm-cancel]')) return cancelEdit();
+    if (e.target.closest('[data-dm-report]') && d && d.sender_id !== B.me.id) {
+      return B.reportContent({ type: 'dm', targetId: d.id, targetUser: d.sender_id, excerpt: d.content });
+    }
+        if (e.target.closest('[data-dm-cancel]')) return cancelEdit();
     if (e.target.closest('[data-dm-save]')) return saveEdit();
     if (e.target.closest('[data-dm-delete]') && d?.sender_id === B.me.id && !d.deleted_at) {
       if (!(await B.confirm(tr('Supprimer ce message ?'), tr('Supprimer')))) return;

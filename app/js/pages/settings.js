@@ -11,6 +11,9 @@ B.pages.settings = async (view) => {
   view.innerHTML = `
     <div class="page narrow">
       <div class="page-head"><h1>${tr('Paramètres')}</h1></div>
+      ${B.isStaff?.() ? `<section class="card"><div class="card-head"><h2>${icon('lock', 16)} ${tr('Administration')}</h2></div>
+        <p class="muted small">${tr('Vous faites partie de l’équipe Bivouac : signalements, modération et gestion de l’application.')}</p>
+        <a class="btn primary" href="#/admin">${tr('Ouvrir l’administration')}</a></section>` : ''}
 
       <section class="card">
         <div class="card-head"><h2>${tr('Mon profil')}</h2></div>

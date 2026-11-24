@@ -4,38 +4,57 @@
 // les voient ici et les marquent « Traité ». La personne signalée n'est pas prévenue.
 // =====================================================================
 
-const REPORT_REASONS = () => [tr('Propos blessants ou harcèlement'), tr('Contenu inapproprié'), tr('Comportement inquiétant envers un mineur'), tr('Spam ou arnaque'), tr('Autre')];
+// [texte, urgent] : « urgent » met le signalement en tête de la file de l'équipe Bivouac (migration 042)
+const REPORT_REASONS = () => [[tr('Propos blessants ou harcèlement'), false], [tr('Contenu inapproprié'), false],
+  [tr('Spam ou arnaque'), false], [tr('Activité illégale (fraude, trafic, piratage…)'), false],
+  [tr('Comportement inquiétant envers un mineur'), true], [tr('Danger immédiat (menace, violence, idées suicidaires)'), true], [tr('Autre'), false]];
+const REPORT_TITLES = () => ({ message: tr('Signaler ce message'), dm: tr('Signaler ce message privé'), file: tr('Signaler ce document'),
+  project: tr('Signaler ce projet'), profile: tr('Signaler cette personne'), item: tr('Signaler cet élément'), task: tr('Signaler cette tâche') });
 
-/** Fenêtre « Signaler » : raison + précisions, puis les responsables du projet sont prévenus */
-B.reportContent = ({ projectId, type = 'message', targetId = null, targetUser = null, excerpt = '' }) => {
+/**
+ * Fenêtre « Signaler » : raison + précisions. Les responsables du projet (sauf pour un projet ou un message privé)
+ * ET l'équipe Bivouac (modération de toute l'application) le voient. La personne signalée n'est pas prévenue.
+ */
+B.reportContent = ({ projectId = null, type = 'message', targetId = null, targetUser = null, excerpt = '' }) => {
+  const staffOnly = type === 'project' || type === 'dm';
   const m = B.modal(`
-    <h2>${tr('Signaler ce message')}</h2>
-    <p class="muted small">${tr('Les responsables du projet (Créateur et Administrateurs) le verront. La personne signalée n’est pas prévenue.')}</p>
+    <h2>${REPORT_TITLES()[type] || tr('Signaler')}</h2>
+    <p class="muted small">${staffOnly ? tr('Seule l’équipe Bivouac (modération de l’application) le verra. La personne ou le projet signalé n’est pas prévenu.')
+      : tr('Les responsables du projet (Créateur et Administrateurs) et l’équipe Bivouac le verront. La personne signalée n’est pas prévenue.')}</p>
     ${excerpt ? `<blockquote class="small report-quote" translate="no">${esc(String(excerpt).slice(0, 300))}</blockquote>` : ''}
     <label>${tr('Pourquoi ?')}</label>
-    <div class="report-reasons">${REPORT_REASONS().map((r, i) => `<label class="check"><input type="radio" name="rp-why" value="${i}" ${i === 0 ? 'checked' : ''} /> ${esc(r)}</label>`).join('')}</div>
-    <label for="rp-details">${tr('Précisions (facultatif)')}</label><textarea id="rp-details" rows="3" maxlength="800"></textarea>
+    <div class="report-reasons">${REPORT_REASONS().map(([r], i) => `<label class="check"><input type="radio" name="rp-why" value="${i}" ${i === 0 ? 'checked' : ''} /> ${esc(r)}</label>`).join('')}</div>
+    <p class="report-urgent hidden small">${icon('flag', 13)} ${tr('En cas de danger immédiat, appelez aussi le 17 (police) ou le 112. Un contenu illégal vu en ligne peut aussi être signalé sur internet-signalement.gouv.fr (PHAROS).')}</p>
+    <label for="rp-details">${type === 'project' || type === 'profile' ? tr('Contexte (ce qui s’est passé, où, quand)') : tr('Précisions (facultatif)')}</label><textarea id="rp-details" rows="3" maxlength="800"></textarea>
     <p class="msg" id="rp-msg"></p>
     <div class="actions"><button class="btn" data-close>${tr('Annuler')}</button><button class="btn primary" id="rp-go">${icon('flag', 14)} ${tr('Signaler')}</button></div>`);
   $('[data-close]', m).onclick = B.closeModal;
+  const pick = () => REPORT_REASONS()[Number($('input[name=rp-why]:checked', m).value)];
+  $$('input[name=rp-why]', m).forEach((r) => (r.onchange = () => $('.report-urgent', m).classList.toggle('hidden', !pick()[1])));
   $('#rp-go', m).onclick = async (e) => {
-    const why = REPORT_REASONS()[Number($('input[name=rp-why]:checked', m).value)];
+    const [why, urgent] = pick();
     const details = $('#rp-details', m).value.trim();
+    if ((staffOnly || type === 'profile' || why === tr('Autre')) && details.length < 5) {
+      $('#rp-msg', m).textContent = tr('Ajoutez quelques mots de contexte pour aider l’équipe à comprendre.');
+      return;
+    }
     e.target.disabled = true;
-    const { error } = await B.sb.from('reports').insert({ project_id: projectId, target_type: type, target_id: targetId, target_user: targetUser,
-      excerpt: excerpt ? String(excerpt).slice(0, 500) : null, reason: (details ? `${why} — ${details}` : why).slice(0, 1000) });
+    const { error } = await B.sb.from('reports').insert({ project_id: type === 'dm' ? null : projectId, target_type: type, target_id: targetId,
+      target_user: targetUser, urgent, excerpt: excerpt ? String(excerpt).slice(0, 500) : null, reason: (details ? `${why} — ${details}` : why).slice(0, 1000) });
     if (error) {
       e.target.disabled = false;
-      $('#rp-msg', m).textContent = /reports|schema cache/i.test(error.message || '') ? tr('Le signalement n’est pas encore installé sur le serveur (migration 034).') : errText(error);
+      $('#rp-msg', m).textContent = /reports|schema cache|urgent/i.test(error.message || '') ? tr('Le signalement n’est pas encore installé sur le serveur (migration 042).') : errText(error);
       return;
     }
     B.closeModal();
-    const p = B.project(projectId);
-    for (const mem of B.projectMembers(projectId).filter((x) => ['owner', 'admin'].includes(x.role))) {
-      B.notify(mem.id, { projectId, type: 'report', link: `#/p/${projectId}/equipe`,
-        text: tr('Nouveau signalement dans « {project} » : à regarder dans Équipe.', { project: p?.name || '' }) });
+    const p = projectId ? B.project(projectId) : null;
+    if (p && !staffOnly) {
+      for (const mem of B.projectMembers(projectId).filter((x) => ['owner', 'admin'].includes(x.role) && x.id !== B.me.id)) {
+        B.notify(mem.id, { projectId, type: 'report', link: `#/p/${projectId}/equipe`,
+          text: tr('Nouveau signalement dans « {project} » : à regarder dans Équipe.', { project: p?.name || '' }) });
+      }
     }
-    B.toast(tr('Merci : le signalement est transmis aux responsables du projet.'), { type: 'success' });
+    B.toast(staffOnly ? tr('Merci : le signalement est transmis à l’équipe Bivouac.') : tr('Merci : le signalement est transmis aux responsables du projet et à l’équipe Bivouac.'), { type: 'success' });
   };
 };
 
@@ -90,7 +109,8 @@ B.pages.team = async (el, p) => {
               <span class="tag human">${tr('Humain')}</span>
               <span class="team-role">${m.title ? esc(m.title) : ''}</span>
               <span class="team-extra">${m.id === B.me.id ? '' : `<a class="icon-btn dm-btn" href="#/messages/${m.id}" title="${esc(tr('Message privé à {name}', { name: m.display_name }))}" aria-label="${esc(tr('Message privé à {name}', { name: m.display_name }))}">${icon('whisper', 16)}</a>`}${roleCell(m)}
-                ${B.canRemove(p.id, m) ? `<button class="icon-btn" data-remove="${m.id}" title="${tr('Retirer du projet')}">${icon('x', 15)}</button>` : ''}</span>
+                ${B.canRemove(p.id, m) ? `<button class="icon-btn" data-remove="${m.id}" title="${tr('Retirer du projet')}">${icon('x', 15)}</button>` : ''}
+                ${m.id === B.me.id ? '' : `<button class="icon-btn" data-report-user="${m.id}" title="${esc(tr('Signaler {name}', { name: m.display_name }))}" aria-label="${esc(tr('Signaler {name}', { name: m.display_name }))}">${icon('flag', 15)}</button>`}</span>
             </div>`).join('')}
           ${ais.map((a) => `
             <div class="team-row"><span class="presence ai"></span>${aiAvatar(a.id, 36, a.owner)}
@@ -139,7 +159,8 @@ B.pages.team = async (el, p) => {
           <div class="actions"><button class="btn danger-ghost" id="pj-del">${icon('trash', 15)} ${tr('Supprimer le projet')}</button>
             <span class="spacer"></span><button class="btn primary" id="pj-save">${tr('Enregistrer')}</button></div>`
         : `<p class="muted">${tr('Seul le créateur du projet peut le renommer ou le supprimer.')}</p>
-           <div class="actions"><button class="btn danger-ghost" id="pj-leave">${icon('logout', 15)} ${tr('Quitter le projet')}</button></div>`}
+           <div class="actions"><button class="btn danger-ghost" id="pj-leave">${icon('logout', 15)} ${tr('Quitter le projet')}</button>
+             <span class="spacer"></span><button class="link small" id="pj-report">${icon('flag', 14)} ${tr('Signaler ce projet')}</button></div>`}
       </section>
     </div>`;
 
@@ -157,6 +178,8 @@ B.pages.team = async (el, p) => {
     }
   }));
   if ($('#t-reports', el)) renderReports($('#t-reports', el), p);
+  $$('[data-report-user]', el).forEach((b) => (b.onclick = () => B.reportContent({ projectId: p.id, type: 'profile', targetUser: b.dataset.reportUser })));
+  $('#pj-report', el)?.addEventListener('click', () => B.reportContent({ projectId: p.id, type: 'project', targetUser: p.owner_id }));
   B.paintDmBadges?.(); // pastille « messages privés non lus » sur la photo de chacun
 
   $$('.role-select', el).forEach((s) => (s.onchange = async () => {

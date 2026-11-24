@@ -162,6 +162,7 @@ B.pages.docs = async (el, p) => {
     const dirs = searching ? [] : kids(cur);
     here = searching ? files.filter(match) : files.filter((f) => (f.folder_id || null) === cur);
     loadThumbs(here);
+    const hid = (f) => (f.hidden_at ? ` <span class="hidden-note">${icon('eyeoff', 12)} ${tr('Masqué par l’équipe Bivouac : vous seul le voyez.')}</span>` : '');
     const where = (f) => (searching && f.folder_id ? `<span class="doc-where" translate="no">${icon('folder', 12)} ${esc(folderPath(f.folder_id))}</span>` : '');
     const empty = searching ? tr('Aucun document ne correspond.')
       : cur ? tr('Ce dossier est vide. Déposez des fichiers ici ou rangez-y des documents.') : tr("Aucun document pour l'instant.");
@@ -178,7 +179,7 @@ B.pages.docs = async (el, p) => {
           <div class="doc-card-actions">${folderActions()}</div></div>`;
       }).join('')}${here.map((f) => `<div class="doc-card" data-id="${f.id}" draggable="${folders.length ? 'true' : 'false'}">
           <button class="doc-card-main file-link"><span class="doc-card-ico k-${docKind(f)}${fresh(f) ? ' has-thumb' : ''}" data-ico="${f.id}">${fileFace(f)}<span class="doc-ext">${esc(docExt(f))}</span></span>
-            <b translate="no">${esc(f.name)}</b><span class="muted small">${fmtSize(f.size)} · ${timeAgo(f.updated_at || f.created_at)}${(f.version || 1) > 1 ? ` · v${f.version}` : ''}</span>${where(f)}</button>
+            <b translate="no">${esc(f.name)}</b><span class="muted small">${fmtSize(f.size)} · ${timeAgo(f.updated_at || f.created_at)}${(f.version || 1) > 1 ? ` · v${f.version}` : ''}</span>${where(f)}${hid(f)}</button>
           <div class="doc-card-actions">${fileActions(f)}</div></div>`).join('')}</div>`
         : `<p class="muted doc-empty">${empty}</p>`);
       return;
@@ -198,7 +199,7 @@ B.pages.docs = async (el, p) => {
       return `
       <tr data-id="${f.id}" draggable="${folders.length ? 'true' : 'false'}">
         <td><button class="file-link"><span class="doc-ico${fresh(f) ? ' has-thumb' : ''}" data-ico="${f.id}">${fileFace(f)}</span> <span translate="no">${esc(f.name)}</span></button>
-          ${(f.version || 1) > 1 ? `<span class="version-badge" title="${tr('Version {v}', { v: f.version })}">v${f.version}</span>` : ''}${where(f)}</td>
+          ${(f.version || 1) > 1 ? `<span class="version-badge" title="${tr('Version {v}', { v: f.version })}">v${f.version}</span>` : ''}${where(f)}${hid(f)}</td>
         <td>${fmtSize(f.size)}</td>
         <td>${avatar(by, 22)} ${esc(by.display_name)}</td>
         <td>${timeAgo(f.updated_at || f.created_at)}</td>

@@ -55,7 +55,7 @@ B.personalFieldsHtml = (p, v = {}) => `
 // La base refuse les informations privées sans ces cases (private_guard).
 // ---------------------------------------------------------------------
 /** Version des conditions affichée et acceptée (à changer quand pages-publiques/conditions change) */
-B.TERMS_VERSION = '2026-11-22-2'; // 22/11 soir : adresse de contact ajoutée (tout le monde réaccepte)
+B.TERMS_VERSION = '2026-11-24'; // 24/11 : usages interdits et modération (migration 042, tout le monde réaccepte)
 B.TERMS_PAGE = 'https://www.bivouac-tech.com/conditions/';
 
 /** Âge en années révolues à une date « AAAA-MM-JJ » (null si inconnue) */

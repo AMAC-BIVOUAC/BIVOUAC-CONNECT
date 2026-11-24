@@ -75,7 +75,8 @@ function timeAgo(iso) {
 
 function fmtDate(d) {
   if (!d) return '';
-  return new Date(d + 'T00:00:00').toLocaleDateString(B.locale(), { day: 'numeric', month: 'short' });
+  // Une date seule (« 2026-11-24 ») est lue à minuit local ; une date-heure complète (horodatage) est lue telle quelle.
+  return new Date(String(d).length > 10 ? d : d + 'T00:00:00').toLocaleDateString(B.locale(), { day: 'numeric', month: 'short' });
 }
 
 function fmtSize(n) {
@@ -208,6 +209,22 @@ function errText(err) {
     'limite:signalements': "Trop de signalements aujourd'hui (20 par jour). Écrivez directement aux responsables du projet."
   };
   if (m.includes('compte:confirmation')) return tr('Écrivez SUPPRIMER pour confirmer.');
+  // Administration et modération (migration 042) : le compte suspendu garde la date donnée par la base
+  const susp = m.match(/compte:suspendu — Votre compte est suspendu jusqu'au (.+?) :/);
+  if (susp) return tr('Votre compte est suspendu jusqu’au {date} par l’équipe Bivouac : vous pouvez lire, mais pas écrire. La raison est dans Messages.', { date: susp[1] });
+  const admin = {
+    'compte:banni': 'Ce compte a été fermé par l’équipe Bivouac.',
+    'admin:connecteur': 'Les outils d’administration ne sont pas accessibles par le connecteur des IA.',
+    'admin:double-authentification': 'Confirmez votre code de double authentification (demandé tous les 30 jours sur chaque appareil).',
+    'admin:raison': 'Écrivez la raison (5 caractères minimum).',
+    'admin:dernier': 'Il faut toujours au moins un admin.',
+    'admin:pas-membre': 'La personne doit d’abord être membre du projet.',
+    'admin:introuvable': 'Introuvable : le contenu ou la personne n’existe plus.',
+    'admin:interdit': 'Vous n’avez pas le droit de faire ça.',
+    'moderation:interdit': 'Seule l’équipe Bivouac peut masquer ou réafficher un contenu.'
+  };
+  const adm = Object.keys(admin).find((k) => m.includes(k));
+  if (adm) return tr(admin[adm]);
   const lim = Object.keys(limits).find((k) => m.includes(k));
   if (lim) return tr(limits[lim]);
   if (/database error saving new user/i.test(m)) return tr('Impossible de créer le compte pour le moment. Réessayez dans une heure.');

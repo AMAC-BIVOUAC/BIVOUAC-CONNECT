@@ -203,6 +203,8 @@ async function onSession(session) {
     setTimeout(() => B.offerPush().catch(() => {}), 4000);
     setTimeout(() => B.checkAndroidUpdate().catch(() => {}), 6000);
     B.loadUnread();
+    B.loadStaff().catch(() => {});   // équipe Bivouac : entrée « Administration » (migration 042)
+    B.loadNotices?.().catch(() => {}); // avis de l'équipe Bivouac dans Messages
     B.startGlobalLive();
     B.startDmLive();
     B.refreshBadge();

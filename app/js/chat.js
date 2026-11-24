@@ -221,9 +221,11 @@ B.chat = async (root, { project, channel, mode }) => {
   }
 
   function editedHtml(m) {
-    if (!m.edited_at) return '';
+    // Masqué par l'équipe Bivouac (migration 042) : seul l'auteur le voit encore
+    const hidden = m.hidden_at ? ` <span class="hidden-note">${icon('eyeoff', 12)} ${tr('Masqué par l’équipe Bivouac : vous seul le voyez.')}</span>` : '';
+    if (!m.edited_at) return hidden;
     const when = new Date(m.edited_at).toLocaleString(B.locale(), { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
-    return `<span class="edited" title="${tr('Modifié le {when}', { when })}">${tr('(modifié)')}</span>`;
+    return `<span class="edited" title="${tr('Modifié le {when}', { when })}">${tr('(modifié)')}</span>${hidden}`;
   }
 
   function editorHtml() {
