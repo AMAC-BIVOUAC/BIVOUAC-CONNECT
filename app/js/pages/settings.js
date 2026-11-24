@@ -11,11 +11,11 @@ B.pages.settings = async (view) => {
   view.innerHTML = `
     <div class="page narrow">
       <div class="page-head"><h1>${tr('Paramètres')}</h1></div>
-      ${B.isStaff?.() ? `<section class="card"><div class="card-head"><h2>${icon('lock', 16)} ${tr('Administration')}</h2></div>
+      ${B.isStaff?.() ? `<section class="card" data-sec="admin"><div class="card-head"><h2>${icon('lock', 16)} ${tr('Administration')}</h2></div>
         <p class="muted small">${tr('Vous faites partie de l’équipe Bivouac : signalements, modération et gestion de l’application.')}</p>
         <a class="btn primary" href="#/admin">${tr('Ouvrir l’administration')}</a></section>` : ''}
 
-      <section class="card">
+      <section class="card" data-sec="profil">
         <div class="card-head"><h2>${tr('Mon profil')}</h2></div>
         <div class="photo-row">
           <span id="s-avatar">${avatar(me, 64)}</span>
@@ -35,13 +35,13 @@ B.pages.settings = async (view) => {
         <div class="actions"><span class="msg" id="s-msg"></span><span class="spacer"></span><button class="btn primary" id="s-save">${tr('Enregistrer')}</button></div>
       </section>
 
-      <section class="card" id="pp-card">
+      <section class="card" data-sec="infos" id="pp-card">
         <div class="card-head"><h2>${tr('Mes informations personnelles')}</h2></div>
         <p class="muted small">${icon('key', 13)} ${tr('Privées : vous seul y avez accès. Ni les autres membres ni les IA n\'y ont accès.')}</p>
         <div id="pp-body" class="loading">${tr('Chargement…')}</div>
       </section>
 
-      <section class="card">
+      <section class="card" data-sec="connexion">
         <div class="card-head"><h2>${tr('Connexion')}</h2></div>
         <label>${tr('Adresse e-mail')}</label><input id="pw-email" disabled />
         <h3 class="sub-h">${tr('Changer de mot de passe')}</h3>
@@ -55,7 +55,7 @@ B.pages.settings = async (view) => {
         </form>
       </section>
 
-      <section class="card" id="mydata-card">
+      <section class="card" data-sec="donnees" id="mydata-card">
         <div class="card-head"><h2>${tr('Mes données')}</h2></div>
         <p class="muted small">${tr('Ce que Bivouac garde sur vous, à qui c\'est montré et combien de temps :')}
           <a href="${B.PRIVACY_PAGE}" target="_blank" rel="noopener">${tr('politique de confidentialité')}</a>.</p>
@@ -66,7 +66,7 @@ B.pages.settings = async (view) => {
         <div class="actions"><span class="spacer"></span><button class="btn danger-ghost" id="md-delete">${icon('trash', 15)} ${tr('Supprimer mon compte')}</button></div>
       </section>
 
-      <section class="card">
+      <section class="card" data-sec="langue">
         <div class="card-head"><h2>${tr('Langue')}</h2></div>
         <div class="levels">
           <label class="level ${B.lang === 'fr' ? 'on' : ''}"><input type="radio" name="lang" value="fr" ${B.lang === 'fr' ? 'checked' : ''} />
@@ -77,7 +77,7 @@ B.pages.settings = async (view) => {
         <p class="muted small">${tr('Réglage de ce poste. Les messages et notifications déjà écrits ne sont pas traduits.')}</p>
       </section>
 
-      <section class="card" data-tour="ai-keys">
+      <section class="card" data-sec="ia" data-tour="ai-keys">
         <div class="card-head"><h2>${tr('Mes IA')}</h2></div>
         <p class="muted">${tr('Branchez votre IA pour la faire travailler dans vos projets. Le plus simple : votre <strong>abonnement Claude ou ChatGPT</strong>, sans clé à créer et sans rien payer en plus.')}</p>
         ${myAis.length ? `<div class="ai-status">
@@ -130,7 +130,7 @@ B.pages.settings = async (view) => {
         </details>
       </section>
 
-      <section class="card">
+      <section class="card" data-sec="vocal">
         <div class="card-head"><h2>${tr('Vocal et vidéo')}</h2></div>
         <p class="muted">${tr('Le micro et le haut-parleur (ou casque) utilisés pour le vocal, sur ce PC. Sans micro, vous pouvez quand même rejoindre un vocal pour écouter.')}</p>
         <div class="form-row">
@@ -148,7 +148,7 @@ B.pages.settings = async (view) => {
         <p class="muted small" id="v-msg"></p>
       </section>
 
-      <section class="card">
+      <section class="card" data-sec="correcteur">
         <div class="card-head"><h2>${tr('Correcteur')}</h2></div>
         <label class="check"><input type="checkbox" id="gr-on" ${B.grammarPrefs().on ? 'checked' : ''} />
           <strong>${tr('Corriger l\'orthographe, la grammaire et la ponctuation')}</strong></label>
@@ -163,7 +163,7 @@ B.pages.settings = async (view) => {
         <p class="muted small">${tr('Service gratuit LanguageTool : le texte que vous tapez est envoyé à leurs serveurs (Allemagne, RGPD) pour être vérifié, sans être conservé. Hors ligne, le correcteur de base prend le relais.')}</p>
       </section>
 
-      <section class="card">
+      <section class="card" data-sec="notifications">
         <div class="card-head"><h2>${tr('Notifications')}</h2></div>
         <p class="muted">${window.BIVOUAC_WEB
           ? tr("Une notification s'affiche quand l'onglet n'est pas regardé, si votre navigateur l'autorise. Un clic ouvre le bon endroit.")
@@ -182,7 +182,7 @@ B.pages.settings = async (view) => {
         <p class="muted small">${tr("Pour le fermer vraiment : clic droit sur son icône près de l'horloge → Quitter.")}</p>`}
       </section>
 
-      <section class="card">
+      <section class="card" data-sec="sons">
         <div class="card-head"><h2>${tr('Sons')}</h2></div>
         <p class="muted">${tr('Choisissez les sons que vous voulez entendre sur ce PC.')}</p>
         <div class="sound-list">
@@ -197,13 +197,13 @@ B.pages.settings = async (view) => {
         <div class="sound-vol"><input type="range" id="snd-vol" min="0" max="100" step="5" value="${Math.round(B.soundPrefs().volume * 100)}" /><span id="snd-vol-v">${Math.round(B.soundPrefs().volume * 100)} %</span></div>
       </section>
 
-      <section class="card">
+      <section class="card" data-sec="animations">
         <div class="card-head"><h2>${tr('Animations')}</h2></div>
         <label class="check"><input type="checkbox" id="s-anim" ${B.animationsOn() ? 'checked' : ''} /> ${tr('Animer le chemin du Camp de base et le point « Vous êtes ici »')}</label>
         <p class="muted small">${tr('Réglage de cet appareil. Si votre appareil demande de réduire les animations, elles sont déjà coupées.')}</p>
       </section>
 
-      <section class="card">
+      <section class="card" data-sec="resume">
         <div class="card-head"><h2>${tr("Résumé « Qu'est-ce que j'ai raté ? »")}</h2></div>
         <p class="muted">${tr('Choisissez qui rédige vos résumés : sans IA (gratuit, instantané), une IA branchée par clé API (dans l\'app, sur votre clé) ou une IA de votre abonnement (elle s\'ouvre avec la demande prête).')}</p>
         <div class="summary-options">
@@ -214,7 +214,7 @@ B.pages.settings = async (view) => {
         </div>
       </section>
 
-      <section class="card">
+      <section class="card" data-sec="accompagnement">
         <div class="card-head"><h2>${tr('Accompagnement')}</h2></div>
         <div class="levels">
           <label class="level ${me.level === 'debutant' ? 'on' : ''}"><input type="radio" name="lvl" value="debutant" ${me.level === 'debutant' ? 'checked' : ''} />
@@ -223,10 +223,10 @@ B.pages.settings = async (view) => {
             <strong>${tr("J'ai l'habitude")}</strong><span>${tr('Accompagnement discret, pas de suggestions.')}</span></label>
         </div>
         <label class="check"><input type="checkbox" id="s-today" ${B.todayTasksEnabled() ? 'checked' : ''} /> ${tr("Afficher « Mes tâches du jour » à l'ouverture de l'app")}</label>
-        <div class="actions"><button class="btn" id="s-intro">${icon('mountain', 15)} ${tr('Revoir la présentation')}</button><button class="btn" id="s-tour">${icon('compass', 15)} ${tr('Revoir la visite guidée')}</button></div>
+        <div class="actions"><button class="btn" id="s-tour">${icon('compass', 15)} ${tr('Revoir la présentation et la visite')}</button></div>
       </section>
 
-      <section class="card">
+      <section class="card" data-sec="aide">
         <div class="card-head"><h2>${tr('Aide et contact')}</h2></div>
         <p class="muted">${tr("Une question, un problème, une idée ? La réponse est peut-être dans les questions fréquentes, sinon écrivez-nous : c'est l'équipe qui répond.")}</p>
         <div class="actions">
@@ -236,7 +236,7 @@ B.pages.settings = async (view) => {
         </div>
       </section>
 
-      <section class="card">
+      <section class="card" data-sec="version">
         <div class="card-head"><h2>${tr('Mises à jour')}</h2></div>
         <div class="actions"><span class="muted small" id="up-text">${esc(B.updateText(B.update))}</span><span class="spacer"></span>
           <button class="btn" id="up-check">${tr('Rechercher une mise à jour')}</button>
@@ -248,6 +248,8 @@ B.pages.settings = async (view) => {
           <button class="btn danger-ghost" id="s-logout">${icon('logout', 15)} ${tr('Se déconnecter')}</button></div>
       </section>
     </div>`;
+
+  phoneSections(view);
 
   // Photo de profil : recadrée au centre, réduite à 160 px, JPEG (quelques Ko)
   const photoInput = $('#s-photo-input', view);
@@ -526,8 +528,7 @@ B.pages.settings = async (view) => {
   }));
   $('#s-anim', view).onchange = (e) => B.setAnimations(e.target.checked);
   $('#s-today', view).onchange = (e) => B.setTodayTasksEnabled(e.target.checked);
-  $('#s-intro', view).onclick = () => B.showIntro();
-  $('#s-tour', view).onclick = () => B.startTour();
+  $('#s-tour', view).onclick = () => B.startTour({ intro: true });
 
   // Mises à jour
   const showUpdate = (u) => {
@@ -589,3 +590,42 @@ B.pages.settings = async (view) => {
     }
   });
 };
+
+// ---------------------------------------------------------------------
+// Téléphone (24/11, Amaury) : Paramètres en deux niveaux, pour s'y retrouver et respirer.
+// #/settings = un sommaire (une ligne par rubrique) ; #/settings/<rubrique> = cette rubrique seule, avec « ← Paramètres ».
+// Les rubriques sont les cartes de la page (attribut data-sec) : rien n'est dupliqué, les réglages restent au même endroit
+// dans le code. Sur ordinateur, rien ne change (tout sur une page).
+// ---------------------------------------------------------------------
+const SECTION_ICONS = {
+  admin: 'lock', profil: 'users', infos: 'lock', connexion: 'key', donnees: 'download', langue: 'chat', ia: 'bot',
+  vocal: 'mic', correcteur: 'edit', notifications: 'bell', sons: 'volume', animations: 'spark', resume: 'spark',
+  accompagnement: 'compass', aide: 'book', version: 'download'
+};
+// ordre du sommaire : l'essentiel d'abord
+const SECTION_ORDER = ['admin', 'profil', 'ia', 'notifications', 'accompagnement', 'langue', 'vocal', 'sons', 'animations',
+  'correcteur', 'resume', 'infos', 'connexion', 'donnees', 'aide', 'version'];
+
+function phoneSections(view) {
+  if (!B.isPhone()) return;
+  const page = $('.page', view);
+  const cards = $$('section.card[data-sec]', page);
+  const want = (location.hash.match(/^#\/settings\/([\w-]+)/) || [])[1];
+  const open = want && cards.find((c) => c.dataset.sec === want);
+  page.classList.add('set-phone');
+  if (open) {
+    cards.forEach((c) => c.classList.toggle('hidden', c !== open));
+    const title = $('.card-head h2', open)?.textContent.trim() || tr('Paramètres');
+    $('.page-head', page).innerHTML = `<a class="set-back" href="#/settings">${icon('back', 18)} ${tr('Paramètres')}</a><h1>${esc(title)}</h1>`;
+    open.classList.add('set-open');
+    return;
+  }
+  cards.forEach((c) => c.classList.add('hidden'));
+  const order = (c) => { const i = SECTION_ORDER.indexOf(c.dataset.sec); return i < 0 ? 99 : i; };
+  const rows = cards.slice().sort((a, b) => order(a) - order(b)).map((c) => {
+    const title = $('.card-head h2', c)?.textContent.trim() || '';
+    return `<a class="set-row" href="#/settings/${c.dataset.sec}"><span class="set-ico">${icon(SECTION_ICONS[c.dataset.sec] || 'settings', 20)}</span>
+      <span class="set-title">${esc(title)}</span>${icon('chevron', 18)}</a>`;
+  }).join('');
+  $('.page-head', page).insertAdjacentHTML('afterend', `<nav class="set-index card" aria-label="${tr('Paramètres')}">${rows}</nav>`);
+}

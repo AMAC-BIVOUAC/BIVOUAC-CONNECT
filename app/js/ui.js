@@ -103,7 +103,6 @@ B.growTextarea = (ta, maxVh = 45) => {
   requestAnimationFrame(fit);
 };
 B.closeModal = () => {
-  $$('#modal-backdrop .guide-float').forEach((g) => g.remove()); // le guide de la présentation (onboarding.js)
   $('#modal-backdrop').classList.add('hidden');
   $('#modal').innerHTML = '';
   $('#modal').dataset.locked = '';

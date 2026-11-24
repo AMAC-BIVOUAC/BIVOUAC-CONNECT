@@ -825,36 +825,19 @@ details.advanced[open] summary { margin-bottom: 10px; }
 .pick-list { display: flex; flex-direction: column; gap: 6px; margin-top: 10px; }
 .pick { font: inherit; font-weight: var(--fw-strong); display: flex; align-items: center; gap: 10px; padding: 12px; border: 1px solid var(--line); border-radius: var(--r-md); background: var(--card); cursor: pointer; text-align: left; color: var(--navy); }
 .pick:hover { border-color: var(--teal); }
-.onb { text-align: left; }
-.onb img { display: block; margin-bottom: 10px; }
-/* Présentation (24/11) : 3 écrans courts, image du chemin, lignes icône + texte */
-.onb-dots { display: flex; gap: 6px; margin-bottom: var(--s-3); }
-.onb-dots i { width: 8px; height: 8px; border-radius: var(--r-round); background: var(--line-strong); }
-.onb-dots i.on { width: 22px; background: var(--action); }
-.onb .onb-hero { width: 100%; height: auto; aspect-ratio: 1000 / 424; object-fit: cover; border-radius: var(--r-md); margin-bottom: var(--s-4); }
-.onb-lead { font-size: var(--fs-strong); font-weight: var(--fw-strong); color: var(--navy); margin: 0 0 var(--s-2); }
-.onb-rows { list-style: none; margin: var(--s-3) 0; padding: 0; display: flex; flex-direction: column; gap: var(--s-3); }
+/* Contenu riche de la carte du guide (présentation, 24/11) : image du chemin, lignes icône + texte */
+.guide-text .onb-hero { display: block; width: 100%; height: auto; aspect-ratio: 1000 / 424; object-fit: cover; border-radius: var(--r-md); margin: var(--s-3) 0; }
+.guide-text .g-lead { font-size: var(--fs-strong); font-weight: var(--fw-strong); color: var(--navy); }
+.guide-text .g-note { display: flex; gap: var(--s-2); align-items: flex-start; margin-top: var(--s-3); padding: 10px 12px; border-radius: var(--r-md); background: var(--teal-soft); color: var(--navy); }
+.guide-text .g-note .ico { flex: none; margin-top: 2px; }
+.onb-rows { list-style: none; margin: var(--s-3) 0 0; padding: 0; display: flex; flex-direction: column; gap: var(--s-3); }
 .onb-rows li { display: flex; gap: var(--s-3); align-items: flex-start; }
 .onb-rows strong { display: block; color: var(--navy); }
 .onb-rows span:not(.onb-ico) { color: var(--muted); font-size: var(--fs-small); line-height: 1.45; }
 .onb-ico { flex: none; width: 40px; height: 40px; border-radius: var(--r-md); background: var(--tint); color: var(--orange); display: grid; place-items: center; }
-.onb .onb-tent { flex: none; width: 40px; height: 40px; object-fit: contain; margin: 0; }
-.onb .info { display: flex; gap: var(--s-2); align-items: flex-start; line-height: 1.45; }
-.onb .info .ico { flex: none; margin-top: 2px; }
-.onb-actions { margin-top: var(--s-4); }
-/* Le guide (24/11) : en grand, debout à côté de la fenêtre de présentation et des bulles de la visite (fitGuide) */
-#modal.onb-modal { width: 620px; }
-@media (min-width: 1000px) { #modal.onb-modal { margin-left: min(300px, calc(100vw - 700px)); } } /* place pour le guide à gauche */
-.guide-float, .tour-guide { position: fixed; z-index: 1; pointer-events: none; }
-.guide-float.hidden, .tour-guide.hidden { display: none; }
-.guide-float .guide-img, .tour-guide .guide-img { display: block; width: 100%; height: 100%; object-fit: contain; object-position: bottom; filter: drop-shadow(0 10px 14px var(--overlay-strong)); }
-.guide-float.flip .guide-img, .tour-guide.flip .guide-img { transform: scaleX(-1); }
-.guide-float.flip .guide-img.pop, .tour-guide.flip .guide-img.pop { animation: none; }
-#modal-backdrop > #modal { position: relative; z-index: 2; }
-.guide-img.pop { animation: guide-pop .35s ease-out; }
-@keyframes guide-pop { from { transform: translateY(6px) scale(.97); opacity: .4; } }
-.no-anim .guide-img.pop { animation: none; }
-@media (prefers-reduced-motion: reduce) { .guide-img.pop { animation: none; } }
+.onb-tent { flex: none; width: 40px; height: 40px; object-fit: contain; }
+.guide-text label { margin-top: var(--s-3); }
+.guide-text .levels { margin-top: var(--s-2); }
 
 #toasts { position: fixed; right: 20px; bottom: 20px; z-index: 60; display: flex; flex-direction: column; gap: 10px; width: 380px; }
 .toast { position: relative; background: var(--navy); color: var(--on-navy); border-radius: var(--r-lg); padding: 14px 40px 14px 16px; box-shadow: var(--shadow-pop); font-size: var(--fs-small); line-height: 1.45; animation: up .2s ease-out; }
@@ -872,26 +855,38 @@ details.advanced[open] summary { margin-bottom: 10px; }
 .tour-hole { position: fixed; border-radius: var(--r-md); outline: 3px solid var(--orange); outline-offset: 2px; box-shadow: 0 0 0 9999px var(--overlay-strong); pointer-events: none; transition: all .25s; }
 .tour-hole.hidden { display: none; }
 .tour-shade { position: fixed; inset: 0; background: var(--overlay-strong); }
-.tour-tip { position: fixed; width: 360px; background: var(--card); border-radius: var(--r-lg); padding: 16px 18px; box-shadow: var(--shadow-pop); }
+.tour-tip { position: fixed; width: 520px; background: var(--card); border-radius: var(--r-lg); padding: 18px 20px 16px 8px; box-shadow: var(--shadow-pop); }
+/* La carte du guide (24/11) : le personnage à gauche, sur le même fond que son texte, debout en bas de la carte */
+.guide-card { display: grid; grid-template-columns: 150px minmax(0, 1fr); gap: var(--s-3); align-items: end; }
+.guide-card.big { grid-template-columns: 220px minmax(0, 1fr); max-height: calc(100vh - 48px); overflow-y: auto; }
+.guide-pic { align-self: end; display: flex; justify-content: center; }
+.guide-pic .guide-img { display: block; width: 100%; height: auto; max-height: 260px; object-fit: contain; object-position: bottom; }
+.guide-card.big .guide-pic .guide-img { max-height: 380px; }
+.guide-img.flip { transform: scaleX(-1); }
+.guide-body { align-self: center; min-width: 0; }
 .tour-tip small { color: var(--tag-wait); font-weight: var(--fw-title); }
 .tour-bar { height: 4px; border-radius: var(--r-round); background: var(--line); margin: 6px 0 2px; overflow: hidden; }
 .tour-bar i { display: block; height: 100%; background: var(--action); border-radius: var(--r-round); transition: width .25s; }
-.tour-tip h3 { margin: 8px 0 6px; }
-.tour-tip p { margin: 0; color: var(--muted); line-height: 1.5; font-size: var(--fs-small); }
+.tour-tip h3 { margin: 8px 0 6px; font-size: var(--fs-strong); color: var(--navy); }
+.guide-card.big h3 { font-size: var(--fs-title-sm); }
+.tour-tip p { margin: 0 0 6px; color: var(--text); line-height: 1.55; font-size: var(--fs-text); }
 .tour-tip .actions { margin-top: 14px; }
-/* Téléphone : une feuille sur toute la largeur, en bas ou en haut de l'écran, texte plus grand, boutons de 44 px */
-.tour-guide { transition: none; }
-/* La bulle « parle » : petite pointe tournée vers le guide */
-.tour-tip.tail-left::before, .tour-tip.tail-right::before { content: ''; position: absolute; top: 34px; width: 14px; height: 14px; background: var(--card); transform: rotate(45deg); }
-.tour-tip.tail-left::before { left: -7px; }
-.tour-tip.tail-right::before { right: -7px; }
-.tour-tip.sheet.tail-left::before, .tour-tip.sheet.tail-right::before { top: auto; bottom: 34px; }
-#tour .tour-guide { z-index: 2; }
-.tour-tip.sheet { padding: 16px; }
-.tour-tip.sheet p { font-size: var(--fs-text); }
+.guide-pic .guide-img { animation: guide-pop .35s ease-out; }
+@keyframes guide-pop { from { transform: translateY(8px); opacity: .3; } }
+.guide-pic .guide-img.flip { animation: none; }
+.no-anim .guide-pic .guide-img { animation: none; }
+/* Téléphone : toute la largeur, en bas ou en haut ; le guide en petit à gauche, boutons de 44 px dessous */
+.tour-tip.sheet { padding: 12px 14px 14px 4px; grid-template-columns: 100px minmax(0, 1fr); gap: var(--s-2); }
+.tour-tip.sheet .guide-pic { position: sticky; bottom: 0; }
+.tour-tip.sheet .guide-pic .guide-img { max-height: 180px; }
+/* carte plus haute que l'écran : le texte défile, les boutons restent visibles en bas */
+.tour-tip.sheet.big { overflow-y: auto; }
+.tour-tip.sheet .actions { position: sticky; bottom: -14px; background: var(--card); padding: 8px 0 2px; margin-top: 8px; }
 .tour-tip.sheet .actions { flex-wrap: nowrap; gap: 8px; }
 .tour-tip.sheet .btn { min-height: 44px; }
-@media (prefers-reduced-motion: reduce) { .tour-hole, .tour-bar i, .tour-guide { transition: none; } }
+.tour-tip.sheet.big { max-height: calc(100vh - 16px); }
+.tour-tip.sheet .levels { grid-template-columns: minmax(0, 1fr); }
+@media (prefers-reduced-motion: reduce) { .tour-hole, .tour-bar i { transition: none; } .guide-pic .guide-img { animation: none; } }
 
 /* ---------- Vocal (v0.4) ---------- */
 .voice-strip { display: flex; align-items: center; gap: 12px; padding: 8px 22px; border-bottom: 1px solid var(--line); background: var(--bg); flex-wrap: wrap; }
@@ -1498,12 +1493,6 @@ video.mirror { transform: scaleX(-1); }
 
   /* Fenêtres : plein écran ou presque */
   #modal, #modal.wide { width: 100%; max-width: calc(100vw - 16px); max-height: 92vh; padding: 18px 16px; border-radius: var(--r-lg); }
-  #modal.onb-modal { width: 100%; margin-top: 26vh; min-height: 0; max-height: 72vh; display: flex; flex-direction: column; } /* le guide se tient au-dessus */
-  #modal.onb-modal .onb, #modal.onb-modal .onb-step:not(.hidden) { flex: 1; display: flex; flex-direction: column; }
-  #modal.onb-modal .onb-actions { margin-top: auto; padding-top: var(--s-4); flex-wrap: nowrap; }
-  #modal.onb-modal .onb-actions .btn { min-height: 44px; }
-  #modal.onb-modal .levels { grid-template-columns: minmax(0, 1fr); }
-  #modal.onb-modal .levels.big .level { padding: 14px 16px; }
   .actions { flex-wrap: wrap; }
   .voice-strip { padding: 8px 12px; }
 
@@ -2560,3 +2549,66 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--teal); }
   .iv-next { right: var(--s-1); }
 }
 .img-viewer [hidden] { display: none; }
+
+/* =====================================================================
+   Téléphone aéré (24/11, Amaury) : plus d'air, rien de tronqué, une navigation plus claire.
+   Placé en fin de fichier : ces règles l'emportent sur les précédentes pour les petits écrans.
+   ===================================================================== */
+@media (max-width: 760px) {
+  /* De l'air partout */
+  .page { padding: var(--s-5) var(--s-4) var(--s-6); }
+  .card { padding: var(--s-5) var(--s-4); margin-bottom: var(--s-4); }
+  .card-head { margin-bottom: var(--s-4); }
+  .page-head { margin-bottom: var(--s-4); }
+  /* Textes d'aide lisibles (plus de petites lignes serrées en 12 px) */
+  .card .muted.small, .card p.small, .card small.muted { font-size: var(--fs-small); line-height: 1.55; }
+  .card p { line-height: 1.55; }
+
+  /* Paramètres en deux niveaux (settings.js, phoneSections) : un sommaire, puis une rubrique par écran */
+  .set-index { padding: var(--s-1) 0; }
+  .set-row { display: flex; align-items: center; gap: var(--s-3); min-height: 58px; padding: var(--s-2) var(--s-4); color: var(--navy);
+    text-decoration: none; font-weight: var(--fw-strong); font-size: var(--fs-text); }
+  .set-row + .set-row { border-top: 1px solid var(--line); }
+  .set-ico { width: 38px; height: 38px; border-radius: var(--r-md); background: var(--teal-soft); color: var(--link); display: grid; place-items: center; flex: none; }
+  .set-title { flex: 1; min-width: 0; }
+  .set-row > .ico:last-child { color: var(--muted); flex: none; }
+  .set-phone .page-head { display: flex; flex-direction: column; align-items: flex-start; gap: var(--s-1); }
+  .set-back { display: inline-flex; align-items: center; gap: var(--s-1); min-height: var(--touch); color: var(--link); font-weight: var(--fw-strong); text-decoration: none; }
+  .set-open > .card-head { display: none; } /* son titre est déjà en haut de l'écran */
+  .set-open label { margin-top: var(--s-4); }
+  .set-open .actions { gap: var(--s-2); margin-top: var(--s-4); }
+
+  /* Mes IA : une IA = son nom sur toute la largeur, puis son état et « Retirer » dessous */
+  .ai-status-row { flex-wrap: wrap; row-gap: var(--s-3); padding: var(--s-4); }
+  .ai-status-row > span:nth-child(2), .ai-status-info { flex: 1 1 calc(100% - 50px); }
+  .ai-status-row > .state { margin-left: 42px; }
+  .ai-status-row > .con-del { margin-left: auto; }
+  .ai-nick { margin-top: var(--s-1); }
+  .ai-nick [data-nick-edit], .con-refresh { font-size: var(--fs-small); }
+  .con-refresh { display: flex; flex-wrap: wrap; gap: var(--s-1); align-items: center; }
+
+  /* Listes d'étapes, d'idées, de décisions (Tout le projet) : le titre sur toute la largeur, le reste en dessous */
+  .item { flex-wrap: wrap; row-gap: var(--s-2); padding: var(--s-3) var(--s-1); }
+  .item-title { flex: 1 1 calc(100% - 48px); min-width: 0; line-height: 1.4; }
+  .item-title + * { margin-left: 34px; }
+  .hub-summit .summit-item { flex-wrap: wrap; padding: var(--s-4); }
+  .hub-summit .item-title { flex-basis: calc(100% - 60px); }
+  .hub-summit .item-title + * { margin-left: 50px; }
+
+  /* Aujourd'hui : plus de textes coupés par « … » */
+  .wait-row { align-items: flex-start; padding: var(--s-4) 0; }
+  .wait-text b { display: block; -webkit-line-clamp: unset; overflow: visible; }
+  .wait-text .meta { white-space: normal; overflow: visible; line-height: 1.45; }
+  #today-projects .doors { grid-template-columns: minmax(0, 1fr); }
+  #today-projects .door { flex-direction: row; align-items: center; justify-content: flex-start; min-height: 64px; }
+  #today-projects .door-text span { white-space: normal; overflow: visible; display: block; }
+
+  /* Tâches : vue, personnes et « Masquer finies » sur une même ligne quand ça tient */
+  .tasks-head { gap: var(--s-2); }
+  .tasks-phone-bar { flex: 0 1 auto; flex-wrap: nowrap; }
+  .tasks-phone-bar select { width: auto; flex: none; }
+  .tasks-phone-bar #who-toggle { white-space: nowrap; }
+
+  /* Messages privés : un peu plus d'air entre les conversations */
+  .dm-person { padding: var(--s-3) var(--s-2); }
+}

@@ -208,14 +208,12 @@ async function onSession(session) {
     B.startGlobalLive();
     B.startDmLive();
     B.refreshBadge();
-    // Première connexion : présentation (fenêtre qui ne se ferme qu'avec ses boutons), puis visite guidée si
-    // demandée. La visite se fait sur « Aujourd'hui » (toutes ses zones y sont visibles, téléphone compris) ;
-    // un invité arrive ensuite dans son projet.
-    const tour = B.me.onboarded ? false : await B.runOnboarding();
-    if (tour) {
+    // Premier lancement : présentation, « Présentez-vous », niveau, puis la visite, d'un seul tenant (onboarding.js),
+    // sur « Aujourd'hui » (toutes ses zones y sont visibles, téléphone compris) ; un invité finit dans son projet.
+    if (!B.me.onboarded) {
       location.hash = '#/home';
       await B.route();
-      setTimeout(() => B.startTour({ pid: joined, then: () => { if (joined) location.hash = `#/p/${joined}`; } }), 400);
+      setTimeout(() => B.runOnboarding({ pid: joined, then: () => { if (joined) location.hash = `#/p/${joined}`; } }), 400);
       (await B.pendingRequestsForMe()).forEach(B.showIncomingRequest);
       return;
     }
