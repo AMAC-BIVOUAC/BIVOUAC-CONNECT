@@ -1697,8 +1697,13 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--teal); }
 .land-lab.next { color: var(--navy); font-weight: var(--fw-title); }
 .land-lab.l { transform: none; margin-left: -14px; }
 .land-lab.r { transform: translateX(-100%); margin-left: 14px; }
+.land-lab.up { transform: translate(-50%, -100%); }
+.land-lab.to-l { transform: translate(-100%, -50%); }
+.land-lab.to-r { transform: translateY(-50%); }
 .land-here { position: absolute; transform: translate(-50%, -100%); background: var(--navy); color: var(--card); font-weight: var(--fw-title); font-size: var(--fs-small); border-radius: var(--r-round); padding: 5px 14px; white-space: nowrap; }
 .land-here i { position: absolute; top: 100%; width: 10px; height: 10px; background: var(--navy); transform: translate(-50%, -6px) rotate(45deg); }
+.land-here.down { transform: translateX(-50%); }
+.land-here.down i { top: auto; bottom: 100%; transform: translate(-50%, 6px) rotate(45deg); }
 .l-sky-1 { stop-color: var(--land-sky-1); } .l-sky-2 { stop-color: var(--land-sky-2); } .l-sky-3 { stop-color: var(--land-sky-3); }
 .l-sun { fill: var(--land-sun); stop-color: var(--land-sun); }
 .l-peak-1 { stop-color: var(--land-peak); } .l-peak-2 { stop-color: var(--navy); }
@@ -1722,15 +1727,13 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--teal); }
 .land.photo .land-lab { background: var(--amb-chip); border-radius: var(--r-round); padding: 2px var(--s-2); text-shadow: none; }
 @keyframes amb-twinkle { 50% { opacity: .25; } }
 .lp-star { fill: var(--amb-star); animation: amb-twinkle 3s ease-in-out var(--dl) infinite; }
-.lp-sunset { fill: url(#land-glow); animation: lp-glow 6s ease-in-out infinite alternate; }
-.lp-tent-shadow { fill: var(--a-shadow, var(--amb-d-shadow)); opacity: .3; }
 .lp-tent-glow { fill: url(#land-tent-glow); animation: lp-glow 2.4s ease-in-out infinite alternate; }
 @keyframes lp-glow { from { opacity: .55; } to { opacity: .9; } }
 .lp-bird { fill: none; stroke: var(--amb-d-ink); stroke-width: 1.8; stroke-linecap: round; }
 .lp-birds { animation: lp-birds 40s linear infinite; }
 @keyframes lp-birds { from { transform: translate(-60px, 60px); } to { transform: translate(var(--w), 20px); } }
-.no-anim .l-cloud, .no-anim .l-flag, .no-anim .lp-star, .no-anim .lp-sunset, .no-anim .lp-tent-glow, .no-anim .lp-birds { animation: none; }
-@media (prefers-reduced-motion: reduce) { .lp-star, .lp-sunset, .lp-tent-glow, .lp-birds { animation: none; } }
+.no-anim .l-cloud, .no-anim .l-flag, .no-anim .lp-star, .no-anim .lp-tent-glow, .no-anim .lp-birds { animation: none; }
+@media (prefers-reduced-motion: reduce) { .lp-star, .lp-tent-glow, .lp-birds { animation: none; } }
 @media (prefers-reduced-motion: reduce) { .l-cloud, .l-flag { animation: none; } }
 .l-dots { fill: none; stroke: var(--navy); stroke-width: 3; stroke-dasharray: 1 9; stroke-linecap: round; opacity: .55; }
 .l-dots.up { stroke: var(--card); opacity: .9; }

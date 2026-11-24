@@ -10,15 +10,24 @@
 // Mêmes données qu'avant : items (objective, milestone, decision, idea), item_votes, tasks, activity.
 // =====================================================================
 
-// Le paysage du chemin (22/11, Apo) : SES images de montagne, de jour ou de nuit selon l'heure (B.ambianceMoment),
-// src/assets/scenes/chemin-jour.webp / chemin-nuit.webp (2000 × 848, même cadrage). Le sentier de l'image devient le
-// chemin du projet : tentes détourées = étapes franchies, points = étapes à venir, drapeau orange au sommet.
-// Coordonnées ci-dessous = pixels de l'image d'origine.
+// Le paysage du chemin (24/11, Apo) : SES dessins de montagne, de jour ou de nuit selon l'heure (B.ambianceMoment),
+// src/assets/scenes/chemin-jour.webp / chemin-nuit.webp (2000 × 848, même cadrage, version -1000 pour les petits écrans).
+// Le sentier dessiné devient le chemin du projet : une tente (tente-jour / tente-nuit, détourées) = étape franchie,
+// un point = étape à venir, jusqu'au drapeau du sommet (dessiné dans l'image).
+// PHOTO_TRAIL = le milieu du sentier, en pixels de l'image, du premier plan (en bas à gauche) jusqu'au pied du drapeau,
+// relevé automatiquement sur le dessin. Changer d'image = refaire ces coordonnées (et PHOTO_STARS pour la nuit).
 const PHOTO = { w: 2000, h: 848 };
-const PHOTO_TRAIL = [[150, 848], [240, 800], [330, 760], [420, 722], [500, 700], [600, 682], [700, 652], [780, 622], [860, 584],
-  [950, 574], [1040, 574], [1110, 552], [1160, 534], [1205, 520]];
-const PHOTO_CLIMB = [[1205, 520], [1300, 470], [1400, 380], [1490, 290], [1560, 232], [1606, 196]];
-const TENTS = ['tente-orange', 'tente-grise', 'tente-rouge'];
+const PHOTO_TRAIL = [[19, 827], [75, 816], [132, 808], [187, 798], [245, 793], [296, 769], [343, 742], [396, 726], [448, 707],
+  [501, 689], [556, 676], [610, 664], [666, 653], [722, 645], [779, 643], [835, 650], [891, 662], [947, 671], [1002, 681],
+  [1059, 687], [1118, 686], [1176, 681], [1232, 672], [1268, 660], [1283, 640], [1274, 618], [1250, 605], [1207, 595],
+  [1151, 587], [1094, 579], [1052, 571], [1034, 556], [1048, 542], [1087, 531], [1142, 519], [1198, 511], [1254, 502],
+  [1310, 490], [1364, 477], [1417, 460], [1445, 444], [1452, 427], [1438, 417], [1402, 407], [1345, 400], [1288, 392],
+  [1245, 383], [1231, 369], [1240, 355], [1288, 343], [1346, 337], [1403, 332], [1459, 328], [1516, 321], [1550, 312],
+  [1566, 300], [1556, 290], [1519, 282], [1462, 273], [1406, 265], [1382, 255], [1392, 241], [1446, 231], [1490, 222],
+  [1503, 208], [1504, 194], [1518, 181], [1542, 172], [1547, 160], [1530, 150], [1519, 140], [1526, 126], [1545, 112], [1560, 101]];
+// étoiles dessinées dans le ciel de nuit : elles scintillent
+const PHOTO_STARS = [[57, 27], [1428, 31], [707, 35], [334, 33], [1782, 36], [1923, 36], [1052, 43], [731, 57], [187, 80],
+  [1743, 79], [961, 107], [1249, 116], [1382, 202]];
 
 /** Courbe douce qui passe par tous les points (Catmull-Rom), pour mesurer et tracer le chemin */
 function smooth(pts, n = 8) {
@@ -38,21 +47,22 @@ function smooth(pts, n = 8) {
 function photoFit(W, H) {
   const s = Math.max(W / PHOTO.w, H / PHOTO.h);
   const iw = PHOTO.w * s, ih = PHOTO.h * s;
-  const ox = Math.min(0, Math.max(W - iw, (W - (100 + 1720) * s) / 2));
-  const oy = Math.min(0, Math.max(H - ih, 44 - 196 * s)); // le drapeau du sommet garde de la place au-dessus
+  const ox = Math.min(0, Math.max(W - iw, (W - 1700 * s) / 2)); // du départ (à gauche) au sommet
+  const oy = Math.min(0, Math.max(H - ih, 8 - 40 * s)); // le drapeau dessiné au sommet reste visible
   return { s, ox, oy, iw, ih };
 }
 
 /**
  * Le paysage, à la taille réelle de la carte. `path` vient de B.pathOf ; `W` × `H` = taille en pixels.
  */
+const stackedHead = (W) => W < 560; // même seuil que la page : sur téléphone, le titre est au-dessus du dessin
+
 function landscape(path, W, H) {
   const night = (B.ambianceMoment?.() || 'day') === 'night';
   const { s, ox, oy, iw, ih } = photoFit(W, H);
   const px = ([x, y]) => [ox + x * s, oy + y * s];
   // Tout le chemin, du départ (en bas à gauche) jusqu'au drapeau du sommet, montée comprise (23/11, Apo)
-  const climb = smooth(PHOTO_CLIMB, 6).map(px);
-  const trail = [...smooth(PHOTO_TRAIL).map(px), ...climb.slice(1)];
+  const trail = smooth(PHOTO_TRAIL, 6).map(px);
   // longueur cumulée, pour poser les repères à intervalles réguliers
   const len = [0];
   for (let k = 1; k < trail.length; k++) len.push(len[k - 1] + Math.hypot(trail[k][0] - trail[k - 1][0], trail[k][1] - trail[k - 1][1]));
@@ -78,32 +88,34 @@ function landscape(path, W, H) {
   const k0 = at(f0).k;
   const walked = [start, ...trail.slice(k0, Math.max(k0, here.k)), here.pt]; // le chemin parcouru part du point de départ
   const ahead = [here.pt, ...trail.slice(here.k)];
-  const top = climb[climb.length - 1];
   const big = W >= 560;
-  const tentW = big ? 56 : 34;
+  const tentW = big ? 58 : 38;
   const img = (name) => `assets/scenes/${name}.webp`;
-  const scene = night ? 'chemin-nuit' : 'chemin-jour';
-  // étoiles qui scintillent (nuit), dans le ciel à gauche
-  const stars = night ? Array.from({ length: 26 }, (_, i) => {
-    const [x, y] = px([((i * 397) % 1250) + 30, ((i * 151) % 300) + 12]);
-    return `<circle class="lp-star" cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${(1 + (i % 3) * 0.5).toFixed(1)}" style="--dl:-${(i * 0.37).toFixed(2)}s"/>`;
+  const scene = (night ? 'chemin-nuit' : 'chemin-jour') + (iw * (window.devicePixelRatio || 1) <= 1100 ? '-1000' : '');
+  const tent = night ? 'tente-nuit' : 'tente-jour';
+  // les étoiles dessinées scintillent (nuit)
+  const stars = night ? PHOTO_STARS.map((p0, i) => {
+    const [x, y] = px(p0);
+    return `<circle class="lp-star" cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${(2.2 * Math.max(s, 0.5)).toFixed(1)}" style="--dl:-${(i * 0.37).toFixed(2)}s"/>`;
   }).join('') : '';
-  const [sx, sy] = px([1940, 300]);
 
   const svg = `<svg class="land-svg photo" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" aria-hidden="true">
-    <defs><radialGradient id="land-glow"><stop offset="0" class="l-sun" stop-opacity=".8"/><stop offset="1" class="l-sun" stop-opacity="0"/></radialGradient><radialGradient id="land-tent-glow"><stop offset="0" class="l-sun" stop-opacity=".55"/><stop offset="1" class="l-sun" stop-opacity="0"/></radialGradient></defs>
+    <defs><radialGradient id="land-tent-glow"><stop offset="0" class="l-sun" stop-opacity=".55"/><stop offset="1" class="l-sun" stop-opacity="0"/></radialGradient></defs>
     <image href="${img(scene)}" x="${ox.toFixed(1)}" y="${oy.toFixed(1)}" width="${iw.toFixed(1)}" height="${ih.toFixed(1)}" preserveAspectRatio="none"/>
-    ${night ? `<circle class="lp-sunset" cx="${sx.toFixed(1)}" cy="${sy.toFixed(1)}" r="${(180 * s).toFixed(1)}"/>${stars}`
+    ${night ? stars
       : `<g class="lp-birds" style="--w:${W}px"><path class="lp-bird" d="M0,0 q5,-5 10,0 q5,-5 10,0"/><path class="lp-bird" d="M18,9 q4,-4 8,0 q4,-4 8,0"/></g>`}
     <path class="l-dots" d="${line(ahead)}"/>
     <circle class="l-start" cx="${start[0].toFixed(1)}" cy="${start[1].toFixed(1)}" r="9"/>
     ${path.done || slots === 1 ? `<path class="l-walk-under" pathLength="1" d="${line(walked)}"/><path class="l-walk" pathLength="1" d="${line(walked)}"/>` : ''}
     ${steps.map(({ s: st, pt: [x, y], done, next }, i) => done
-      ? `<g class="lp-tent ${night ? 'lit' : ''}"><ellipse class="lp-tent-shadow" cx="${x.toFixed(1)}" cy="${(y + 1).toFixed(1)}" rx="${(tentW * 0.55).toFixed(1)}" ry="4"/>
-          ${night ? `<circle class="lp-tent-glow" cx="${x.toFixed(1)}" cy="${(y - tentW * 0.3).toFixed(1)}" r="${(tentW * 0.75).toFixed(1)}"/>` : ''}
-          <image href="${img(TENTS[i % TENTS.length])}" x="${(x - tentW / 2).toFixed(1)}" y="${(y - tentW * 0.68).toFixed(1)}" width="${(tentW * (st.major ? 1.25 : 1)).toFixed(1)}" height="${(tentW * 0.7 * (st.major ? 1.25 : 1)).toFixed(1)}"/></g>`
+      ? (() => {
+        // la tente est posée sur le sentier : le milieu de son carré d'herbe = l'emplacement de l'étape
+        const w = tentW * (st.major ? 1.3 : 1), h = w * 0.686;
+        return `<g class="lp-tent ${night ? 'lit' : ''}">
+          ${night ? `<circle class="lp-tent-glow" cx="${(x - w * 0.12).toFixed(1)}" cy="${(y - h * 0.35).toFixed(1)}" r="${(w * 0.45).toFixed(1)}"/>` : ''}
+          <image href="${img(tent)}" x="${(x - w / 2).toFixed(1)}" y="${(y - h * 0.82).toFixed(1)}" width="${w.toFixed(1)}" height="${h.toFixed(1)}"/></g>`;
+      })()
       : `<circle class="l-step ${next ? 'next' : ''} ${st.major ? 'major' : ''}" cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${st.major ? 11 : next ? 9 : 6.5}"/>`).join('')}
-    <g transform="translate(${top[0].toFixed(1)} ${(top[1] + 4).toFixed(1)})"><path class="l-pole" d="M0,0 v-28"/><path class="l-flag" d="M0,-28 l20,7 l-20,7 Z"/></g>
     <g class="l-here" transform="translate(${here.pt[0].toFixed(1)} ${here.pt[1].toFixed(1)})"><circle class="l-here-wave" r="20"/><circle class="l-here-ring" r="10.6"/><circle class="l-here-dot" r="9"/></g>
   </svg>`;
 
@@ -113,13 +125,46 @@ function landscape(path, W, H) {
   const gap = total / (slots + 1);
   const phone = !big || gap < 150;
   const shown = steps.filter(({ s: st, next }) => phone ? (next && st.due_date) : (gap >= 230 || next || (st.major && gap >= 150)));
+  // Placement sans chevauchement (24/11) : la bulle « Vous êtes ici » puis les étiquettes évitent les repères du chemin,
+  // les autres textes et les bords. Tailles estimées (le texte n'est pas encore affiché) : ~7,4 px par caractère.
+  const boxes = steps.map(({ pt: [x, y], done, s: st }) => {
+    if (!done) return [x - 12, y - 12, x + 12, y + 12];
+    const w = tentW * (st.major ? 1.3 : 1);
+    return [x - w / 2, y - w * 0.6, x + w / 2, y + w * 0.15];
+  });
+  boxes.push([here.pt[0] - 13, here.pt[1] - 13, here.pt[0] + 13, here.pt[1] + 13]);
+  if (!stackedHead(W)) boxes.push([0, 0, W * 0.62 + 32, 104]); // l'encart du sommet, en haut à gauche
+  const hit = (r, list) => list.reduce((n, q) => n + Math.max(0, Math.min(r[2], q[2]) - Math.max(r[0], q[0])) * Math.max(0, Math.min(r[3], q[3]) - Math.max(r[1], q[1])), 0)
+    + (r[0] < 2 || r[2] > W - 2 || r[1] < 2 || r[3] > H - 2 ? 1e6 : 0);
+  const best = (cands, list) => cands.map((c) => ({ ...c, n: hit(c.r, list) })).sort((u, v) => u.n - v.n)[0];
+  // la bulle : au-dessus du point, sinon en dessous
+  const bw = tr('Vous êtes ici').length * 7.4 + 30;
+  const [hx, hy] = here.pt;
+  const clampX = (x) => Math.max(bw / 2 + 4, Math.min(W - bw / 2 - 4, x));
+  // décalée sur le côté si besoin : la pointe reste sur le point
+  const bub = best([0, -0.32, 0.32].flatMap((d) => [false, true].map((down) => {
+    const x = clampX(hx + d * bw);
+    return { down, x, r: down ? [x - bw / 2, hy + 14, x + bw / 2, hy + 52] : [x - bw / 2, hy - 52, x + bw / 2, hy - 14] };
+  })), boxes.slice(0, -1));
+  const bx = bub.x;
+  const taken = [...boxes, bub.r];
   const labels = shown.map(({ s: st, pt: [x, y], next }) => {
-    const side = x < 130 ? 'l' : x > W - 140 ? 'r' : '';
     const date = st.due_date ? esc(fmtDate(st.due_date)) : '';
-    return `<span class="land-lab ${next ? 'next' : ''} ${st.major ? 'major' : ''} ${side}" style="left:${x.toFixed(0)}px;top:${(y + 16).toFixed(0)}px">${phone ? `<i>${date}</i>` : `<span translate="no">${esc(st.title)}</span>${date ? `<i>· ${date}</i>` : ''}`}</span>`;
+    const text = phone ? date : st.title + (date ? ` · ${date}` : '');
+    const w = Math.min(280, text.length * 7.4 + 20), h = 26;
+    const cx = Math.max(w / 2 + 4, Math.min(W - w / 2 - 4, x));
+    const own = [x - 13, y - 13, x + 13, y + 13];
+    const others = taken.filter((q) => hit(q, [own]) < 300);
+    const c = best([
+      { cls: '', l: cx, t: y + 16, r: [cx - w / 2, y + 16, cx + w / 2, y + 16 + h] },
+      { cls: 'up', l: cx, t: y - 16, r: [cx - w / 2, y - 16 - h, cx + w / 2, y - 16] },
+      { cls: 'to-l', l: x - 18, t: y, r: [x - 18 - w, y - h / 2, x - 18, y + h / 2] },
+      { cls: 'to-r', l: x + 18, t: y, r: [x + 18, y - h / 2, x + 18 + w, y + h / 2] }
+    ], others);
+    taken.push(c.r);
+    return `<span class="land-lab ${next ? 'next' : ''} ${st.major ? 'major' : ''} ${c.cls}" style="left:${c.l.toFixed(0)}px;top:${c.t.toFixed(0)}px">${phone ? `<i>${date}</i>` : `<span translate="no">${esc(st.title)}</span>${date ? `<i>· ${date}</i>` : ''}`}</span>`;
   }).join('');
-  const bx = Math.max(64, Math.min(W - 64, here.pt[0]));
-  const bubble = `<span class="land-here" style="left:${bx.toFixed(0)}px;top:${(here.pt[1] - 22).toFixed(0)}px">${tr('Vous êtes ici')}<i style="left:calc(50% + ${(here.pt[0] - bx).toFixed(0)}px)"></i></span>`;
+  const bubble = `<span class="land-here ${bub.down ? 'down' : ''}" style="left:${bx.toFixed(0)}px;top:${(bub.down ? hy + 22 : hy - 22).toFixed(0)}px">${tr('Vous êtes ici')}<i style="left:calc(50% + ${(hx - bx).toFixed(0)}px)"></i></span>`;
   return `${svg}<div class="land-over" aria-hidden="true">${labels}${bubble}</div>`;
 }
 
