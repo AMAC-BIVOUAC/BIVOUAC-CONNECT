@@ -79,20 +79,22 @@ function landscape(path, W, H) {
     const r = (target - len[k - 1]) / (len[k] - len[k - 1] || 1);
     return { pt: [trail[k - 1][0] + (trail[k][0] - trail[k - 1][0]) * r, trail[k - 1][1] + (trail[k][1] - trail[k - 1][1]) * r], k };
   };
-  // Emplacements, répartis régulièrement entre le point de départ (orange, en bas à gauche) et le drapeau :
-  // les étapes franchies, puis « Vous êtes ici », puis les étapes à venir
+  // Emplacements des étapes, répartis régulièrement entre le point de départ (orange, en bas à gauche) et le drapeau.
+  // Ils ne bougent pas quand on avance (24/11, Apo) : « Vous êtes ici » est sur le départ tant que rien n'est franchi,
+  // puis à mi-chemin entre la dernière étape franchie et la suivante (ou le drapeau), et le chemin parcouru part du départ.
   const slots = path.total + 1;
   // le départ : premier endroit du chemin bien visible (le bas de l'image peut être coupé par la carte)
   let f0 = 0;
   while (f0 < 0.3 && (at(f0).pt[1] > H - 12 || at(f0).pt[0] < 14)) f0 += 0.005;
-  const spot = (n) => at(f0 + (1 - f0) * ((n + 1) / (slots + 1)));
+  const u = (n) => n < 0 ? 0 : (n + 1) / slots; // n = -1 : le départ ; n = path.total : le drapeau
+  const atU = (v) => at(f0 + (1 - f0) * v);
   const start = at(f0).pt;
-  const here = spot(path.done);
-  const steps = path.steps.map((s2, n) => ({ s: s2, ...spot(n < path.done ? n : n + 1), done: n < path.done, next: s2 === path.next }));
+  const here = path.done ? atU((u(path.done - 1) + u(path.done)) / 2) : at(f0);
+  const steps = path.steps.map((s2, n) => ({ s: s2, ...atU(u(n)), done: n < path.done, next: s2 === path.next }));
   const line = (pts) => pts.map(([x, y], k) => `${k ? 'L' : 'M'}${x.toFixed(1)},${y.toFixed(1)}`).join(' ');
   const k0 = at(f0).k;
   const walked = [start, ...trail.slice(k0, Math.max(k0, here.k)), here.pt]; // le chemin parcouru part du point de départ
-  const ahead = [here.pt, ...trail.slice(here.k)];
+  const ahead = [here.pt, ...trail.slice(Math.max(k0, here.k))];
   const big = W >= 560;
   const tentW = big ? 58 : 38;
   const img = (name) => `assets/scenes/${name}.webp`;
@@ -111,7 +113,7 @@ function landscape(path, W, H) {
       : `<g class="lp-birds" style="--w:${W}px"><path class="lp-bird" d="M0,0 q5,-5 10,0 q5,-5 10,0"/><path class="lp-bird" d="M18,9 q4,-4 8,0 q4,-4 8,0"/></g>`}
     <path class="l-dots" d="${line(ahead)}"/>
     <circle class="l-start" cx="${start[0].toFixed(1)}" cy="${start[1].toFixed(1)}" r="9"/>
-    ${path.done || slots === 1 ? `<path class="l-walk-under" pathLength="1" d="${line(walked)}"/><path class="l-walk" pathLength="1" d="${line(walked)}"/>` : ''}
+    ${path.done ? `<path class="l-walk-under" pathLength="1" d="${line(walked)}"/><path class="l-walk" pathLength="1" d="${line(walked)}"/>` : ''}
     ${steps.map(({ s: st, pt: [x, y], done, next }, i) => done
       ? (() => {
         // la tente est posée sur le sentier : le milieu de son carré d'herbe = l'emplacement de l'étape
@@ -127,7 +129,7 @@ function landscape(path, W, H) {
   // Textes posés par-dessus (taille réelle : jamais sous 12 px, même sur téléphone)
   // Sur téléphone (ou quand les repères sont serrés) : seulement la date de la prochaine étape (les noms sont écrits juste sous le paysage).
   // Sur ordinateur : toutes les étapes si elles ont la place, sinon la prochaine seulement.
-  const gap = total / (slots + 1);
+  const gap = total * (1 - f0) / slots; // écart entre deux étapes
   const phone = !big || gap < 150;
   const shown = steps.filter(({ s: st, next }) => phone ? (next && st.due_date) : (gap >= 230 || next || (st.major && gap >= 150)));
   // Placement sans chevauchement (24/11) : la bulle « Vous êtes ici » puis les étiquettes évitent les repères du chemin,
