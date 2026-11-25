@@ -9,6 +9,9 @@ const ICONS = {
   bell: '<path d="M6 16V11a6 6 0 0112 0v5l2 2H4z"/><path d="M10 20a2 2 0 004 0"/>',
   // Paramètres = couteau suisse (manche + lame ouverte + croix), demande d'Apo du 23/11
   settings: '<rect x="2.5" y="12" width="19" height="7.5" rx="3.75"/><path d="M6 12L19.5 3.5c-1 4-3.8 7-7.5 8.5"/><path d="M15.5 14v3.5M13.75 15.75h3.5"/><path d="M6.25 15.75h.01"/>',
+  // Heure locale d'un membre (Lieu de résidence, v0.8.76) : horloge le jour, lune la nuit chez lui
+  clock: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
+  moon: '<path d="M20 14.5A8 8 0 019.5 4a8 8 0 1010.5 10.5z"/>',
   search: '<circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/>',
   plus: '<path d="M12 5v14M5 12h14"/>',
   chat: '<path d="M4 5h16v11H9l-5 4z"/>',

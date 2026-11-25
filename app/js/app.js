@@ -238,6 +238,7 @@ async function onSession(session) {
     store.set('awaiting-confirm', null); // connecté : l'adresse est confirmée
     await B.loadMe(uid);
     await B.ensurePersonal(); // anciens comptes : prénom, nom, date de naissance à compléter
+    B.autoFillTimeZone?.(); // fuseau horaire vide : rempli d'après l'appareil (lieu.js, migration 046)
     if (sessionUser !== uid) return;
     showScreen('app');
     await Promise.all([B.loadProjects(), B.loadMyProviders()]);

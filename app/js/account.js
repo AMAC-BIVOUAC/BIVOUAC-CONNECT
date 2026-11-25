@@ -2,7 +2,7 @@
 // account.js — compte personnel (migration 020)
 //
 // Informations personnelles : prénom, nom, date de naissance (obligatoires),
-// téléphone et adresse (facultatifs). Rangées dans `profile_private`, lisible
+// téléphone, adresse et code postal (facultatifs ; code postal : migration 046). Rangées dans `profile_private`, lisible
 // UNIQUEMENT par la personne elle-même (ni les autres membres, ni les IA du connecteur).
 // Les autres voient seulement le profil public : nom affiché, pseudo, photo.
 // E-mail et mot de passe : Supabase Auth.
@@ -23,7 +23,8 @@ B.readPersonal = (root, p) => ({
   last_name: $(`#${p}-last`, root).value.trim(),
   birth_date: $(`#${p}-birth`, root).value,
   phone: $(`#${p}-phone`, root).value.trim() || null,
-  address: $(`#${p}-address`, root).value.trim() || null
+  address: $(`#${p}-address`, root).value.trim() || null,
+  postal_code: $(`#${p}-postal`, root)?.value.trim().toUpperCase() || null
 });
 
 /** Message d'erreur, ou '' si tout est bon */
@@ -33,6 +34,7 @@ B.checkPersonal = (x) => {
   if (!x.birth_date) return tr('Indiquez votre date de naissance.');
   if (x.birth_date > new Date().toISOString().slice(0, 10) || x.birth_date < '1900-01-02') return tr('Date de naissance invalide.');
   if (x.phone && !/^[0-9 +().\-]{6,30}$/.test(x.phone)) return tr('Numéro de téléphone invalide.');
+  if (x.postal_code && !/^[0-9A-Z][0-9A-Z \-]{1,11}$/.test(x.postal_code)) return tr('Code postal invalide.');
   return '';
 };
 
@@ -45,8 +47,13 @@ B.personalFieldsHtml = (p, v = {}) => `
   </div>
   <label for="${p}-phone">${tr('Téléphone')} <span class="muted">${tr('(facultatif)')}</span></label>
   <input id="${p}-phone" type="tel" maxlength="30" autocomplete="tel" value="${esc(v.phone || '')}" />
-  <label for="${p}-address">${tr('Adresse')} <span class="muted">${tr('(facultatif)')}</span></label>
-  <input id="${p}-address" maxlength="300" autocomplete="street-address" value="${esc(v.address || '')}" />`;
+  <div class="form-row">
+    <div><label for="${p}-address">${tr('Adresse')} <span class="muted">${tr('(facultatif)')}</span></label>
+      <input id="${p}-address" maxlength="300" autocomplete="street-address" placeholder="${esc(tr('ex. 12 rue des Pins'))}" value="${esc(v.address || '')}" /></div>
+    <div><label for="${p}-postal">${tr('Code postal')} <span class="muted">${tr('(facultatif)')}</span></label>
+      <input id="${p}-postal" maxlength="12" autocomplete="postal-code" value="${esc(v.postal_code || '')}" /></div>
+  </div>
+  <p class="muted small">${tr('Votre pays et votre ville se règlent dans « Mon profil » : ils servent à afficher votre heure locale à l’équipe.')}</p>`;
 
 // ---------------------------------------------------------------------
 // Âge déclaré et conditions (migration 034, document « Conditions inscription et accès mineurs »)

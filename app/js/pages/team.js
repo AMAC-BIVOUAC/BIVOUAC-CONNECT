@@ -107,7 +107,7 @@ B.pages.team = async (el, p) => {
               : `<a href="#/messages/${m.id}" title="${esc(tr('Écrire à {name}', { name: m.display_name }))}">${B.dmAvatar ? B.dmAvatar(m, 36, { presence: false }) : avatar(m, 36)}</a>`}
               <span class="team-name">${esc(m.display_name)}<small>@${esc(m.handle)}</small></span>
               <span class="tag human">${tr('Humain')}</span>
-              <span class="team-role">${m.title ? esc(m.title) : ''}</span>
+              <span class="team-role">${m.title ? esc(m.title) : ''}${B.localTimeHtml?.(m, { mode: 'place', always: true }) || ''}</span>
               <span class="team-extra">${m.id === B.me.id ? '' : `<a class="icon-btn dm-btn" href="#/messages/${m.id}" title="${esc(tr('Message privé à {name}', { name: m.display_name }))}" aria-label="${esc(tr('Message privé à {name}', { name: m.display_name }))}">${icon('whisper', 16)}</a>`}${roleCell(m)}
                 ${B.canRemove(p.id, m) ? `<button class="icon-btn" data-remove="${m.id}" title="${tr('Retirer du projet')}">${icon('x', 15)}</button>` : ''}
                 ${m.id === B.me.id ? '' : `<button class="icon-btn" data-report-user="${m.id}" title="${esc(tr('Signaler {name}', { name: m.display_name }))}" aria-label="${esc(tr('Signaler {name}', { name: m.display_name }))}">${icon('flag', 15)}</button>`}</span>

@@ -660,6 +660,12 @@ textarea { resize: vertical; }
 .team-name { font-weight: var(--fw-title); color: var(--navy); }
 .team-name small { display: block; font-weight: var(--fw-text); color: var(--muted); font-size: var(--fs-label); }
 .team-role { color: var(--muted); font-size: var(--fs-small); }
+/* Heure locale d'un membre (lieu.js, v0.8.76) : horloge le jour, lune la nuit chez lui */
+.ltime { display: inline-flex; align-items: center; gap: 4px; font-size: var(--fs-label); color: var(--muted); white-space: nowrap; }
+.ltime svg { flex: none; }
+.online-who .ltime { color: var(--on-navy-muted); }
+.team-role .ltime { display: flex; margin-top: 2px; white-space: normal; }
+.set-sub { margin: 18px 0 4px; }
 .team-extra { font-size: var(--fs-label); color: var(--muted); justify-self: end; display: flex; align-items: center; gap: 6px; }
 .role-badge { font-size: var(--fs-label); font-weight: var(--fw-title); padding: 3px 10px; border-radius: var(--r-md); background: var(--column); color: var(--navy); }
 .role-badge.owner { background: var(--orange-soft); color: var(--title-decide); }

@@ -32,6 +32,15 @@ B.pages.settings = async (view) => {
         </div>
         <label>${tr("Rôle / métier (affiché dans l'équipe)")}</label>
         <input id="s-title" maxlength="60" value="${esc(me.title || '')}" placeholder="${tr('ex. Product designer, Chef de projet…')}" />
+        ${'timezone' in me ? `<h3 class="set-sub">${tr('Lieu de résidence')}</h3>
+        <p class="muted small">${tr('Visible par les membres de vos projets et par leurs IA : ils voient l’heure qu’il est chez vous. Votre adresse reste privée (Mes informations personnelles).')}</p>
+        <div class="form-row">
+          <div><label for="s-country">${tr('Pays')}</label><select id="s-country">${B.countryOptionsHtml(me.country)}</select></div>
+          <div><label for="s-city">${tr('Ville')}</label><input id="s-city" maxlength="80" autocomplete="address-level2" value="${esc(me.city || '')}" /></div>
+        </div>
+        <label for="s-tz">${tr('Fuseau horaire')}</label>
+        <select id="s-tz">${B.zoneOptionsHtml(me.country, me.timezone || B.autoTimeZone(me.country))}</select>
+        <p class="muted small" id="s-tz-hint"></p>` : ''}
         <div class="actions"><span class="msg" id="s-msg"></span><span class="spacer"></span><button class="btn primary" id="s-save">${tr('Enregistrer')}</button></div>
       </section>
 
@@ -345,13 +354,37 @@ B.pages.settings = async (view) => {
     };
   };
 
+  // Lieu de résidence (lieu.js, migration 046) : le fuseau suit le pays choisi, l'appareil est proposé s'il diffère
+  const tzSel = $('#s-tz', view), countrySel = $('#s-country', view);
+  const tzHint = () => {
+    const hint = $('#s-tz-hint', view), dev = B.deviceTimeZone();
+    if (!hint) return;
+    const devInList = dev && [...tzSel.options].some((o) => o.value === dev);
+    if (!dev || tzSel.value === dev || B.tzOffset(dev) === B.tzOffset(tzSel.value)) {
+      hint.textContent = tr('Correspond à l’heure de cet appareil.');
+    } else {
+      hint.innerHTML = `${esc(tr('Cet appareil est à l’heure de {city} ({offset}).', { city: B.zoneCity(dev), offset: B.tzOffsetText(dev) }))}
+        ${devInList || !countrySel.value ? `<button type="button" class="link small" id="s-tz-dev">${tr('Utiliser ce fuseau')}</button>` : ''}`;
+      $('#s-tz-dev', view)?.addEventListener('click', () => {
+        if (![...tzSel.options].some((o) => o.value === dev)) tzSel.innerHTML = B.zoneOptionsHtml(null, dev);
+        tzSel.value = dev; tzHint();
+      });
+    }
+  };
+  if (tzSel) {
+    countrySel.onchange = () => { tzSel.innerHTML = B.zoneOptionsHtml(countrySel.value, B.autoTimeZone(countrySel.value || null)); tzHint(); };
+    tzSel.onchange = tzHint;
+    tzHint();
+  }
+
   // Profil
   $('#s-save', view).onclick = async () => {
     try {
       await B.updateMe({
         display_name: $('#s-name', view).value.trim() || me.display_name,
         handle: $('#s-handle', view).value.trim().toLowerCase(),
-        title: $('#s-title', view).value.trim() || null
+        title: $('#s-title', view).value.trim() || null,
+        ...(tzSel ? { country: countrySel.value || null, city: $('#s-city', view).value.trim() || null, timezone: tzSel.value || null } : {})
       });
       B.renderSidebar();
       $('#s-msg', view).textContent = tr('Enregistré.');

@@ -2075,7 +2075,24 @@ const EN = {
   "Vérifier maintenant": "Check now",
   "Vérification en cours… (30 secondes environ)": "Checking… (about 30 seconds)",
   "Vérification faite : {n} changement(s), message envoyé aux admins.": "Check done: {n} change(s), message sent to the admins.",
-  "Vérification faite : rien de nouveau.": "Check done: nothing new."
+  "Vérification faite : rien de nouveau.": "Check done: nothing new.",
+  // Lieu de résidence (v0.8.76)
+  "— Choisir —": "— Choose —",
+  "Pays": "Country",
+  "Ville": "City",
+  "Code postal": "Postcode",
+  "Code postal invalide.": "Invalid postcode.",
+  "Fuseau horaire": "Time zone",
+  "ex. 12 rue des Pins": "e.g. 12 Pine Street",
+  "Lieu de résidence": "Place of residence",
+  "Votre pays et votre ville se règlent dans « Mon profil » : ils servent à afficher votre heure locale à l’équipe.": "Your country and city are set in “My profile”: they are used to show your local time to the team.",
+  "Visible par les membres de vos projets et par leurs IA : ils voient l’heure qu’il est chez vous. Votre adresse reste privée (Mes informations personnelles).": "Visible to the members of your projects and their AIs: they see what time it is where you are. Your address stays private (My personal information).",
+  "Correspond à l’heure de cet appareil.": "Matches this device's time.",
+  "Cet appareil est à l’heure de {city} ({offset}).": "This device is set to {city} time ({offset}).",
+  "Utiliser ce fuseau": "Use this time zone",
+  "Il fait nuit chez {name} : {time} ({place})": "It's night-time for {name}: {time} ({place})",
+  "Heure locale de {name} : {time} ({place})": "{name}'s local time: {time} ({place})",
+  "{time} chez {name}": "{time} for {name}"
 };
 // ---- fin du dictionnaire
 

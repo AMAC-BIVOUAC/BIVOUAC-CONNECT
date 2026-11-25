@@ -75,7 +75,7 @@ B.renderOnline = () => {
       ? tr('{name} vous a écrit en privé', { name: m.display_name }) : tr('Écrire à {name}', { name: m.display_name }))}">
         ${B.dmAvatar(m, 26)}
         <span class="online-who"><span class="space-name" translate="no">${esc(m.display_name)}</span>${!offline && (B.statusOf(m.id)?.state !== 'free' || B.statusOf(m.id)?.text)
-          ? `<small class="online-status">${esc(B.statusText(m.id))}</small>` : ''}</span>
+          ? `<small class="online-status">${esc(B.statusText(m.id))}</small>` : ''}${B.localTimeHtml?.(m) || ''}</span>
         ${B.voiceWhere?.(m.id, project ? pid : null) ? `<span class="online-voice" title="${esc(tr('En vocal'))}">${icon('headphones', 13)}</span>` : ''}
         <span class="online-dm" aria-hidden="true">${icon('whisper', 15)}</span></a>`;
   box.innerHTML = (on.length
@@ -220,7 +220,7 @@ B.pages.messages = async (view, [otherId]) => {
   const conv = $('.dm-conv', view);
   conv.innerHTML = `
     <header class="dm-head"><a class="icon-btn dm-back" href="#/messages" title="${tr('Retour')}">${icon('arrow', 16)}</a>
-      ${avatar(other, 32)}<div><strong translate="no">${esc(other.display_name)}</strong><small class="dm-status"></small></div>
+      ${avatar(other, 32)}<div><strong translate="no">${esc(other.display_name)}</strong><small class="dm-status"></small>${B.localTimeHtml?.(other, { mode: 'chez' }) || ''}</div>
       <span class="pins-slot dm-pins"></span></header>
     <div class="dm-msgs"><div class="loading">${tr('Chargement…')}</div></div>
     <form class="dm-compose"><div class="reply-bar hidden"></div><div class="dm-pending"></div><div class="dm-compose-row">
