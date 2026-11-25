@@ -214,6 +214,7 @@ function errText(err) {
   if (susp) return tr('Votre compte est suspendu jusqu’au {date} par l’équipe Bivouac : vous pouvez lire, mais pas écrire. La raison est dans Messages.', { date: susp[1] });
   const admin = {
     'compte:banni': 'Ce compte a été fermé par l’équipe Bivouac.',
+    'compte:introuvable': 'Ce compte n’existe plus : il a été fermé ou supprimé. Créez un nouveau compte, ou écrivez-nous à contact@bivouac-tech.com.',
     'admin:connecteur': 'Les outils d’administration ne sont pas accessibles par le connecteur des IA.',
     'admin:double-authentification': 'Confirmez votre code de double authentification (demandé tous les 30 jours sur chaque appareil).',
     'admin:raison': 'Écrivez la raison (5 caractères minimum).',

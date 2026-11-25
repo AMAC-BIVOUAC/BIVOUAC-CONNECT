@@ -227,6 +227,10 @@ async function onSession(session) {
     B.sb.removeAllChannels();
     showScreen('login');
     showInviteBanner();
+    if (store.get('account-gone')) { // compte supprimé ou fermé pendant la session (B.accountGone, core.js)
+      store.set('account-gone', null);
+      loginMsg(errText(new Error('compte:introuvable')), true);
+    }
     return;
   }
 

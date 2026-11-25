@@ -2007,6 +2007,7 @@ const EN = {
   "Signaler {name}": "Report {name}",
   "Votre compte est suspendu jusqu’au {date} par l’équipe Bivouac : vous pouvez lire, mais pas écrire. La raison est dans Messages.": "Your account is suspended until {date} by the Bivouac team: you can read but not write. The reason is in Messages.",
   "Ce compte a été fermé par l’équipe Bivouac.": "This account was closed by the Bivouac team.",
+  "Ce compte n’existe plus : il a été fermé ou supprimé. Créez un nouveau compte, ou écrivez-nous à contact@bivouac-tech.com.": "This account no longer exists: it was closed or deleted. Create a new account, or write to us at contact@bivouac-tech.com.",
   "Confirmez votre code de double authentification (demandé tous les 30 jours sur chaque appareil).": "Confirm your two-factor code (asked every 30 days on each device).",
   "Écrivez la raison (5 caractères minimum).": "Write the reason (5 characters minimum).",
   "Il faut toujours au moins un admin.": "There must always be at least one admin.",

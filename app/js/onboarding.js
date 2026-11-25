@@ -150,6 +150,7 @@ B.startTour = ({ intro = false, profile = false, pid, then } = {}) => new Promis
   const end = () => {
     if (!alive) return;
     alive = false;
+    if (B.stopTour === end) B.stopTour = null;
     tour.classList.add('hidden');
     tour.innerHTML = '';
     document.removeEventListener('keydown', onKey);
@@ -158,6 +159,7 @@ B.startTour = ({ intro = false, profile = false, pid, then } = {}) => new Promis
     then?.();
     resolve();
   };
+  B.stopTour = end; // compte disparu pendant la visite : B.accountGone (core.js) ferme la carte
   // « Passer » / Échap : pendant la présentation du premier lancement, on saute au profil ; sinon on quitte
   const skip = () => {
     const at = steps[cur];

@@ -42,9 +42,29 @@ B.members = new Map(); // projectId -> [{ user_id, role }]
 // Profil
 // ---------------------------------------------------------------------
 
+/**
+ * Compte supprimé ou fermé pendant que l'app est ouverte : le jeton de connexion reste valable jusqu'à son expiration,
+ * mais la base ne trouve plus le profil (PostgREST PGRST116, « Cannot coerce the result to a single JSON object »).
+ * On vérifie auprès de Supabase Auth ; si le compte n'existe plus, on déconnecte proprement (visite guidée et fenêtre
+ * fermées, message sur l'écran de connexion) au lieu de laisser la personne bloquée sur une erreur incompréhensible.
+ */
+B.accountGone = async () => {
+  const { data, error } = await B.sb.auth.getUser();
+  if (data?.user && !error) return false;
+  B.stopTour?.();
+  B.closeModal?.();
+  store.set('account-gone', 1);
+  await B.sb.auth.signOut({ scope: 'local' }).catch(() => {});
+  return true;
+};
+const profileError = async (error) => {
+  if (error?.code === 'PGRST116' && (await B.accountGone().catch(() => false))) return new Error('compte:introuvable');
+  return error;
+};
+
 B.loadMe = async (userId) => {
   const { data, error } = await B.sb.from('profiles').select('*').eq('id', userId).single();
-  if (error) throw error;
+  if (error) throw await profileError(error);
   B.me = data;
   B.profiles.set(data.id, data);
   return data;
@@ -52,7 +72,7 @@ B.loadMe = async (userId) => {
 
 B.updateMe = async (patch) => {
   const { data, error } = await B.sb.from('profiles').update(patch).eq('id', B.me.id).select().single();
-  if (error) throw error;
+  if (error) throw await profileError(error);
   B.me = data;
   B.profiles.set(data.id, data);
   B.emit('me');
