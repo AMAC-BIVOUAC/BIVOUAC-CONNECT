@@ -284,7 +284,27 @@ B.pages.messages = async (view, [otherId]) => {
     return `<button type="button" class="msg-reply" data-jump-reply="${esc(p.id)}" title="${tr('Aller au message')}">${icon('reply', 13)}
       <strong translate="no">${esc(whoDm(p))}</strong><span translate="no">${esc(B.msgFirstLine(p.content) || (p.attachments?.length ? tr('Pièce jointe') : ''))}</span></button>`;
   };
-  const bubble = (d) => `<div class="dm-msg ${d.sender_id === B.me.id ? 'mine' : ''} ${d.pinned_at && !d.deleted_at ? 'pinned' : ''}" data-dm-id="${esc(d.id)}">
+  // Regroupement façon WhatsApp : bulles d'un même expéditeur rapprochées ; l'heure (et les coches) sous la
+  // dernière bulle de la minute seulement. Bloc coupé après 5 minutes de silence (B.msgSameGroup, msgmenu.js).
+  const sender = (d) => d.sender_id;
+  const neighbours = (d) => {
+    const list = [...shown.values()], i = list.indexOf(shown.get(d.id));
+    return i < 0 ? [list[list.length - 1], null] : [list[i - 1], list[i + 1]];
+  };
+  const footer = (d, showTime) => {
+    const parts = [
+      d.pinned_at && !d.deleted_at ? `<span class="pin-tag">${icon('pin', 12)} ${tr('Épinglé')}</span>` : '',
+      showTime ? fmtTime(d.created_at) : '',
+      d.edited_at && !d.deleted_at ? tr('(modifié)') : '',
+    ].filter(Boolean);
+    const tail = showTime ? receipt(d) : '';
+    return parts.length || tail ? `<small>${parts.join(' · ')}${tail}</small>` : '';
+  };
+  const bubble = (d) => {
+    const [prev, next] = neighbours(d);
+    const cont = B.msgSameGroup(prev, d, sender);
+    const showTime = !(B.msgSameGroup(d, next, sender) && B.msgSameMinute(d, next));
+    return `<div class="dm-msg ${d.sender_id === B.me.id ? 'mine' : ''} ${cont ? 'cont' : ''} ${d.pinned_at && !d.deleted_at ? 'pinned' : ''}" data-dm-id="${esc(d.id)}">
     ${d.deleted_at ? '' : replyQuote(d)}
     ${d.deleted_at ? `<em class="muted">${tr('Message supprimé')}</em>` : editing?.id === d.id ? `<div class="msg-edit"><textarea rows="2" maxlength="4000">${esc(editing.draft)}</textarea>
       <div class="msg-edit-actions"><button type="button" class="btn small" data-dm-cancel>${tr('Annuler')}</button><button type="button" class="btn small primary" data-dm-save>${tr('Enregistrer')}</button></div></div>`
@@ -293,11 +313,12 @@ B.pages.messages = async (view, [otherId]) => {
       ${B.messageImage(f, 'dm-files')}${icon('file', 20)}<span><strong translate="no">${esc(f.name)}</strong><small>${fmtSize(f.size)}</small></span></button>`).join('')}
     ${d.deleted_at ? '' : B.reactionsHtml(dmReactions(d))}
     ${d.hidden_at && !d.deleted_at ? `<small class="hidden-note">${icon('eyeoff', 12)} ${tr('Masqué par l’équipe Bivouac : vous seul le voyez.')}</small>` : ''}
-    <small>${d.pinned_at && !d.deleted_at ? `<span class="pin-tag">${icon('pin', 12)} ${tr('Épinglé')}</span> · ` : ''}${fmtTime(d.created_at)}${d.edited_at && !d.deleted_at ? ` · ${tr('(modifié)')}` : ''}${receipt(d)}</small>
+    ${footer(d, showTime)}
     ${d.deleted_at ? '' : `<div class="dm-tools">
       <button type="button" class="icon-btn" data-dm-quick="reply" title="${tr('Répondre')}" aria-label="${tr('Répondre')}">${icon('reply', 15)}</button>
       <button type="button" class="icon-btn" data-dm-quick="react" title="${tr('Ajouter une réaction')}" aria-label="${tr('Ajouter une réaction')}">${icon('smile', 15)}</button>
       <button type="button" class="icon-btn" data-dm-menu aria-haspopup="menu" aria-expanded="false" title="${tr('Plus d’actions (ou clic droit sur le message)')}" aria-label="${tr('Actions du message')}">⋯</button></div>`}</div>`;
+  };
   const repaint = id => {
     const el = box.querySelector(`[data-dm-id="${id}"]`), d = shown.get(id);
     if (el && d) el.replaceWith(h(bubble(d)));
@@ -339,6 +360,9 @@ B.pages.messages = async (view, [otherId]) => {
     shown.set(d.id, d);
     box.querySelector('.empty-dm')?.remove();
     box.insertAdjacentHTML('beforeend', bubble(d));
+    // La bulle d'avant peut perdre son heure (même minute, même expéditeur) : on la redessine
+    const [prev] = neighbours(d);
+    if (prev && editing?.id !== prev.id && B.msgSameGroup(prev, d, sender)) repaint(prev.id);
     if (follow) box.scrollTop = box.scrollHeight;
   };
   box.addEventListener('click', async (e) => {

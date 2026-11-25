@@ -69,7 +69,7 @@ B.chat = async (root, { project, channel, mode }) => {
     const bounds = list.getBoundingClientRect();
     const ids = $$('.msg', list).filter(el => {
       const m = st.messages.find(m => m.id === el.dataset.id);
-      const head = $('.msg-head', el)?.getBoundingClientRect();
+      const head = $('.msg-body', el)?.getBoundingClientRect();
       return m && m.author_id !== B.me.id && !st.reads.get(m.id)?.has(B.me.id)
         && head && head.top >= bounds.top && head.bottom <= bounds.bottom;
     }).map(el => el.dataset.id).slice(0, 100);
@@ -198,7 +198,7 @@ B.chat = async (root, { project, channel, mode }) => {
     const joinIdx = myJoin && shown[0] && shown[0].created_at < myJoin ? shown.findIndex((m) => m.created_at >= myJoin) : -1;
     list.innerHTML = (st.hasMore ? `<div class="older"><button class="btn small" data-older>${icon('arrow', 13).replace('<svg', '<svg style="transform:rotate(-90deg)"')} ${tr('Charger les messages plus anciens')}</button></div>`
       : shown.length > 8 ? `<div class="older muted small">${tr('Début du salon')}</div>` : '')
-      + shown.map((m, i) => (i === joinIdx ? `<div class="join-mark"><span>${tr('Vous avez rejoint le projet ici · les messages au-dessus datent d\'avant votre arrivée')}</span></div>` : '') + msgHtml(m)).join('');
+      + shown.map((m, i) => (i === joinIdx ? `<div class="join-mark"><span>${tr('Vous avez rejoint le projet ici · les messages au-dessus datent d\'avant votre arrivée')}</span></div>` : '') + msgHtml(m, i ? shown[i - 1] : null)).join('');
     if (keepScroll) {
       list.scrollTop = list.scrollHeight - keepScroll.fromBottom;
       keepScroll = null;
@@ -237,13 +237,36 @@ B.chat = async (root, { project, channel, mode }) => {
       </div>`;
   }
 
-  function msgHtml(m) {
+  // ---------------- Regroupement façon WhatsApp ----------------
+  // Une IA se regroupe avec elle-même (même propriétaire, même façon d'arriver, même demandeur), jamais avec une personne.
+  function senderKey(m) { return m.is_ai ? `ai:${m.author_id}:${m.ai_provider}:${m.via}:${m.requested_by || ''}` : `h:${m.author_id}`; }
+  function shownNeighbour(m, step) {
+    for (let i = st.messages.indexOf(m) + step; i >= 0 && i < st.messages.length; i += step) {
+      if (visible(st.messages[i])) return st.messages[i];
+    }
+    return null;
+  }
+  /** Le message précédent du même bloc, ou null si ce message ouvre un bloc (avatar, nom, heure) */
+  function groupPrev(m, prev) {
+    if (prev === undefined) prev = shownNeighbour(m, -1);
+    if (!prev || (myJoin && prev.created_at < myJoin && m.created_at >= myJoin)) return null; // repère « Vous avez rejoint »
+    return B.msgSameGroup(prev, m, senderKey) ? prev : null;
+  }
+
+  function msgHtml(m, prevShown) {
     const author = B.person(m.author_id);
     const files = st.files.get(m.id) || [];
     const mine = m.author_id === B.me.id;
     const editing = st.editing?.id === m.id;
-    let head;
-    if (m.is_ai) {
+    const pinTag = m.pinned_at ? `<span class="pin-tag">${icon('pin', 12)} ${tr('Épinglé')}</span>` : '';
+    const prev = groupPrev(m, prevShown);
+    let head, side, headHtml;
+    if (prev) {
+      // Suite d'un bloc : ni avatar ni nom ; l'heure dans la marge seulement si elle change (sinon au survol)
+      const extra = pinTag + editedHtml(m);
+      side = `<span class="msg-gutter" aria-hidden="${B.msgSameMinute(prev, m)}"><span class="time ${B.msgSameMinute(prev, m) ? '' : 'show'}">${fmtTime(m.created_at)}</span></span>`;
+      headHtml = extra ? `<div class="msg-head mini">${extra}</div>` : '';
+    } else if (m.is_ai) {
       const asked = m.requested_by && m.requested_by !== m.author_id
         ? ` · ${tr('demandé par {who}', { who: esc(B.person(m.requested_by).display_name) })}` : '';
       head = `<span class="name" translate="no">${esc(aiName(m.ai_provider, author))}</span>
@@ -251,11 +274,15 @@ B.chat = async (root, { project, channel, mode }) => {
     } else {
       head = `<span class="name">${esc(author.display_name)}</span><span class="time">${fmtTime(m.created_at)}</span>${editedHtml(m)}`;
     }
+    if (!prev) {
+      side = m.is_ai ? aiAvatar(m.ai_provider, 38, author) : avatar(author, 38);
+      headHtml = `<div class="msg-head">${head}${pinTag}</div>`;
+    }
     // IA : avatar double (marque + propriétaire) et liseré à la couleur de son propriétaire
-    return `<div class="msg ${m.is_ai ? 'ai' : ''} ${m.pinned_at ? 'pinned' : ''}" data-id="${m.id}"${m.is_ai ? ` style="--owner:${colorFor(author.id)}"` : ''}>
-      ${m.is_ai ? aiAvatar(m.ai_provider, 38, author) : avatar(author, 38)}
+    return `<div class="msg ${m.is_ai ? 'ai' : ''} ${mine && !m.is_ai ? 'mine' : ''} ${prev ? 'cont' : ''} ${m.pinned_at ? 'pinned' : ''}" data-id="${m.id}"${m.is_ai ? ` style="--owner:${colorFor(author.id)}"` : ''}>
+      ${side}
       <div class="msg-body">
-        <div class="msg-head">${head}${m.pinned_at ? `<span class="pin-tag">${icon('pin', 12)} ${tr('Épinglé')}</span>` : ''}</div>
+        ${headHtml}
         ${replyQuoteHtml(m)}
         ${editing ? editorHtml() : isLong(m) ? `<div class="msg-text ${st.unfolded.has(m.id) ? '' : 'folded'}" id="mt-${m.id}" translate="no">${md(m.content)}</div>
           <button type="button" class="msg-more" data-more aria-controls="mt-${m.id}" aria-expanded="${st.unfolded.has(m.id)}">${st.unfolded.has(m.id) ? tr('Réduire') : tr('Afficher le message complet')}${icon(st.unfolded.has(m.id) ? 'up' : 'down', 14)}</button>`
@@ -626,10 +653,19 @@ B.chat = async (root, { project, channel, mode }) => {
     const id = p.old?.id;
     if (!id) return;
     if (st.messages.some((m) => m.id === id)) {
+      // Le message suivant peut devenir le début d'un bloc (avatar, nom, heure) : on le redessine
+      const next = shownNeighbour(st.messages.find((m) => m.id === id), 1);
       st.messages = st.messages.filter((m) => m.id !== id);
       if (st.editing?.id === id) st.editing = null;
       const el = $(`.msg[data-id="${id}"]`, list);
-      if (el) { el.classList.add('vanish'); setTimeout(() => { el.remove(); if (!st.messages.some(visible)) render(); }, 250); }
+      if (el) {
+        el.classList.add('vanish');
+        setTimeout(() => {
+          el.remove();
+          if (!st.messages.some(visible)) render();
+          else if (next && st.editing?.id !== next.id) rerenderOne(next.id);
+        }, 250);
+      }
     }
     if (st.pins.some((x) => x.id === id)) { st.pins = st.pins.filter((x) => x.id !== id); renderPins(); }
   }, 'DELETE');

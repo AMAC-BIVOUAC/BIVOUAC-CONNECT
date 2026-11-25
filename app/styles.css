@@ -524,6 +524,16 @@ textarea { resize: vertical; }
 .reaction.mine { border-color: var(--teal); background: var(--teal-soft); }
 .msg-tools { position: absolute; top: 4px; right: 8px; display: none; background: var(--card); border-radius: var(--r-md); box-shadow: var(--shadow); }
 .msg:hover .msg-tools, .msg:focus-within .msg-tools { display: flex; }
+/* Regroupement façon WhatsApp (v0.8.79) : suite d'un bloc = ni avatar ni nom, l'heure dans la marge quand elle change */
+.msg.cont { padding-top: 2px; padding-bottom: 2px; }
+.msg:has(+ .msg.cont) { padding-bottom: 2px; }
+.msg-gutter { flex: none; width: 38px; display: flex; justify-content: center; padding-top: 4px; }
+.msg-gutter .time { font-size: var(--fs-label); color: var(--muted); visibility: hidden; white-space: nowrap; }
+.msg-gutter .time.show, .msg.cont:hover .msg-gutter .time, .msg.cont:focus-within .msg-gutter .time { visibility: visible; }
+.msg.cont .msg-text { margin-top: 0; }
+.msg-head.mini { gap: 6px; }
+/* Coches de lecture : une seule fois, sous le dernier message du bloc */
+.msg.mine:has(+ .msg.cont) .msg-read { display: none; }
 .emoji-picker { position: absolute; right: 8px; top: 38px; z-index: 5; display: flex; gap: 2px; background: var(--card); border-radius: var(--r-md); box-shadow: var(--shadow-pop); padding: 4px; }
 .emoji-picker button { font-size: var(--fs-strong); background: none; border: 0; cursor: pointer; padding: 4px 6px; border-radius: var(--r-sm); }
 .emoji-picker button:hover { background: var(--bg); }
@@ -1581,6 +1591,7 @@ video.mirror { transform: scaleX(-1); }
 .dm-msgs { flex: 1; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 8px; min-height: 0; }
 .dm-msg { display: flex; flex-direction: column; align-items: flex-start; max-width: 78%; }
 .dm-msg.mine { align-self: flex-end; align-items: flex-end; }
+.dm-msg.cont { margin-top: -6px; } /* bulles d'un même expéditeur rapprochées (v0.8.79) */
 .dm-bubble { background: var(--column); border-radius: var(--r-lg) var(--r-lg) var(--r-lg) var(--r-sm); padding: 8px 12px; line-height: 1.45; overflow-wrap: anywhere; white-space: pre-wrap; }
 .dm-msg.mine .dm-bubble { background: var(--teal); color: var(--card); border-radius: var(--r-lg) var(--r-lg) var(--r-sm) var(--r-lg); }
 .dm-msg.mine .dm-bubble a { color: var(--card); }
@@ -2679,6 +2690,18 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--teal); }
 .dm-msg .pin-tag { margin-left: 0; }
 .dm-msg .reactions { margin-top: 4px; }
 .dm-msg .msg-reply { max-width: 320px; }
+/* Boutons hors du flux, pas sur une ligne à part : les bulles regroupées restent serrées (v0.8.79).
+   Ordinateur : petite barre posée sur le coin haut de la bulle, au survol ou au clavier (comme les salons).
+   Téléphone : le ⋯ seul, à côté de la bulle (il reste toujours de la place : une bulle fait 78 % au plus). */
+.dm-msg { position: relative; align-self: flex-start; }
+.dm-msg.mine { align-self: flex-end; }
+.dm-tools { position: absolute; top: 0; right: 0; transform: translateY(-50%); background: var(--card); border-radius: var(--r-md); box-shadow: var(--shadow); }
+.dm-msg:not(:hover):not(:focus-within):not(.ctx-on) .dm-tools { opacity: 0; }
+@media (max-width: 760px), (hover: none) {
+  .dm-msg:not(:hover):not(:focus-within):not(.ctx-on) .dm-tools { opacity: 1; }
+  .dm-tools { transform: none; top: 2px; right: auto; left: 100%; background: none; box-shadow: none; }
+  .dm-msg.mine .dm-tools { left: auto; right: 100%; }
+}
 .dm-tools [data-dm-quick] { display: none; }
 .dm-msg:hover .dm-tools [data-dm-quick], .dm-msg:focus-within .dm-tools [data-dm-quick] { display: inline-flex; }
 @media (hover: none) {

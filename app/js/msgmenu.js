@@ -6,6 +6,18 @@
 
 B.QUICK_EMOJIS = ['👍', '❤️', '😂', '😮', '😢', '🙏'];
 
+/* Regroupement façon WhatsApp (v0.8.79, Apo) : les messages qui se suivent d'un même expéditeur forment
+   un bloc ; avatar et nom une seule fois, l'heure seulement quand elle change. Le bloc se coupe après
+   5 minutes de silence. who(m) = qui a écrit (une IA et son propriétaire ne se regroupent pas). */
+B.GROUP_GAP_MS = 5 * 60 * 1000;
+B.msgSameGroup = (prev, m, who) => {
+  if (!prev || !m || who(prev) !== who(m)) return false;
+  const gap = new Date(m.created_at) - new Date(prev.created_at);
+  return gap >= 0 && gap < B.GROUP_GAP_MS;
+};
+/** Même minute affichée (deux messages d'un même bloc : l'heure n'est pas répétée) */
+B.msgSameMinute = (a, b) => Boolean(a && b) && fmtTime(a.created_at) === fmtTime(b.created_at);
+
 let msgCtx = null; // menu ouvert : { el, back, key, opener, msgEl, off }
 
 /** Le message dont le menu est ouvert (ou null) */
