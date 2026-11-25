@@ -259,7 +259,7 @@ async function onSession(session) {
       location.hash = '#/home';
       await B.route();
       setTimeout(() => B.runOnboarding({ pid: joined, then: () => { if (joined) location.hash = `#/p/${joined}`; } }), 400);
-      (await B.pendingRequestsForMe()).forEach(B.showIncomingRequest);
+      B.refreshRequests().catch(console.error);
       return;
     }
     if (joined) location.hash = `#/p/${joined}`;
@@ -270,7 +270,7 @@ async function onSession(session) {
     if (!joined && !/^(#\/home)?$/.test(location.hash)) B.showTodayTasks();
 
     // Demandes d'IA reçues pendant mon absence
-    (await B.pendingRequestsForMe()).forEach(B.showIncomingRequest);
+    B.refreshRequests().catch(console.error);
   } catch (err) {
     B.error(err);
   }
@@ -289,6 +289,7 @@ B.on('notification', (n) => {
   }
 });
 B.on('ai_request', (req) => B.showIncomingRequest(req));
+B.on('ai_request_update', () => B.refreshRequests().catch(console.error)); // traitée ailleurs (connecteur, autre appareil)
 
 // ---------------------------------------------------------------------
 // Démarrage

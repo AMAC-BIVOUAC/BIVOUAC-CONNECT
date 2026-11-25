@@ -25,10 +25,7 @@ B.renderNotifications = (box) => {
     box.innerHTML = data.length ? data.map((n) => {
       const req = n.type === 'ai_request' ? reqMap.get(n.ref_id) : null;
       const actions = req?.status === 'pending'
-        ? `<div class="notif-actions"><button class="btn small" data-refuse="${req.id}">${tr('Refuser')}</button>
-           ${B.hasProvider(req.provider)
-             ? `<button class="btn small primary" data-accept="${req.id}">${tr('Accepter (ma clé)')}</button>`
-             : `<span class="notif-status">${tr('À traiter depuis ton app {ai} : « Traite mes demandes Bivouac »', { ai: esc(PROVIDERS[req.provider]?.label || '') })}</span>`}</div>`
+        ? `<div class="notif-actions"><button class="btn small primary" data-req="${req.id}" data-nid="${n.id}">${tr('Voir la demande')}</button></div>`
         : req ? `<span class="notif-status">${STATUS[req.status] || ''}${req.error ? ' · ' + esc(req.error) : ''}</span>` : '';
       return `<div class="notif ${n.read_at ? '' : 'unread'}" data-id="${n.id}">
         ${avatar(B.person(n.actor_id), 36)}
@@ -43,16 +40,11 @@ B.renderNotifications = (box) => {
     paintIcons(box);
   };
   box.addEventListener('click', async (e) => {
-    const accept = e.target.closest('[data-accept]'), refuse = e.target.closest('[data-refuse]'), open = e.target.closest('[data-open]');
-    if (accept) {
-      accept.disabled = true;
-      accept.textContent = tr("L'IA travaille…");
-      await B.acceptRequest(reqMap.get(accept.dataset.accept)).catch(B.error);
-      return load();
-    }
-    if (refuse) {
-      await B.refuseRequest(reqMap.get(refuse.dataset.refuse)).catch(B.error);
-      return load();
+    const see = e.target.closest('[data-req]'), open = e.target.closest('[data-open]');
+    if (see) { // la fenêtre de la demande (Accepter / Refuser) ; la notification est lue
+      B.sb.from('notifications').update({ read_at: new Date().toISOString() }).eq('id', see.dataset.nid).then(() => B.refreshBadge());
+      B.closeBell();
+      return B.openAiRequest(see.dataset.req);
     }
     if (open) { // ouvrir une notification = elle est lue ; le lien fait le reste
       B.sb.from('notifications').update({ read_at: new Date().toISOString() }).eq('id', open.dataset.open).then(() => B.refreshBadge());
@@ -104,6 +96,12 @@ B.openBell = () => {
 $('#bell-btn').addEventListener('click', B.openBell);
 document.addEventListener('keydown', (e) => { if (e.key === 'Escape') B.closeBell(); });
 window.addEventListener('hashchange', () => B.closeBell());
+
+/** #/demande/<id> (clic sur une notification de demande d'IA) : Aujourd'hui, avec la fenêtre de la demande */
+B.pages.demande = async (_view, [id]) => {
+  location.replace('#/home');
+  if (/^[0-9a-f-]{36}$/.test(id || '')) setTimeout(() => B.openAiRequest(id), 350);
+};
 
 /** Ancienne page : on revient sur « Aujourd'hui », cloche ouverte */
 B.pages.notifications = async () => {

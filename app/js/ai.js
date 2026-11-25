@@ -156,7 +156,7 @@ B.requestAi = async ({ targetId, provider, projectId, channelId, prompt }) => {
     projectId,
     type: 'ai_request',
     text: tr('{who} veut utiliser ton {ai} : « {prompt} »', { who: B.me.display_name, ai: PROVIDERS[provider].label, prompt: prompt.slice(0, 160) }),
-    link: `#/p/${projectId}/atelier`,
+    link: `#/demande/${data.id}`, // ouvre la fenêtre de la demande (Accepter / Refuser)
     refId: data.id
   });
   return data;
@@ -183,6 +183,38 @@ B.acceptRequest = async (req) => {
     await B.sb.from('ai_requests').update({ status: 'error', error: errText(err).slice(0, 300), updated_at: new Date().toISOString() }).eq('id', req.id);
     throw err;
   }
+};
+
+/** Texte prêt à envoyer à l'IA de mon abonnement (connecteur) pour traiter UNE demande */
+B.requestPrompt = (req) => {
+  const head = tr('Avec le connecteur BIVOUAC-TECH, traite la demande de {who} dans le projet « {project} » (demande {id}) : lis l\'Atelier IA et le projet, puis réponds avec answer_request.', {
+    who: B.person(req.requester_id).display_name, project: B.project(req.project_id)?.name || '', id: req.id
+  });
+  const room = Math.max(200, 1450 - head.length);
+  const ask = req.prompt.length > room ? req.prompt.slice(0, room) + '…' : req.prompt;
+  return `${head}\n\n${tr('Sa demande :')} « ${ask} »`;
+};
+
+/**
+ * J'accepte une demande pour l'IA de mon ABONNEMENT : son application s'ouvre avec la demande déjà écrite
+ * (Windows : application de bureau si installée ; Android : application si installée ; sinon le site).
+ * À appeler DIRECTEMENT dans le clic : le navigateur bloque une ouverture qui arrive après une attente.
+ */
+B.acceptRequestInApp = (req) => {
+  const prompt = B.requestPrompt(req);
+  navigator.clipboard?.writeText(prompt).catch(() => {}); // au cas où l'application ne reprend pas le texte
+  const opened = window.bivouac.openAssistant(req.provider, prompt).catch((err) => { console.warn(err); return { target: 'web', prefilled: false }; });
+  const saved = (async () => {
+    const { error } = await B.sb.from('ai_requests').update({ status: 'accepted', updated_at: new Date().toISOString() })
+      .eq('id', req.id).eq('status', 'pending');
+    if (error) throw error;
+    await B.notify(req.requester_id, {
+      projectId: req.project_id, type: 'ai_answer',
+      text: tr('{who} a accepté ta demande : son {ai} s\'en occupe.', { who: B.me.display_name, ai: PROVIDERS[req.provider].label }),
+      link: `#/p/${req.project_id}/atelier`, refId: req.id
+    });
+  })();
+  return Promise.all([opened, saved]).then(([res]) => res);
 };
 
 B.refuseRequest = async (req) => {

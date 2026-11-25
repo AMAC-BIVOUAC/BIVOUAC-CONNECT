@@ -521,6 +521,8 @@ B.startGlobalLive = () => {
   B.sb.channel('me-requests')
     .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'ai_requests', filter: `target_id=eq.${B.me.id}` },
       (p) => B.emit('ai_request', p.new))
+    .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'ai_requests', filter: `target_id=eq.${B.me.id}` },
+      () => B.emit('ai_request_update'))
     .subscribe();
   B.sb.channel('me-memberships')
     .on('postgres_changes', { event: '*', schema: 'public', table: 'project_members' },

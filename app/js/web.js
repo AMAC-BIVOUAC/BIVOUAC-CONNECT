@@ -30,6 +30,8 @@
     deepseek: () => 'https://chat.deepseek.com/'
   };
   const NO_PREFILL = ['gemini', 'deepseek'];
+  // Applications Android des IA (identifiants du Play Store) : ouvertes en priorité quand elles sont installées
+  const ANDROID_APPS = { anthropic: 'com.anthropic.claude', openai: 'com.openai.chatgpt' };
 
   // ---------- Invitation reçue par lien : #/rejoindre/<code> (ou ?rejoindre=<code>) ----------
   function readInvite() {
@@ -60,10 +62,20 @@
     askAi: noKeys,
     summarize: noKeys,
 
+    // Appelée au moment du clic (sinon le navigateur bloque l'ouverture) : rien d'asynchrone avant open().
     openAssistant: async (provider, prompt) => {
       const make = ASSISTANTS[provider];
       if (!make) throw new Error(`Fournisseur inconnu : ${provider}`);
-      open(make(encodeURIComponent(String(prompt || '').slice(0, 1500))));
+      const url = make(encodeURIComponent(String(prompt || '').slice(0, 1500)));
+      // Android : l'application de l'IA si elle est installée, sinon son site (browser_fallback_url).
+      // iPhone : l'adresse https ouvre d'elle-même l'application installée (liens universels).
+      const pkg = ANDROID_APPS[provider];
+      if (pkg && /Android/i.test(navigator.userAgent)) {
+        const u = new URL(url);
+        window.open(`intent://${u.host}${u.pathname}${u.search}#Intent;scheme=https;package=${pkg};S.browser_fallback_url=${encodeURIComponent(url)};end`, '_blank');
+        return { target: 'app', prefilled: !NO_PREFILL.includes(provider) };
+      }
+      open(url);
       return { target: 'web', prefilled: !NO_PREFILL.includes(provider) };
     },
 

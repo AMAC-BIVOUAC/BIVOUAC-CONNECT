@@ -66,8 +66,9 @@ B.pages.home = async (view) => {
       return;
     }
     const wv = waitingVotes();
-    const waiting = wv.length + mentions.length;
-    const people = new Set([...wv.map((i) => i.author_id), ...mentions.map((n) => n.actor_id)]).size;
+    const reqs = (B.pendingReqs || []).filter((r) => B.project(r.project_id));
+    const waiting = reqs.length + wv.length + mentions.length;
+    const people = new Set([...reqs.map((r) => r.requester_id), ...wv.map((i) => i.author_id), ...mentions.map((n) => n.actor_id)]).size;
 
     // Bandeau : une phrase, et les tâches terminées par l'équipe cette semaine
     $('#today-sum', view).textContent = [
@@ -90,6 +91,12 @@ B.pages.home = async (view) => {
     const waitHtml = waiting ? `
       <section class="card wait" id="today-wait">
         <div class="card-label wait-label"><span class="label-ico">${icon('bell', 15)}</span>${tr('On vous attend')}<span class="n">${waiting}</span></div>
+        ${reqs.map((r) => `<div class="wait-row">
+            <span class="wait-ico req-ico"><img src="assets/robot-tete.webp" alt="" width="30" height="30" /></span>
+            <div class="wait-text"><b>${tr('{who} veut utiliser votre {ai}', { who: `<span translate="no">${esc(B.person(r.requester_id).display_name)}</span>`, ai: esc(PROVIDERS[r.provider]?.label || r.provider) })}</b>
+              <span class="meta">${projDot(B.project(r.project_id))} · ${timeAgo(r.created_at)}</span></div>
+            <button class="btn primary" data-req="${r.id}">${tr('Voir')}</button>
+          </div>`).join('')}
         ${wv.map((i) => {
           const voted = new Set(votes.filter((v) => v.item_id === i.id).map((v) => v.user_id)).size;
           return `<div class="wait-row">
@@ -152,6 +159,8 @@ B.pages.home = async (view) => {
   // Clics : cocher, ouvrir, reporter, répondre, voir tout
   // (sur la page elle-même, recréée à chaque visite : #view, lui, reste en place)
   $('.today', view).addEventListener('click', async (e) => {
+    const see = e.target.closest('[data-req]');
+    if (see) return B.openAiRequest(see.dataset.req);
     const answer = e.target.closest('[data-answer]');
     if (answer) {
       const n = mentions.find((x) => x.id === answer.dataset.answer);
@@ -176,4 +185,5 @@ B.pages.home = async (view) => {
   B.onLeave(B.on('projects', soon));
   B.onLeave(B.on('notification', soon));
   B.onLeave(B.on('notification-read', soon));
+  B.onLeave(B.on('requests', render)); // demandes d'IA : relues par B.refreshRequests (ui.js)
 };

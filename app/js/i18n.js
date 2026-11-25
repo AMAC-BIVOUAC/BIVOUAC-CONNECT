@@ -252,6 +252,33 @@ const EN = {
 
   // ---------- Demandes d'IA ----------
   '{who} veut utiliser ton {ai}': '{who} wants to use your {ai}',
+  // Demande d'IA : notification « Voir » et fenêtre de la demande (25/11)
+  "Avec le connecteur BIVOUAC-TECH, traite la demande de {who} dans le projet « {project} » (demande {id}) : lis l'Atelier IA et le projet, puis réponds avec answer_request.":
+    "Using the BIVOUAC-TECH connector, handle {who}'s request in the “{project}” project (request {id}): read the AI Workshop and the project, then reply with answer_request.",
+  'Sa demande :': 'Their request:',
+  "{who} a accepté ta demande : son {ai} s'en occupe.": '{who} accepted your request: their {ai} is on it.',
+  'Voir la demande': 'See the request',
+  '{who} veut utiliser votre {ai}': '{who} wants to use your {ai}',
+  '{n} demandes pour vos IA': '{n} requests for your AIs',
+  'Cette demande n’existe plus.': 'This request no longer exists.',
+  'Acceptée : votre IA s’en occupe.': 'Accepted: your AI is on it.',
+  'Déjà traitée : la réponse est dans l’Atelier IA.': 'Already handled: the answer is in the AI Workshop.',
+  'Vous avez refusé cette demande.': 'You declined this request.',
+  'Erreur : {err}': 'Error: {err}',
+  'Demande pour votre IA': 'Request for your AI',
+  '{who} voudrait utiliser votre {ai}': '{who} would like to use your {ai}',
+  'IA concernée': 'AI',
+  'Qui demande': 'Requested by',
+  'La demande': 'The request',
+  'Si vous acceptez, votre {ai} répond tout de suite dans l’Atelier IA, avec votre clé API (l’appel vous est facturé).':
+    'If you accept, your {ai} answers right away in the AI Workshop, using your API key (the call is billed to you).',
+  'Si vous acceptez, votre application {ai} s’ouvre avec la demande déjà écrite : envoyez-la, la réponse arrivera dans l’Atelier IA du projet.':
+    'If you accept, your {ai} app opens with the request already written: send it, and the answer will arrive in the project’s AI Workshop.',
+  'Demande refusée. {who} est prévenu·e.': 'Request declined. {who} has been told.',
+  'C’est fait : la réponse est dans l’Atelier IA.': 'Done: the answer is in the AI Workshop.',
+  '{ai} s’ouvre dans votre navigateur avec la demande prête : envoyez-la.': '{ai} is opening in your browser with the request ready: send it.',
+  'Votre application {ai} s’ouvre avec la demande prête : envoyez-la.': 'Your {ai} app is opening with the request ready: send it.',
+  'Si le texte n’y est pas, collez-le : il est déjà copié.': 'If the text isn’t there, paste it: it’s already copied.',
   '{who} veut utiliser ton {ai} : « {prompt} »': '{who} wants to use your {ai}: “{prompt}”',
   '<strong>{who}</strong> veut utiliser ton <strong>{ai}</strong> dans {project} :': '<strong>{who}</strong> wants to use your <strong>{ai}</strong> in {project}:',
   'Ouvre ton application {ai} et dis : <b>« Traite mes demandes Bivouac »</b> (connecteur BIVOUAC-TECH).':

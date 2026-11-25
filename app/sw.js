@@ -4,7 +4,7 @@
 // sans connexion. Seuls les fichiers du site sont gardés (jamais les données de Supabase).
 // Le numéro est remplacé à la construction du site (scripts/build-web.mjs).
 // =====================================================================
-const CACHE = 'bivouac-0.8.73-mwvvs8om';
+const CACHE = 'bivouac-0.8.74-mww00bwf';
 const SHELL = ['./', 'index.html', 'styles.css', 'manifest.webmanifest'];
 
 self.addEventListener('install', (e) => {
@@ -44,7 +44,8 @@ self.addEventListener('push', (e) => {
     return self.registration.showNotification(d.title || 'BIVOUAC-TECH', {
       body: d.body || '',
       icon: 'assets/icon-192.png',
-      badge: 'assets/icon-192.png',
+      // Petite icône de la barre d'état (Android) : silhouette blanche sur fond transparent, sinon c'est un carré
+      badge: 'assets/badge-96.png',
       tag: d.tag || undefined,
       renotify: !!d.tag,
       silent: !!d.silent,

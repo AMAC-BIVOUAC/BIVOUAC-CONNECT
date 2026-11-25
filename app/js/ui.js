@@ -422,37 +422,113 @@ B.refreshBadge = async () => {
   $('#bell-btn').setAttribute('aria-label', $('#bell-btn').title);
 };
 
-// ---------- Demande d'IA entrante : toast Accepter / Refuser ----------
+// ---------- Demande d'IA entrante : petite notification « Voir », puis la fenêtre de la demande ----------
 
+B.pendingReqs = [];
+const seenReqs = () => new Set(store.get('ai-req-seen') || []);
+/** Relit les demandes en attente qui me sont adressées : robot de la barre du haut + « On vous attend » */
+B.refreshRequests = async () => {
+  if (!B.me) return;
+  B.pendingReqs = await B.pendingRequestsForMe();
+  B.paintRequestBtn();
+  B.emit('requests', B.pendingReqs);
+};
+/** La tête du robot à côté de la cloche : visible tant qu'une demande attend, halo tant qu'elle n'a pas été ouverte */
+B.paintRequestBtn = () => {
+  const b = $('#req-btn');
+  if (!b) return;
+  const reqs = B.pendingReqs, n = reqs.length, seen = seenReqs();
+  b.classList.toggle('hidden', !n);
+  b.classList.toggle('fresh', reqs.some((r) => !seen.has(r.id)));
+  const first = reqs[0];
+  const label = !n ? '' : n > 1 ? tr('{n} demandes pour vos IA', { n })
+    : tr('{who} veut utiliser votre {ai}', { who: B.person(first.requester_id).display_name, ai: PROVIDERS[first.provider]?.label || first.provider });
+  b.title = label;
+  b.setAttribute('aria-label', label);
+  const c = $('.req-n', b);
+  c.textContent = n > 1 ? String(n) : '';
+  c.classList.toggle('hidden', n < 2);
+};
+$('#req-btn')?.addEventListener('click', () => {
+  const seen = seenReqs();
+  const next = B.pendingReqs.find((r) => !seen.has(r.id)) || B.pendingReqs[0];
+  if (next) B.openAiRequest(next.id);
+});
+
+/** Nouvelle demande reçue (temps réel) : son, notification du système, robot qui s'allume */
 B.showIncomingRequest = (req) => {
   const who = B.person(req.requester_id).display_name;
   const label = PROVIDERS[req.provider]?.label || req.provider;
-  const projectName = B.project(req.project_id)?.name || '';
   B.playSound('notif');
-  B.pcNotify(tr('{who} veut utiliser ton {ai}', { who, ai: label }), req.prompt.slice(0, 120), B.soundPrefs().notif);
-  if (!B.hasProvider(req.provider)) {
-    // Pas de clé API pour cette IA : on la traite avec l'abonnement, depuis l'application Claude
-    B.toast(
-      `${tr('<strong>{who}</strong> veut utiliser ton <strong>{ai}</strong> dans {project} :', { who: esc(who), ai: esc(label), project: esc(projectName) })}<br><em>« ${esc(req.prompt.slice(0, 200))} »</em><br>
-       <small>${tr('Ouvre ton application {ai} et dis : <b>« Traite mes demandes Bivouac »</b> (connecteur BIVOUAC-TECH).', { ai: esc(label) })}</small>`,
-      { type: 'request', timeout: 0, actions: [[tr('Refuser'), '', () => B.refuseRequest(req).catch(B.error)]] }
-    );
-    return;
-  }
-  B.toast(
-    `${tr('<strong>{who}</strong> veut utiliser ton <strong>{ai}</strong> dans {project} :', { who: esc(who), ai: esc(label), project: esc(projectName) })}<br><em>« ${esc(req.prompt.slice(0, 200))} »</em><br><small>${tr("L'appel sera facturé sur ta clé API.")}</small>`,
-    {
-      type: 'request',
-      timeout: 0,
-      actions: [
-        [tr('Refuser'), '', () => B.refuseRequest(req).catch(B.error)],
-        [tr('Accepter'), 'primary', async () => {
-          B.toast(tr('{ai} travaille pour {who}…', { ai: esc(label), who: esc(who) }), { timeout: 3000 });
-          await B.acceptRequest(req).catch(B.error);
-        }]
-      ]
+  B.pcNotify(tr('{who} veut utiliser votre {ai}', { who, ai: label }), B.project(req.project_id)?.name || '', B.soundPrefs().notif, `#/demande/${req.id}`);
+  B.refreshRequests().catch(console.error);
+};
+
+/** La fenêtre d'une demande : quelle IA, qui demande, quel projet, la demande ; Accepter / Refuser */
+B.openAiRequest = async (id) => {
+  const { data: req, error } = await B.sb.from('ai_requests').select('*').eq('id', id).maybeSingle();
+  if (error) return B.error(error);
+  if (!req) return B.toast(tr('Cette demande n’existe plus.'));
+  store.set('ai-req-seen', [...seenReqs(), id].slice(-50)); // le robot arrête de clignoter pour celle-ci
+  B.paintRequestBtn();
+  const label = PROVIDERS[req.provider]?.label || req.provider;
+  const who = B.person(req.requester_id);
+  const p = B.project(req.project_id);
+  const withKey = B.hasProvider(req.provider);
+  const STATUS = { accepted: tr('Acceptée : votre IA s’en occupe.'), done: tr('Déjà traitée : la réponse est dans l’Atelier IA.'), refused: tr('Vous avez refusé cette demande.'), error: tr('Erreur : {err}', { err: esc(req.error || '') }) };
+  const pending = req.status === 'pending';
+  const m = B.modal(`
+    <div class="req-head">
+      <img class="req-robot" src="assets/robot-tete.webp" alt="" width="72" height="72" />
+      <div><p class="card-label">${tr('Demande pour votre IA')}</p>
+        <h2>${tr('{who} voudrait utiliser votre {ai}', { who: `<span translate="no">${esc(who.display_name)}</span>`, ai: esc(label) })}</h2></div>
+    </div>
+    <dl class="req-facts">
+      <div><dt>${tr('IA concernée')}</dt><dd>${aiAvatar(req.provider, 28, B.me)}<span translate="no">${esc(aiName(req.provider, B.me))}</span></dd></div>
+      <div><dt>${tr('Qui demande')}</dt><dd>${avatar(who, 28)}<span translate="no">${esc(who.display_name)}</span></dd></div>
+      <div><dt>${tr('Projet')}</dt><dd>${p ? `<span class="space-ico" style="background:${esc(p.color)}">${projectIcon(p, 14)}</span>` : ''}<span translate="no">${esc(p?.name || '')}</span></dd></div>
+    </dl>
+    <p class="req-label">${tr('La demande')}</p>
+    <blockquote class="req-prompt" translate="no">${esc(req.prompt)}</blockquote>
+    <p class="muted small" id="req-how">${!pending ? (STATUS[req.status] || '')
+      : withKey ? tr('Si vous acceptez, votre {ai} répond tout de suite dans l’Atelier IA, avec votre clé API (l’appel vous est facturé).', { ai: esc(label) })
+        : tr('Si vous acceptez, votre application {ai} s’ouvre avec la demande déjà écrite : envoyez-la, la réponse arrivera dans l’Atelier IA du projet.', { ai: esc(label) })}</p>
+    <div class="actions req-actions">${pending
+      ? `<button class="btn" id="req-no">${tr('Refuser')}</button><button class="btn primary" id="req-yes">${icon('check', 14)} ${tr('Accepter')}</button>`
+      : `<button class="btn primary" data-close>${tr('Fermer')}</button>`}</div>`);
+  $('[data-close]', m)?.addEventListener('click', B.closeModal);
+  const how = $('#req-how', m);
+  const done = (html) => {
+    B.refreshRequests().catch(console.error);
+    how.innerHTML = html;
+    $('.req-actions', m).innerHTML = `<button class="btn primary" data-close>${tr('Fermer')}</button>`;
+    m.querySelectorAll('[data-close]').forEach((b) => { b.onclick = B.closeModal; });
+    paintIcons(m);
+  };
+  $('#req-no', m)?.addEventListener('click', async (e) => {
+    e.target.disabled = true;
+    try { await B.refuseRequest(req); B.closeModal(); B.refreshRequests().catch(console.error); B.toast(tr('Demande refusée. {who} est prévenu·e.', { who: esc(who.display_name) })); }
+    catch (err) { e.target.disabled = false; B.error(err); }
+  });
+  $('#req-yes', m)?.addEventListener('click', (e) => {
+    e.currentTarget.disabled = true;
+    $('#req-no', m).disabled = true;
+    if (withKey) {
+      how.innerHTML = `${icon('spark', 13)} ${tr('{ai} travaille pour {who}…', { ai: esc(label), who: esc(who.display_name) })}`;
+      paintIcons(how);
+      B.acceptRequest(req)
+        .then(() => done(`${icon('check', 13)} ${tr('C’est fait : la réponse est dans l’Atelier IA.')} <a href="#/p/${req.project_id}/atelier" data-close>${tr('Voir')}</a>`))
+        .catch((err) => done(`<span class="error">${esc(errText(err))}</span>`));
+      return;
     }
-  );
+    // Dans le clic, sans attendre : sinon le navigateur bloque l'ouverture de l'IA
+    B.acceptRequestInApp(req)
+      .then((res) => done(`${icon('check', 13)} ${res.target === 'web'
+        ? tr('{ai} s’ouvre dans votre navigateur avec la demande prête : envoyez-la.', { ai: esc(label) })
+        : tr('Votre application {ai} s’ouvre avec la demande prête : envoyez-la.', { ai: esc(label) })}
+        <br>${tr('Si le texte n’y est pas, collez-le : il est déjà copié.')}`))
+      .catch((err) => done(`<span class="error">${esc(errText(err))}</span>`));
+  });
 };
 
 // ---------- Mises à jour automatiques ----------
