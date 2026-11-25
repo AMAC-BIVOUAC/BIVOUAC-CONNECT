@@ -8,9 +8,28 @@
 
 const cfg = window.BIVOUAC_CONFIG || {};
 B.configured = Boolean(cfg.SUPABASE_URL && !cfg.SUPABASE_URL.includes('VOTRE-PROJET'));
+// « Rester connecté » (25/11, Apo ; coché par défaut) : session gardée dans localStorage (survit à la fermeture),
+// sinon dans sessionStorage (oubliée à la fermeture de l'onglet ou de l'app). Le choix est lu à chaque accès.
+B.rememberMe = () => { try { return localStorage.getItem('bivouac:remember') !== 'false'; } catch { return true; } };
+B.setRememberMe = (on) => { try { localStorage.setItem('bivouac:remember', on ? 'true' : 'false'); } catch { /* stockage refusé */ } };
+const authStorage = {
+  getItem(k) {
+    try { return (B.rememberMe() ? localStorage : sessionStorage).getItem(k); } catch { return null; }
+  },
+  setItem(k, v) {
+    try {
+      const keep = B.rememberMe();
+      (keep ? localStorage : sessionStorage).setItem(k, v);
+      (keep ? sessionStorage : localStorage).removeItem(k);
+    } catch { /* stockage refusé : session pour cette page seulement */ }
+  },
+  removeItem(k) {
+    try { localStorage.removeItem(k); sessionStorage.removeItem(k); } catch { /* idem */ }
+  }
+};
 B.sb = B.configured
   ? window.supabase.createClient(cfg.SUPABASE_URL, cfg.SUPABASE_ANON_KEY, {
-      auth: { persistSession: true, autoRefreshToken: true }
+      auth: { persistSession: true, autoRefreshToken: true, storage: authStorage }
     })
   : null;
 

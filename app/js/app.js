@@ -48,6 +48,7 @@ window.addEventListener('hashchange', B.route);
 // ---------------------------------------------------------------------
 
 let signupMode = false;
+$('#remember-input').checked = B.rememberMe();
 $('#auth-toggle').addEventListener('click', () => {
   signupMode = !signupMode;
   $('#auth-submit').textContent = signupMode ? tr('Créer mon compte') : tr('Se connecter');
@@ -89,6 +90,7 @@ $('#email-form').addEventListener('submit', async (e) => {
   const email = $('#email-input').value.trim();
   const password = $('#pass-input').value;
   e.submitter.disabled = true;
+  B.setRememberMe($('#remember-input').checked); // à poser AVANT la connexion : la session est rangée selon ce choix
   loginMsg(signupMode ? tr('Création du compte…') : tr('Connexion…'));
   let personal = null;
   if (signupMode) {
@@ -106,10 +108,19 @@ $('#email-form').addEventListener('submit', async (e) => {
   e.submitter.disabled = false;
   if (error) return loginMsg(errText(error), true);
   if (signupMode && !data.session) {
-    loginMsg(tr('Compte créé. Cliquez sur le lien de confirmation envoyé à {email} (pensez aux spams), puis revenez vous connecter ici.', { email }));
-    $('#auth-toggle').click();
+    // Adresse déjà inscrite : Supabase répond « succès » sans rien envoyer (identities vide), il faut se connecter
+    const known = Array.isArray(data.user?.identities) && data.user.identities.length === 0;
+    // Retenu sur ce poste : l'app rouverte propose « Se connecter », plus jamais l'inscription (25/11)
+    store.set('awaiting-confirm', { email, known, until: Date.now() + 2 * 864e5 });
+    $('#auth-toggle').click(); // passe en « Se connecter » (efface le message : il est écrit APRÈS)
+    $('#email-input').value = email;
+    showInviteBanner();
+    loginMsg(known
+      ? tr('Un compte existe déjà avec {email} : connectez-vous avec votre mot de passe.', { email })
+      : tr('Compte créé. Cliquez sur le lien de confirmation envoyé à {email} (pensez aux spams), puis revenez vous connecter ici.', { email }));
     return;
   }
+  store.set('awaiting-confirm', null);
   loginMsg('');
 });
 
@@ -134,13 +145,42 @@ function storedInvite() {
   return v && v.code && v.until > Date.now() ? v.code : null;
 }
 
+/** Compte créé sur ce poste, en attente de la confirmation de l'adresse (2 jours max) */
+function awaitingConfirm() {
+  const v = store.get('awaiting-confirm');
+  return v && v.email && v.until > Date.now() ? v : null;
+}
+
 function showInviteBanner() {
   const el = $('#login-invite');
-  el.textContent = B.pendingInvite
-    ? tr('Vous avez été invité dans un projet. Créez votre compte (ou connectez-vous) : vous y arriverez directement.')
-    : '';
+  const created = awaitingConfirm();
+  el.textContent = !B.pendingInvite ? ''
+    : created?.known
+      ? tr('Vous avez été invité dans un projet. Connectez-vous : vous y arriverez directement.')
+    : created
+      ? tr('Votre compte est créé. Confirmez votre adresse (lien reçu par e-mail), puis connectez-vous ici : vous arriverez directement dans le projet.')
+      : tr('Vous avez été invité dans un projet. Créez votre compte (ou connectez-vous) : vous y arriverez directement.');
   el.classList.toggle('hidden', !B.pendingInvite);
+  if (created) {
+    // Le compte existe déjà : on reste sur « Se connecter », jamais une 2e fois l'inscription
+    if (signupMode) $('#auth-toggle').click();
+    if (!$('#email-input').value) $('#email-input').value = created.email;
+    return;
+  }
   if (B.pendingInvite && !signupMode) $('#auth-toggle').click(); // la plupart des invités n'ont pas encore de compte
+}
+
+/**
+ * Adresse confirmée : la page publique /confirmation/ (même site) laisse la session ouverte par le lien
+ * de l'e-mail pendant 10 minutes ; on la reprend une fois, pour arriver connecté sans retaper son mot de passe.
+ */
+async function takeConfirmedSession() {
+  const v = store.get('confirmed-session');
+  if (!v) return;
+  store.set('confirmed-session', null);
+  if (!v.access_token || !v.refresh_token || !(v.until > Date.now())) return;
+  const { error } = await B.sb.auth.setSession({ access_token: v.access_token, refresh_token: v.refresh_token });
+  if (error) console.warn('Session de confirmation refusée', error);
 }
 
 /** Utilise l'invitation en attente : renvoie l'id du projet rejoint, ou null */
@@ -191,6 +231,7 @@ async function onSession(session) {
   }
 
   try {
+    store.set('awaiting-confirm', null); // connecté : l'adresse est confirmée
     await B.loadMe(uid);
     await B.ensurePersonal(); // anciens comptes : prénom, nom, date de naissance à compléter
     if (sessionUser !== uid) return;
@@ -260,6 +301,7 @@ B.on('ai_request', (req) => B.showIncomingRequest(req));
   const fresh = (await window.bivouac.takeInvite?.()) || null;
   if (fresh) keepInvite(fresh); else B.pendingInvite = storedInvite();
   B.sb.auth.onAuthStateChange((_event, session) => setTimeout(() => onSession(session), 0));
+  if (!(await B.sb.auth.getSession()).data.session) await takeConfirmedSession().catch(console.warn);
   const { data } = await B.sb.auth.getSession();
   await onSession(data.session);
 })();

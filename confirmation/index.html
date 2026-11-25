@@ -4,7 +4,9 @@
   Source : dépôt BIVOUAC-TECH, dossier pages-publiques/ (tâche P0-01, 13/11/2026). AUCUN secret ici.
   L'e-mail de confirmation de Supabase (« Confirm email » activé) renvoie ici APRÈS avoir confirmé l'adresse :
   la page dit simplement que c'est fait, ou que le lien est expiré. Le jeton éventuel après le # est effacé
-  aussitôt de la barre d'adresse, jamais gardé ni envoyé.
+  aussitôt de la barre d'adresse et n'est jamais envoyé ; il est laissé 10 minutes dans le stockage local de CE site
+  pour que la version web (/app/, même origine) ouvre la session une fois puis l'efface (25/11, invités qui
+  retombaient sur l'inscription).
 -->
 <html lang="fr">
 <head>
@@ -53,7 +55,7 @@
 
     <section id="done" class="hidden">
       <h1 data-t="doneTitle">Adresse confirmée</h1>
-      <p class="ok" data-t="done">C'est fait ! Votre compte est prêt. Connectez-vous avec votre e-mail et votre mot de passe.</p>
+      <p class="ok" id="done-text" data-t="done">C'est fait ! Votre compte est prêt. Connectez-vous avec votre e-mail et votre mot de passe.</p>
       <p data-t="invite">Si vous aviez reçu une invitation, ouvrez BIVOUAC-TECH sur le même appareil : vous arriverez directement dans le projet.</p>
       <a class="btn" href="../app/" data-t="web">Ouvrir la version web</a>
       <a class="btn alt" href="bivouac://" data-t="open">Ouvrir l'app Windows</a>
@@ -71,6 +73,7 @@
       var en = !/^fr/i.test(navigator.language || 'fr');
       var EN = {
         doneTitle: 'Email address confirmed', done: 'Done! Your account is ready. Sign in with your email and password.',
+        doneAuto: 'Done! Your account is ready. Open the web version within 10 minutes: you will be signed in automatically.',
         invite: 'If you received an invitation, open BIVOUAC-TECH on the same device: you will go straight to the project.',
         web: 'Open the web version', open: 'Open the Windows app',
         badTitle: 'Link expired or already used',
@@ -85,6 +88,20 @@
       var h = new URLSearchParams((location.hash || '').replace(/^#/, '') + '&' + (location.search || '').replace(/^\?/, ''));
       history.replaceState(null, '', location.pathname);
       var bad = h.get('error') || h.get('error_code') || h.get('error_description');
+      // Le lien a ouvert une session : la version web (même site) la reprend une seule fois, dans les 10 minutes,
+      // pour que la personne arrive connectée (et dans le projet si elle était invitée) sans se reconnecter.
+      // Rien ne quitte ce navigateur ; la clé est effacée par l'app dès sa lecture (app.js, takeConfirmedSession).
+      if (!bad && h.get('access_token') && h.get('refresh_token')) {
+        try {
+          localStorage.setItem('bivouac:confirmed-session', JSON.stringify({
+            access_token: h.get('access_token'), refresh_token: h.get('refresh_token'), until: Date.now() + 10 * 60 * 1000
+          }));
+          localStorage.removeItem('bivouac:awaiting-confirm');
+          document.getElementById('done-text').dataset.t = 'doneAuto';
+          document.getElementById('done-text').textContent = en ? EN.doneAuto
+            : "C'est fait ! Votre compte est prêt. Ouvrez la version web dans les 10 minutes : vous serez connecté automatiquement.";
+        } catch (e) { /* navigateur sans stockage : connexion à la main, comme avant */ }
+      }
       document.getElementById(bad ? 'bad' : 'done').classList.remove('hidden');
     })();
   </script>

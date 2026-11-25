@@ -37,7 +37,10 @@
           <input id="email-input" type="email" required placeholder="vous@exemple.fr" autocomplete="email" />
           <label for="pass-input">Mot de passe</label>
           <input id="pass-input" type="password" required minlength="8" placeholder="8 caractères minimum" autocomplete="current-password" />
-          <button type="button" id="forgot" class="btn link small forgot">Mot de passe oublié ?</button>
+          <div class="login-row">
+            <label class="check" id="remember-wrap"><input type="checkbox" id="remember-input" checked /> Rester connecté</label>
+            <button type="button" id="forgot" class="btn link small forgot">Mot de passe oublié ?</button>
+          </div>
           <div id="signup-fields" class="hidden">
             <label for="pass2-input">Confirmer le mot de passe</label>
             <input id="pass2-input" type="password" minlength="8" autocomplete="new-password" />

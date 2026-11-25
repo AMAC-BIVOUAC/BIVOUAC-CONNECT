@@ -57,6 +57,12 @@ const EN = {
   'Déjà un compte ? Se connecter': 'Already have an account? Sign in',
   'Création du compte…': 'Creating account…',
   'Connexion…': 'Signing in…',
+  'Vous avez été invité dans un projet. Connectez-vous : vous y arriverez directement.':
+    'You have been invited to a project. Sign in: you will go straight to it.',
+  'Un compte existe déjà avec {email} : connectez-vous avec votre mot de passe.':
+    'An account already exists for {email}: sign in with your password.',
+  'Votre compte est créé. Confirmez votre adresse (lien reçu par e-mail), puis connectez-vous ici : vous arriverez directement dans le projet.':
+    'Your account has been created. Confirm your address (link sent by email), then sign in here: you will go straight to the project.',
   'Compte créé. Cliquez sur le lien de confirmation envoyé à {email} (pensez aux spams), puis revenez vous connecter ici.':
     'Account created. Click the confirmation link sent to {email} (check your spam folder), then come back here to sign in.',
   'Configuration manquante : remplissez src/config.js avec votre projet Supabase (voir README).':
@@ -1343,6 +1349,7 @@ const EN = {
   "Vérification…": "Checking…",
   "Mot de passe changé.": "Password changed.",
   "Mot de passe oublié ?": "Forgot password?",
+  "Rester connecté": "Stay signed in",
   "Confirmer le mot de passe": "Confirm password",
   "Ces informations restent privées : vous seul y avez accès. Les autres membres voient seulement votre prénom, votre nom et votre photo.": "This information stays private: only you can see it. Other members only see your first name, last name and photo.",
   "Partage son écran": "Sharing their screen",

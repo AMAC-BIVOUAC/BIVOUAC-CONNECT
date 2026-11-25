@@ -1401,6 +1401,9 @@ video.mirror { transform: scaleX(-1); }
 /* ---------- Compte personnel ---------- */
 .login-card { max-height: calc(100vh - 80px); overflow-y: auto; }
 .login-card .forgot { align-self: flex-end; margin: -2px 0 4px; font-size: var(--fs-label); }
+.login-card .login-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin: 4px 0; }
+.login-card .login-row .forgot { margin: 0; margin-left: auto; }
+.login-card .login-row label.check { margin: 0; }
 #signup-fields .form-row { margin: 0; }
 #signup-fields p { margin: 8px 0 4px; }
 .complete-screen { position: fixed; inset: 0; z-index: 2000; background: var(--navy); display: grid; place-items: center; padding: 24px; overflow: auto; }
