@@ -1308,6 +1308,25 @@ label.check.small { font-size: var(--fs-label); color: var(--muted); }
 .folder-tree { display: flex; flex-direction: column; max-height: 50vh; overflow: auto; border: 1px solid var(--line); border-radius: var(--r-md); margin: 6px 0 4px; }
 .folder-pick { display: flex; align-items: center; gap: 8px; text-align: left; border: 0; border-bottom: 1px solid var(--line); background: none; font: inherit; padding: 10px 12px; cursor: pointer; }
 .folder-pick:last-child { border-bottom: 0; }
+
+/* ---------- Documents : journal (migration 047, Créateur et Administrateurs) ---------- */
+.docs-bar-actions { display: inline-flex; align-items: center; gap: var(--s-3); flex-wrap: wrap; }
+.docs-journal-btn { display: inline-flex; align-items: center; gap: 5px; color: var(--muted); }
+.docs-journal-btn:hover { color: var(--link); }
+#modal h2 svg { vertical-align: -3px; color: var(--muted); }
+.journal-tools { display: flex; flex-wrap: wrap; gap: var(--s-2); margin: var(--s-3) 0; }
+.journal-tools .pill-select { min-width: 0; max-width: 100%; }
+.journal-list { max-height: 55vh; overflow: auto; border: 1px solid var(--line); border-radius: var(--r-md); padding: 0 var(--s-3) var(--s-3); }
+.journal-day { position: sticky; top: 0; background: var(--card); margin: 0; padding: var(--s-3) 0 var(--s-2); font-size: var(--fs-small);
+  font-weight: var(--fw-label); color: var(--title-info); text-transform: capitalize; }
+.journal-row { display: flex; align-items: flex-start; gap: var(--s-2); padding: 7px 0; border-top: 1px solid var(--line); font-size: var(--fs-small); }
+.journal-day + .journal-row { border-top: 0; }
+.journal-ic { flex: none; color: var(--muted); margin-top: 2px; }
+.journal-row.is-del .journal-ic { color: var(--danger); }
+.journal-text { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.journal-text .muted { display: inline-flex; align-items: center; gap: 3px; }
+.journal-row time { flex: none; white-space: nowrap; }
+.journal-more { margin-top: var(--s-3); }
 .folder-pick:hover { background: var(--teal-soft); }
 .folder-pick svg { color: var(--orange); flex: none; }
 .version-list { display: flex; flex-direction: column; gap: 6px; margin: 12px 0; max-height: 50vh; overflow: auto; }

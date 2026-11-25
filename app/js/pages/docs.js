@@ -9,6 +9,8 @@
 // jamais la photo entière) et visionneuse en grand au clic (l'image entière n'est téléchargée qu'à ce moment-là).
 // 25/11 (Apo) : icône « Télécharger » sur chaque document (dernière version, B.downloadFile) et sur chaque dossier
 // (un .zip de tout son contenu, sous-dossiers compris, fabriqué dans l'appareil par B.makeZip ; 500 Mo au plus).
+// 25/11 (Apo, v0.8.80, migration 047) : « Journal » (Créateur et Administrateurs seulement) = qui a ajouté, modifié,
+// renommé, déplacé ou supprimé quel document ou dossier, où et quand. Écrit par la base seule (doc_journal) : B.openDocJournal.
 // =====================================================================
 
 /** Types de documents pour le filtre : [clé, libellé] */
@@ -102,7 +104,10 @@ B.pages.docs = async (el, p) => {
       </div>
       <div class="docs-bar">
         <nav class="crumbs" aria-label="${tr('Dossiers')}"></nav>
-        <button class="btn small" id="new-folder">${icon('folder', 16)} ${tr('Nouveau dossier')}</button>
+        <span class="docs-bar-actions">
+          ${B.isManager(p.id) ? `<button class="link small docs-journal-btn" id="doc-journal" title="${tr('Qui a ajouté, modifié, déplacé ou supprimé quoi, et quand (visible du Créateur et des Administrateurs)')}">${icon('clock', 15)} ${tr('Journal')}</button>` : ''}
+          <button class="btn small" id="new-folder">${icon('folder', 16)} ${tr('Nouveau dossier')}</button>
+        </span>
       </div>
       <div class="card doc-view"></div>
     </div>`;
@@ -331,6 +336,7 @@ B.pages.docs = async (el, p) => {
     load();
   };
 
+  if ($('#doc-journal', el)) $('#doc-journal', el).onclick = () => B.openDocJournal(p).catch(B.error);
   $('#new-folder', el).onclick = async () => {
     const name = await askName(tr('Nouveau dossier'));
     if (!name) return;
@@ -600,4 +606,140 @@ B.pages.docs = async (el, p) => {
   B.live('docs', 'files', `project_id=eq.${p.id}`, debounce(load, 300));
   B.live('docs-folders', 'folders', `project_id=eq.${p.id}`, debounce(load, 300));
   B.onLeave(B.on('files', load));
+};
+
+// ---------------------------------------------------------------------
+// Journal des Documents (migration 047). La base l'écrit seule (déclencheurs sur files et folders, connecteur compris) ;
+// personne ne peut le modifier. Lisible par le Créateur et les Administrateurs du projet (règle doc_journal_select).
+// ---------------------------------------------------------------------
+/** [action, libellé, icône, groupe du filtre] */
+const JOURNAL_ACTIONS = {
+  ajout: ['a ajouté', 'plus', 'add'],
+  nouvelle_version: ['a enregistré une nouvelle version de', 'edit', 'edit'],
+  renommage: ['a renommé', 'edit', 'move'],
+  deplacement: ['a déplacé', 'arrow', 'move'],
+  suppression: ['a supprimé', 'trash', 'delete'],
+  masquage: ['a masqué', 'eyeoff', 'delete'],
+  reaffichage: ['a réaffiché', 'eye', 'add'],
+  dossier_creation: ['a créé le dossier', 'folder', 'folder'],
+  dossier_renommage: ['a renommé le dossier', 'folder', 'folder'],
+  dossier_deplacement: ['a déplacé le dossier', 'folder', 'folder'],
+  dossier_suppression: ['a supprimé le dossier', 'trash', 'folder']
+};
+const JOURNAL_GROUPS = [['all', 'Toutes les actions'], ['add', 'Ajouts'], ['edit', 'Nouvelles versions'],
+  ['move', 'Déplacements et renommages'], ['delete', 'Suppressions'], ['folder', 'Dossiers']];
+const JOURNAL_PAGE = 200;
+
+/** Une ligne du journal en texte simple (fenêtre et fichier CSV) */
+const journalWhere = (path) => path ? path.split('/').join(' / ') : tr('Racine');
+/** La cause est écrite par la base en français (« dossier « X » supprimé ») : traduite à l'affichage */
+const journalCause = (c) => { const x = /^dossier « (.*) » supprimé$/.exec(c || ''); return x ? tr('dossier « {name} » supprimé', { name: x[1] }) : c; };
+function journalSentence(r) {
+  const [label] = JOURNAL_ACTIONS[r.action] || [r.action];
+  const d = r.details || {};
+  let extra = '';
+  if (d.ancien_nom) extra = ' ' + tr('(avant : « {name} »)', { name: d.ancien_nom });
+  if (r.action === 'deplacement' || r.action === 'dossier_deplacement') extra = ' ' + tr('de {from} vers {to}', { from: journalWhere(d.depuis || ''), to: journalWhere(r.folder_path) });
+  if (r.action === 'nouvelle_version' && d.version) extra = ' ' + tr('(version {v})', { v: d.version });
+  return { label: tr(label), extra };
+}
+
+B.openDocJournal = async (p) => {
+  let rows = [], done = false, group = 'all', who = '', q = '';
+  const m = B.modal(`
+    <h2>${icon('clock', 20)} ${tr('Journal des documents')}</h2>
+    <p class="muted small">${tr('Tout ce qui a été ajouté, modifié, renommé, déplacé ou supprimé, par qui et quand (y compris par les IA). Écrit automatiquement, impossible à modifier ou à effacer. Visible seulement par le Créateur et les Administrateurs.')}</p>
+    <div class="journal-tools">
+      <label class="sr-only" for="jr-group">${tr('Action')}</label>
+      <select id="jr-group" class="pill-select">${JOURNAL_GROUPS.map(([k, l]) => `<option value="${k}">${tr(l)}</option>`).join('')}</select>
+      <label class="sr-only" for="jr-who">${tr('Personne')}</label>
+      <select id="jr-who" class="pill-select"><option value="">${tr('Tout le monde')}</option></select>
+      <label class="docs-search">${icon('search', 16)}<span class="sr-only">${tr('Rechercher un document ou un dossier')}</span>
+        <input type="search" id="jr-q" placeholder="${tr('Document ou dossier…')}" autocomplete="off" /></label>
+    </div>
+    <div class="journal-list" aria-live="polite"></div>
+    <div class="actions">
+      <button class="btn" id="jr-csv">${icon('download', 16)} ${tr('Exporter (CSV)')}</button>
+      <button class="btn primary" data-close>${tr('Fermer')}</button>
+    </div>`, { wide: true });
+  $('[data-close]', m).onclick = B.closeModal;
+  const list = $('.journal-list', m);
+
+  const fetchPage = async () => {
+    let req = B.sb.from('doc_journal').select('*').eq('project_id', p.id)
+      .order('created_at', { ascending: false }).order('id', { ascending: false }).limit(JOURNAL_PAGE);
+    const last = rows[rows.length - 1];
+    if (last) req = req.lt('id', last.id);
+    const { data, error } = await req;
+    if (error) throw error;
+    rows = rows.concat(data);
+    done = data.length < JOURNAL_PAGE;
+  };
+  const shown = () => rows.filter((r) => (group === 'all' || (JOURNAL_ACTIONS[r.action] || [])[2] === group)
+    && (!who || (r.actor_id || r.actor_name) === who)
+    && (!q || fold(r.target_name + ' ' + r.folder_path + ' ' + (r.details?.ancien_nom || '')).includes(q)));
+  const paintWho = () => {
+    const sel = $('#jr-who', m), seen = new Map();
+    for (const r of rows) seen.set(r.actor_id || r.actor_name, r.actor_name);
+    sel.innerHTML = `<option value="">${tr('Tout le monde')}</option>` + [...seen].sort((a, b) => a[1].localeCompare(b[1], B.locale()))
+      .map(([k, n]) => `<option value="${esc(k)}" ${k === who ? 'selected' : ''} translate="no">${esc(n)}</option>`).join('');
+  };
+  const paint = () => {
+    const list2 = shown();
+    let day = '';
+    list.innerHTML = list2.length ? list2.map((r) => {
+      const d = new Date(r.created_at);
+      const dayText = d.toLocaleDateString(B.locale(), { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+      const head = dayText !== day ? `<h3 class="journal-day">${esc(dayText)}</h3>` : '';
+      day = dayText;
+      const [, ic] = JOURNAL_ACTIONS[r.action] || ['', 'file'];
+      const { label, extra } = journalSentence(r);
+      const where = r.action.endsWith('deplacement') ? '' : ` <span class="muted">· ${icon('folder', 13)} <span translate="no">${esc(journalWhere(r.folder_path))}</span></span>`;
+      const tags = [r.via_ia ? `<span class="tag ai">${tr('via son IA')}</span>` : '',
+        r.details?.reprise ? `<span class="tag human" title="${tr('Repris de l’historique existant à l’ouverture du journal')}">${tr('repris')}</span>` : '',
+        r.details?.cause ? `<span class="muted">· ${esc(journalCause(r.details.cause))}</span>` : ''].join(' ');
+      return `${head}<div class="journal-row ${r.action === 'suppression' || r.action === 'dossier_suppression' ? 'is-del' : ''}">
+        <span class="journal-ic">${icon(ic, 15)}</span>
+        <span class="journal-text"><strong translate="no">${esc(r.actor_name)}</strong> ${esc(label)}
+          « <span translate="no">${esc(r.target_name)}</span> »${esc(extra)}${where} ${tags}</span>
+        <time class="muted small" datetime="${esc(r.created_at)}" title="${esc(d.toLocaleString(B.locale()))}">${d.toLocaleTimeString(B.locale(), { hour: '2-digit', minute: '2-digit' })}</time>
+      </div>`;
+    }).join('') : `<p class="muted">${rows.length ? tr('Aucune ligne ne correspond à ces filtres.') : tr('Rien pour l’instant : le journal se remplit à chaque action sur les documents.')}</p>`;
+    if (!done) list.insertAdjacentHTML('beforeend', `<button class="btn small journal-more" id="jr-more">${tr('Afficher les plus anciennes')}</button>`);
+    paintIcons(list);
+  };
+  list.innerHTML = `<p class="muted">${tr('Chargement…')}</p>`;
+  await fetchPage();
+  paintWho(); paint();
+
+  $('#jr-group', m).onchange = (e) => { group = e.target.value; paint(); };
+  $('#jr-who', m).onchange = (e) => { who = e.target.value; paint(); };
+  $('#jr-q', m).oninput = debounce((e) => { q = fold(e.target.value.trim()); paint(); }, 150);
+  list.onclick = async (e) => {
+    if (!e.target.closest('#jr-more')) return;
+    e.target.disabled = true;
+    try { await fetchPage(); paintWho(); paint(); } catch (err) { e.target.disabled = false; B.error(err); }
+  };
+  // CSV : tout le journal (pas seulement ce qui est chargé), pour le garder ou le joindre en cas de litige
+  $('#jr-csv', m).onclick = async (e) => {
+    e.target.disabled = true;
+    try {
+      while (!done) await fetchPage();
+      paintWho(); paint();
+      const cell = (x) => `"${String(x ?? '').replace(/"/g, '""')}"`;
+      const lines = [[tr('Date'), tr('Heure'), tr('Qui'), tr('Via son IA'), tr('Action'), tr('Élément'), tr('Dossier'), tr('Détails')].map(cell).join(';')];
+      for (const r of rows) {
+        const d = new Date(r.created_at), { label, extra } = journalSentence(r);
+        lines.push([d.toLocaleDateString(B.locale()), d.toLocaleTimeString(B.locale()), r.actor_name, r.via_ia ? tr('oui') : '',
+          label, r.target_name, journalWhere(r.folder_path), (extra.trim() + (r.details?.cause ? ' ' + journalCause(r.details.cause) : '')).trim()].map(cell).join(';'));
+      }
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(new Blob(['﻿' + lines.join('\r\n')], { type: 'text/csv;charset=utf-8' }));
+      // nom de fichier sans accents ni espaces (certains navigateurs remplacent sinon le nom par « download »)
+      const safe = (x) => String(x).normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^A-Za-z0-9._-]+/g, '-').replace(/^-+|-+$/g, '');
+      a.download = `${safe(tr('journal-documents'))}-${safe(p.name) || 'projet'}-${new Date().toISOString().slice(0, 10)}.csv`;
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(a.href), 60000);
+    } catch (err) { B.error(err); } finally { e.target.disabled = false; }
+  };
 };
