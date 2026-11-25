@@ -1247,6 +1247,7 @@ label.check.small { font-size: var(--fs-label); color: var(--muted); }
 .docs-hint { display: flex; align-items: center; gap: 6px; margin: 4px 2px 10px; }
 .version-badge { display: inline-block; margin-left: 6px; font-size: var(--fs-label); font-weight: var(--fw-title); color: var(--link); background: var(--teal-soft); border-radius: var(--r-sm); padding: 1px 6px; vertical-align: 1px; }
 .doc-actions { white-space: nowrap; text-align: right; }
+.doc-when-tel { display: none; } /* date sous le nom, au téléphone seulement */
 
 /* ---------- Documents : dossiers (migration 022) ---------- */
 .docs-bar { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 0 2px 10px; flex-wrap: wrap; }
@@ -1490,7 +1491,12 @@ video.mirror { transform: scaleX(-1); }
   .drop-zone { display: none; }
   .docs-add { display: flex; width: 100%; justify-content: center; margin-bottom: var(--s-3); }
   .channel-head h2 .conv-name .ai-mark { display: inline-grid; } /* téléphone : le sujet du salon est caché, le repère reste */
-  .doc-table th:nth-child(2), .doc-table td:nth-child(2), .doc-table th:nth-child(3), .doc-table td:nth-child(3) { display: none; } /* « Taille », « Modifié par » : trop serré au doigt */
+  .doc-table th:nth-child(2), .doc-table td:nth-child(2), .doc-table th:nth-child(3), .doc-table td:nth-child(3),
+  .doc-table th:nth-child(4), .doc-table td:nth-child(4) { display: none; } /* « Taille », « Modifié par », « Date » : trop serré au doigt */
+  .doc-table .doc-when-tel { display: block; font-size: var(--fs-label); color: var(--muted); margin-top: 2px; } /* la date passe sous le nom (25/11) */
+  .doc-table { display: table; } /* tient dans la largeur : les boutons passent à la ligne plutôt que de sortir de l'écran */
+  .doc-table td:first-child { overflow-wrap: anywhere; }
+  .doc-table td.doc-actions { padding-left: 0; padding-right: 0; white-space: normal; width: 80px; }
   /* Cases à cocher des listes (tâches, étapes) : assez grandes pour le doigt */
   li.item > input[type="checkbox"] { width: 24px; height: 24px; flex: none; margin: 0; } /* étapes de « Tout le projet » */
 

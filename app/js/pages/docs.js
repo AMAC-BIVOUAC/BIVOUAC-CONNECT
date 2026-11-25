@@ -7,6 +7,8 @@
 // (la recherche et le filtre regardent TOUS les dossiers ; le dossier de chaque résultat est indiqué).
 // 23/11 (Apo, v0.8.57) : miniature des images dans la liste et les icônes (file_thumbs, migration 041 : quelques Ko,
 // jamais la photo entière) et visionneuse en grand au clic (l'image entière n'est téléchargée qu'à ce moment-là).
+// 25/11 (Apo) : icône « Télécharger » sur chaque document (dernière version, B.downloadFile) et sur chaque dossier
+// (un .zip de tout son contenu, sous-dossiers compris, fabriqué dans l'appareil par B.makeZip ; 500 Mo au plus).
 // =====================================================================
 
 /** Types de documents pour le filtre : [clé, libellé] */
@@ -27,6 +29,52 @@ function docKind(f) {
   if (/^(zip|rar|7z|tar|gz)$/.test(ext) || /zip|compressed|x-tar/.test(mime)) return 'archive';
   return 'other';
 }
+
+/** Taille maximale d'un dossier téléchargé en zip (tout est assemblé dans la mémoire de l'appareil) */
+const ZIP_MAX_MB = 500;
+const CRC_TABLE = (() => {
+  const t = new Uint32Array(256);
+  for (let n = 0; n < 256; n++) { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1; t[n] = c >>> 0; }
+  return t;
+})();
+const crc32 = (buf) => { let c = 0xFFFFFFFF; for (let i = 0; i < buf.length; i++) c = CRC_TABLE[(c ^ buf[i]) & 0xFF] ^ (c >>> 8); return (c ^ 0xFFFFFFFF) >>> 0; };
+/** Fabrique un .zip (sans compression : documents, images et vidéos sont déjà compressés) à partir de
+ *  [{ name: 'sous-dossier/nom.ext', data: Uint8Array, date }]. Noms en UTF-8 ; un même nom reçoit « (2) », « (3)… ».
+ *  Aucune bibliothèque : le format zip « stocké » tient en quelques lignes. */
+B.makeZip = (entries) => {
+  const enc = new TextEncoder(), parts = [], central = [], used = new Set();
+  let offset = 0;
+  for (const e of entries) {
+    let name = String(e.name).replace(/\\/g, '/').replace(/^\/+/, '');
+    if (used.has(name.toLowerCase())) {
+      const m = name.match(/^(.*?)(\.[^./]*)?$/);
+      for (let n = 2; ; n++) { const alt = `${m[1]} (${n})${m[2] || ''}`; if (!used.has(alt.toLowerCase())) { name = alt; break; } }
+    }
+    used.add(name.toLowerCase());
+    const fname = enc.encode(name), data = e.data, crc = crc32(data);
+    const d = e.date instanceof Date && !isNaN(e.date) ? e.date : new Date();
+    const time = (d.getHours() << 11) | (d.getMinutes() << 5) | (d.getSeconds() >> 1);
+    const day = ((Math.max(1980, d.getFullYear()) - 1980) << 9) | ((d.getMonth() + 1) << 5) | d.getDate();
+    const local = new DataView(new ArrayBuffer(30));
+    local.setUint32(0, 0x04034b50, true); local.setUint16(4, 20, true); local.setUint16(6, 0x0800, true);
+    local.setUint16(8, 0, true); local.setUint16(10, time, true); local.setUint16(12, day, true);
+    local.setUint32(14, crc, true); local.setUint32(18, data.length, true); local.setUint32(22, data.length, true);
+    local.setUint16(26, fname.length, true); local.setUint16(28, 0, true);
+    const cen = new DataView(new ArrayBuffer(46));
+    cen.setUint32(0, 0x02014b50, true); cen.setUint16(4, 20, true); cen.setUint16(6, 20, true); cen.setUint16(8, 0x0800, true);
+    cen.setUint16(10, 0, true); cen.setUint16(12, time, true); cen.setUint16(14, day, true);
+    cen.setUint32(16, crc, true); cen.setUint32(20, data.length, true); cen.setUint32(24, data.length, true);
+    cen.setUint16(28, fname.length, true); cen.setUint32(42, offset, true);
+    parts.push(local, fname, data);
+    central.push(cen, fname);
+    offset += 30 + fname.length + data.length;
+  }
+  const size = central.reduce((n, x) => n + x.byteLength, 0);
+  const end = new DataView(new ArrayBuffer(22));
+  end.setUint32(0, 0x06054b50, true); end.setUint16(8, entries.length, true); end.setUint16(10, entries.length, true);
+  end.setUint32(12, size, true); end.setUint32(16, offset, true);
+  return new Blob([...parts, ...central, end], { type: 'application/zip' });
+};
 
 B.pages.docs = async (el, p) => {
   el.innerHTML = `
@@ -94,10 +142,12 @@ B.pages.docs = async (el, p) => {
   /** Miniature si on l'a, sinon l'icône du type */
   const fileFace = (f) => { const t = fresh(f); return t ? `<img class="doc-thumb" src="${esc(t)}" alt="" />` : fileIcon(f); };
   const fileActions = (f) => `
+    <button class="icon-btn" data-dl title="${tr('Télécharger')}" aria-label="${tr('Télécharger')}">${icon('download', 16)}</button>
     ${(f.version || 1) > 1 ? `<button class="link small" data-versions>${tr('Versions')}</button>` : ''}
     ${folders.length ? `<button class="icon-btn" data-move title="${tr('Ranger dans un dossier')}" aria-label="${tr('Ranger dans un dossier')}">${icon('arrow', 16)}</button>` : ''}
     ${B.canDelete(f.project_id, f.uploader_id) ? `<button class="icon-btn" data-del title="${tr('Supprimer')}" aria-label="${tr('Supprimer')}">${icon('trash', 16)}</button>` : ''}`;
   const folderActions = () => `
+    <button class="icon-btn" data-dl-folder title="${tr('Télécharger le dossier (zip)')}" aria-label="${tr('Télécharger le dossier (zip)')}">${icon('download', 16)}</button>
     <button class="icon-btn" data-rename title="${tr('Renommer')}" aria-label="${tr('Renommer')}">${icon('edit', 16)}</button>
     <button class="icon-btn" data-move-folder title="${tr('Déplacer')}" aria-label="${tr('Déplacer')}">${icon('arrow', 16)}</button>
     <button class="icon-btn" data-del-folder title="${tr('Supprimer le dossier')}" aria-label="${tr('Supprimer le dossier')}">${icon('trash', 16)}</button>`;
@@ -203,7 +253,7 @@ B.pages.docs = async (el, p) => {
       return `
       <tr data-id="${f.id}" draggable="${folders.length ? 'true' : 'false'}">
         <td><button class="file-link"><span class="doc-ico${fresh(f) ? ' has-thumb' : ''}" data-ico="${f.id}">${fileFace(f)}</span> <span translate="no">${esc(f.name)}</span></button>
-          ${(f.version || 1) > 1 ? `<span class="version-badge" title="${tr('Version {v}', { v: f.version })}">v${f.version}</span>` : ''}${where(f)}${hid(f)}</td>
+          ${(f.version || 1) > 1 ? `<span class="version-badge" title="${tr('Version {v}', { v: f.version })}">v${f.version}</span>` : ''}<span class="doc-when-tel">${timeAgo(f.updated_at || f.created_at)}</span>${where(f)}${hid(f)}</td>
         <td>${fmtSize(f.size)}</td>
         <td>${avatar(by, 22)} ${esc(by.display_name)}</td>
         <td>${timeAgo(f.updated_at || f.created_at)}</td>
@@ -340,6 +390,7 @@ B.pages.docs = async (el, p) => {
     if (drow) {
       const d = folders.find((x) => x.id === drow.dataset.folder);
       if (!d) return;
+      if (e.target.closest('[data-dl-folder]')) return downloadFolder(d).catch(B.error);
       if (e.target.closest('[data-rename]')) {
         const name = await askName(tr('Renommer le dossier'), d.name);
         if (!name || name === d.name) return;
@@ -366,6 +417,7 @@ B.pages.docs = async (el, p) => {
       const imgs = here.filter((x) => B.canPreview(x));
       return openViewer(imgs, Math.max(0, imgs.indexOf(f)), e.target.closest('.file-link'));
     }
+    if (e.target.closest('[data-dl]')) return B.downloadFile(f).catch(B.error);
     if (e.target.closest('[data-versions]')) return showVersions(f).catch(B.error);
     if (e.target.closest('[data-move]')) {
       const to = await pickFolder(tr('Ranger « {name} » dans…', { name: esc(f.name) }));
@@ -463,6 +515,48 @@ B.pages.docs = async (el, p) => {
     });
     $('.iv-close', v).focus();
     show();
+  }
+
+  /** Télécharge un dossier entier en .zip (sous-dossiers compris, dernière version de chaque document).
+   *  Les documents sont lus un par un depuis le stockage (adresses signées 5 min), puis assemblés par B.makeZip. */
+  let zipping = false;
+  async function downloadFolder(d) {
+    if (zipping) return B.toast(tr('Un dossier est déjà en cours de préparation.'), { timeout: 3000 });
+    const list = [];
+    const walk = (id, prefix) => {
+      files.filter((f) => f.folder_id === id).forEach((f) => list.push({ f, dir: prefix }));
+      kids(id).forEach((k) => walk(k.id, prefix + k.name + '/'));
+    };
+    walk(d.id, '');
+    if (!list.length) return B.toast(tr('Ce dossier est vide : rien à télécharger.'), { timeout: 3500 });
+    const total = list.reduce((n, x) => n + (x.f.size || 0), 0);
+    if (total > ZIP_MAX_MB * 1024 * 1024) {
+      return B.error(new Error(tr('Ce dossier pèse plus de {max} Mo : téléchargez plutôt ses sous-dossiers ou ses documents un par un.', { max: ZIP_MAX_MB })));
+    }
+    zipping = true;
+    const note = B.toast(tr('Préparation de « {name}.zip » ({n} documents)…', { name: esc(d.name), n: list.length }), { timeout: 0 });
+    try {
+      const { data, error } = await B.sb.storage.from('project-files').createSignedUrls(list.map((x) => x.f.path), 300);
+      if (error) throw error;
+      const entries = [];
+      for (let i = 0; i < list.length; i++) {
+        const url = data?.[i]?.signedUrl;
+        if (!url) throw new Error(tr('Téléchargement impossible.'));
+        const res = await fetch(url);
+        if (!res.ok) throw new Error(tr('Téléchargement impossible.'));
+        entries.push({ name: list[i].dir + list[i].f.name, data: new Uint8Array(await res.arrayBuffer()),
+          date: new Date(list[i].f.updated_at || list[i].f.created_at) });
+      }
+      const blob = B.makeZip(entries);
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob); a.download = d.name + '.zip';
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(a.href), 60000);
+      if (window.BIVOUAC_WEB) B.toast(tr('Téléchargement de « {name} »…', { name: esc(d.name + '.zip') }), { timeout: 2500 });
+    } finally {
+      zipping = false;
+      note?.remove?.();
+    }
   }
 
   /** Fenêtre « Versions » : ouvrir une ancienne version (lecture seule) ou la restaurer */
