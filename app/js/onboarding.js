@@ -86,7 +86,10 @@ const TOUR = [
   { part: 'Votre journée', go: 'home', at: { pc: '[data-nav="messages"]', tel: '[data-bnav="messages"]' }, pose: 'pointe', t: 'Messages',
     x: 'Pour discuter en privé, à deux, avec les personnes de vos projets 💬' },
   { part: 'Votre journée', go: 'home', at: { pc: '#bell-btn', tel: '#bell-btn' }, pose: 'explique', t: 'La cloche',
-    x: 'Elle vous prévient : une mention, une tâche pour vous, un vote… Et quand quelqu’un veut utiliser votre IA, c’est vous qui dites oui ou non.' },
+    x: 'Elle vous prévient : une mention, une tâche pour vous, un vote, une réponse à votre demande…' },
+  // Le robot n'est visible que s'il y a une demande : la visite l'allume le temps de l'étape (reveal), puis le remet comme avant
+  { part: 'Votre journée', go: 'home', at: { pc: '#req-btn', tel: '#req-btn' }, reveal: '#req-btn', pose: 'pointe', t: 'Le petit robot 🤖',
+    x: 'Quand un coéquipier veut utiliser votre IA, il s’allume ici, avec un compteur. Un clic : vous voyez qui demande quoi, et c’est vous qui acceptez ou refusez. Il reste allumé tant que la demande n’a pas de réponse.' },
   { part: 'Votre journée', go: 'home', at: { pc: '[data-tour="search"]', tel: '#search-btn' }, pose: 'reflechit', t: 'Recherche',
     x: 'Un message, une idée ou une tâche introuvable ? Tapez quelques mots, et hop, on la retrouve.' },
   { part: 'Votre journée', go: 'home', at: { pc: '#me-gear', tel: '[data-bnav="settings"]' }, pose: 'presente', t: 'Vos IA et vos réglages',
@@ -147,9 +150,12 @@ B.startTour = ({ intro = false, profile = false, pid, then } = {}) => new Promis
   const locked = profile; // premier lancement : le profil ne se passe pas
 
   let cur = -1, target = null, alive = true;
+  // Étape « reveal » : un élément caché d'habitude (le robot des demandes) est montré le temps de l'étape
+  const unreveal = () => { if (document.querySelector('.tour-demo')) { document.querySelectorAll('.tour-demo').forEach((el) => el.classList.remove('tour-demo', 'fresh')); B.paintRequestBtn?.(); } };
   const end = () => {
     if (!alive) return;
     alive = false;
+    unreveal();
     if (B.stopTour === end) B.stopTour = null;
     tour.classList.add('hidden');
     tour.innerHTML = '';
@@ -211,6 +217,8 @@ B.startTour = ({ intro = false, profile = false, pid, then } = {}) => new Promis
       const want = go === 'home' ? '#/home' : `#/p/${pid}/${go.slice(2)}`;
       if (location.hash !== want) { location.hash = want; await wait(450); }
     }
+    unreveal();
+    if (step.reveal) { const el = document.querySelector(step.reveal); if (el?.classList.contains('hidden')) el.classList.remove('hidden'), el.classList.add('tour-demo', 'fresh'); }
     // 2) la zone (la page peut mettre un moment à s'afficher) ; zone absente = étape sautée
     const sel = step.at && pick(step.at);
     target = null;

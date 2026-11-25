@@ -20,11 +20,11 @@ B.renderNotifications = (box) => {
       ? await B.sb.from('ai_requests').select('*').in('id', reqIds)
       : { data: [] };
     reqMap = new Map((reqs || []).map((r) => [r.id, r]));
-    const STATUS = { accepted: tr('En cours…'), done: tr('Acceptée ✓'), refused: tr('Refusée'), error: tr('Erreur') };
+    const STATUS = { accepted: tr('Acceptée · réponse attendue'), done: tr('Répondue ✓'), refused: tr('Refusée'), error: tr('Erreur') };
 
     box.innerHTML = data.length ? data.map((n) => {
       const req = n.type === 'ai_request' ? reqMap.get(n.ref_id) : null;
-      const actions = req?.status === 'pending'
+      const actions = ['pending', 'accepted'].includes(req?.status)
         ? `<div class="notif-actions"><button class="btn small primary" data-req="${req.id}" data-nid="${n.id}">${tr('Voir la demande')}</button></div>`
         : req ? `<span class="notif-status">${STATUS[req.status] || ''}${req.error ? ' · ' + esc(req.error) : ''}</span>` : '';
       return `<div class="notif ${n.read_at ? '' : 'unread'}" data-id="${n.id}">

@@ -416,7 +416,7 @@ document.addEventListener('mousedown', (e) => {
 
 B.refreshBadge = async () => {
   const { count } = await B.sb.from('notifications').select('id', { count: 'exact', head: true })
-    .eq('user_id', B.me.id).is('read_at', null);
+    .eq('user_id', B.me.id).is('read_at', null).neq('type', 'ai_request'); // les demandes d'IA : le robot (#req-btn) les compte
   $('#bell-dot').classList.toggle('hidden', !count);
   $('#bell-btn').title = count ? tr(count > 1 ? '{n} notifications non lues' : '{n} notification non lue', { n: count }) : tr('Notifications');
   $('#bell-btn').setAttribute('aria-label', $('#bell-btn').title);
@@ -425,7 +425,6 @@ B.refreshBadge = async () => {
 // ---------- Demande d'IA entrante : petite notification « Voir », puis la fenêtre de la demande ----------
 
 B.pendingReqs = [];
-const seenReqs = () => new Set(store.get('ai-req-seen') || []);
 /** Relit les demandes en attente qui me sont adressées : robot de la barre du haut + « On vous attend » */
 B.refreshRequests = async () => {
   if (!B.me) return;
@@ -433,25 +432,28 @@ B.refreshRequests = async () => {
   B.paintRequestBtn();
   B.emit('requests', B.pendingReqs);
 };
-/** La tête du robot à côté de la cloche : visible tant qu'une demande attend, halo tant qu'elle n'a pas été ouverte */
+/**
+ * La tête du robot à côté de la cloche : allumée (halo + compteur) tant qu'une demande n'a ni réponse ni refus, même
+ * acceptée (retour de Claude d'Apo, 25/11 : ouvrir puis être interrompu ne doit pas la faire oublier).
+ */
 B.paintRequestBtn = () => {
   const b = $('#req-btn');
   if (!b) return;
-  const reqs = B.pendingReqs, n = reqs.length, seen = seenReqs();
+  const reqs = B.pendingReqs, n = reqs.length;
   b.classList.toggle('hidden', !n);
-  b.classList.toggle('fresh', reqs.some((r) => !seen.has(r.id)));
+  b.classList.toggle('fresh', n > 0);
   const first = reqs[0];
   const label = !n ? '' : n > 1 ? tr('{n} demandes pour vos IA', { n })
     : tr('{who} veut utiliser votre {ai}', { who: B.person(first.requester_id).display_name, ai: PROVIDERS[first.provider]?.label || first.provider });
   b.title = label;
   b.setAttribute('aria-label', label);
   const c = $('.req-n', b);
-  c.textContent = n > 1 ? String(n) : '';
-  c.classList.toggle('hidden', n < 2);
+  c.textContent = n ? String(n) : '';
+  c.classList.toggle('hidden', !n);
 };
 $('#req-btn')?.addEventListener('click', () => {
-  const seen = seenReqs();
-  const next = B.pendingReqs.find((r) => !seen.has(r.id)) || B.pendingReqs[0];
+  // d'abord celles qui attendent mon accord, puis celles acceptées sans réponse
+  const next = B.pendingReqs.find((r) => r.status === 'pending') || B.pendingReqs[0];
   if (next) B.openAiRequest(next.id);
 });
 
@@ -469,14 +471,14 @@ B.openAiRequest = async (id) => {
   const { data: req, error } = await B.sb.from('ai_requests').select('*').eq('id', id).maybeSingle();
   if (error) return B.error(error);
   if (!req) return B.toast(tr('Cette demande n’existe plus.'));
-  store.set('ai-req-seen', [...seenReqs(), id].slice(-50)); // le robot arrête de clignoter pour celle-ci
-  B.paintRequestBtn();
   const label = PROVIDERS[req.provider]?.label || req.provider;
   const who = B.person(req.requester_id);
   const p = B.project(req.project_id);
   const withKey = B.hasProvider(req.provider);
-  const STATUS = { accepted: tr('Acceptée : votre IA s’en occupe.'), done: tr('Déjà traitée : la réponse est dans l’Atelier IA.'), refused: tr('Vous avez refusé cette demande.'), error: tr('Erreur : {err}', { err: esc(req.error || '') }) };
+  const STATUS = { accepted: '', done: tr('Déjà traitée : la réponse est dans l’Atelier IA.'), refused: tr('Vous avez refusé cette demande.'), error: tr('Erreur : {err}', { err: esc(req.error || '') }) };
   const pending = req.status === 'pending';
+  const accepted = req.status === 'accepted'; // acceptée, mais la réponse n'est pas encore envoyée
+  const open = pending || accepted;
   const m = B.modal(`
     <div class="req-head">
       <img class="req-robot" src="assets/robot-tete.webp" alt="" width="72" height="72" />
@@ -490,11 +492,15 @@ B.openAiRequest = async (id) => {
     </dl>
     <p class="req-label">${tr('La demande')}</p>
     <blockquote class="req-prompt" translate="no">${esc(req.prompt)}</blockquote>
-    <p class="muted small" id="req-how">${!pending ? (STATUS[req.status] || '')
+    <p class="muted small" id="req-how">${accepted ? (withKey
+        ? tr('Vous l’avez acceptée, mais la réponse n’est pas arrivée. Relancez votre {ai}, ou refusez.', { ai: esc(label) })
+        : tr('Vous l’avez acceptée, mais la réponse n’est pas encore envoyée. Rouvrez {ai} et envoyez la demande, ou refusez.', { ai: esc(label) }))
+      : !pending ? (STATUS[req.status] || '')
       : withKey ? tr('Si vous acceptez, votre {ai} répond tout de suite dans l’Atelier IA, avec votre clé API (l’appel vous est facturé).', { ai: esc(label) })
         : tr('Si vous acceptez, votre application {ai} s’ouvre avec la demande déjà écrite : envoyez-la, la réponse arrivera dans l’Atelier IA du projet.', { ai: esc(label) })}</p>
-    <div class="actions req-actions">${pending
-      ? `<button class="btn" id="req-no">${tr('Refuser')}</button><button class="btn primary" id="req-yes">${icon('check', 14)} ${tr('Accepter')}</button>`
+    <div class="actions req-actions">${open
+      ? `<button class="btn" id="req-no">${tr('Refuser')}</button><button class="btn primary" id="req-yes">${pending ? `${icon('check', 14)} ${tr('Accepter')}`
+        : withKey ? tr('Relancer {ai}', { ai: esc(label) }) : tr('Rouvrir dans {ai}', { ai: esc(label) })}</button>`
       : `<button class="btn primary" data-close>${tr('Fermer')}</button>`}</div>`);
   $('[data-close]', m)?.addEventListener('click', B.closeModal);
   const how = $('#req-how', m);

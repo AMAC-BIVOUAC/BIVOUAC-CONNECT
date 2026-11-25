@@ -93,7 +93,7 @@ B.pages.home = async (view) => {
         <div class="card-label wait-label"><span class="label-ico">${icon('bell', 15)}</span>${tr('On vous attend')}<span class="n">${waiting}</span></div>
         ${reqs.map((r) => `<div class="wait-row">
             <span class="wait-ico req-ico"><img src="assets/robot-tete.webp" alt="" width="30" height="30" /></span>
-            <div class="wait-text"><b>${tr('{who} veut utiliser votre {ai}', { who: `<span translate="no">${esc(B.person(r.requester_id).display_name)}</span>`, ai: esc(PROVIDERS[r.provider]?.label || r.provider) })}</b>
+            <div class="wait-text"><b>${tr(r.status === 'accepted' ? '{who} attend la réponse de votre {ai}' : '{who} veut utiliser votre {ai}', { who: `<span translate="no">${esc(B.person(r.requester_id).display_name)}</span>`, ai: esc(PROVIDERS[r.provider]?.label || r.provider) })}</b>
               <span class="meta">${projDot(B.project(r.project_id))} · ${timeAgo(r.created_at)}</span></div>
             <button class="btn primary" data-req="${r.id}">${tr('Voir')}</button>
           </div>`).join('')}

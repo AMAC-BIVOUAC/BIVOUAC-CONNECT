@@ -204,15 +204,12 @@ B.acceptRequestInApp = (req) => {
   const prompt = B.requestPrompt(req);
   navigator.clipboard?.writeText(prompt).catch(() => {}); // au cas où l'application ne reprend pas le texte
   const opened = window.bivouac.openAssistant(req.provider, prompt).catch((err) => { console.warn(err); return { target: 'web', prefilled: false }; });
+  // Le demandeur n'est PAS prévenu ici (retour de Claude d'Apo, 25/11) : accepter n'est pas répondre. Il l'est quand la
+  // réponse est publiée (answer_request du connecteur) ; entre les deux, l'Atelier lui montre « acceptée, réponse attendue ».
   const saved = (async () => {
     const { error } = await B.sb.from('ai_requests').update({ status: 'accepted', updated_at: new Date().toISOString() })
       .eq('id', req.id).eq('status', 'pending');
     if (error) throw error;
-    await B.notify(req.requester_id, {
-      projectId: req.project_id, type: 'ai_answer',
-      text: tr('{who} a accepté ta demande : son {ai} s\'en occupe.', { who: B.me.display_name, ai: PROVIDERS[req.provider].label }),
-      link: `#/p/${req.project_id}/atelier`, refId: req.id
-    });
   })();
   return Promise.all([opened, saved]).then(([res]) => res);
 };
@@ -226,9 +223,9 @@ B.refuseRequest = async (req) => {
   });
 };
 
-/** Demandes en attente qui me sont adressées (affichées au démarrage) */
+/** Demandes qui me sont adressées et pas encore traitées : en attente, ou acceptées sans réponse envoyée */
 B.pendingRequestsForMe = async () => {
   const { data } = await B.sb.from('ai_requests').select('*')
-    .eq('target_id', B.me.id).eq('status', 'pending').order('created_at');
+    .eq('target_id', B.me.id).in('status', ['pending', 'accepted']).order('created_at');
   return data || [];
 };

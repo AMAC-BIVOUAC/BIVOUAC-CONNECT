@@ -656,7 +656,7 @@ B.chat = async (root, { project, channel, mode }) => {
     $('.pending-requests', root).innerHTML = (data || []).map((r) => `
       <div class="pending">${icon('spark', 14)}
         <span><strong>${esc(PROVIDERS[r.provider]?.label)} (${esc(B.person(r.target_id).display_name)})</strong>
-        ${r.status === 'pending' ? tr('attend son accord') : tr('est en train de répondre…')} · « ${esc(r.prompt.slice(0, 70))} »</span>
+        ${r.status === 'pending' ? tr('attend son accord') : tr('a accepté · réponse attendue')} · « ${esc(r.prompt.slice(0, 70))} »</span>
       </div>`).join('');
   }
   if (isAi) {
