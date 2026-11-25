@@ -57,6 +57,8 @@ const ICONS = {
   arrow: '<path d="M5 12h14M13 6l6 6-6 6"/>',
   at: '<circle cx="12" cy="12" r="4"/><path d="M16 12v1.5a2.5 2.5 0 005 0V12a9 9 0 10-3.5 7.1"/>',
   lock: '<rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/>',
+  rec: '<circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="4" fill="currentColor"/>',
+  thread: '<path d="M4 5h16v10H9l-5 4z"/><path d="M8 9h8M8 12h5"/>',
   mic: '<rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0014 0M12 18v3"/>',
   video: '<rect x="3" y="6" width="13" height="12" rx="2"/><path d="M16 10l5-3v10l-5-3"/>',
   expand: '<path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/>',
@@ -100,6 +102,8 @@ const PROJECT_ICONS = [
 
 /** Icône d'un projet (repli sur 'users' si la valeur est inconnue, par exemple ajoutée par une version plus récente) */
 function projectIcon(p, size = 18) {
+  // Image choisie par le Créateur (migration 048) : elle remplace l'icône, en remplissant tout le carré
+  if (p?.image && /^data:image\/(jpeg|png|webp);base64,/.test(p.image)) return `<img class="proj-img" src="${esc(p.image)}" alt="" />`;
   const name = PROJECT_ICONS.some(([k]) => k === p?.icon) ? p.icon : 'users';
   return icon(name, size);
 }

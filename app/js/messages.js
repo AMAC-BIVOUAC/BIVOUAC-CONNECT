@@ -219,7 +219,7 @@ B.pages.messages = async (view, [otherId]) => {
       return `<a class="dm-person ${m.id === other?.id ? 'on' : ''} ${unread ? 'unread' : ''}" href="#/messages/${m.id}">
         ${B.dmAvatar(m, 34)}
         <span class="dm-person-text"><strong translate="no">${esc(m.display_name)}</strong>
-          <small translate="no">${l ? `${l.sender_id === B.me.id ? tr('Vous :') + ' ' : ''}${esc(((l.deleted_at ? tr('Message supprimé') : l.content) || (l.attachments?.length ? tr('Pièce jointe') : '')).replace(/[*`#]/g, '').replace(/\s+/g, ' ').slice(0, 60))}` : `<em>${tr('Aucun message')}</em>`}</small></span></a>`;
+          <small translate="no">${l ? `${l.sender_id === B.me.id ? tr('Vous :') + ' ' : ''}${esc(((l.deleted_at ? tr('Message supprimé') : l.content) || B.attachmentsText(l.attachments)).replace(/[*`#]/g, '').replace(/\s+/g, ' ').slice(0, 60))}` : `<em>${tr('Aucun message')}</em>`}</small></span></a>`;
     }).join('') || (B.notices.length ? '' : `<p class="muted small dm-pad">${tr('Personne pour l\'instant.')}</p>`);
     paintDmBadges();
   };
@@ -282,7 +282,7 @@ B.pages.messages = async (view, [otherId]) => {
     const p = shown.get(d.reply_to) || parents.get(d.reply_to);
     if (!p || p.deleted_at) return `<div class="msg-reply gone">${icon('reply', 13)} <span>${tr('Message supprimé')}</span></div>`;
     return `<button type="button" class="msg-reply" data-jump-reply="${esc(p.id)}" title="${tr('Aller au message')}">${icon('reply', 13)}
-      <strong translate="no">${esc(whoDm(p))}</strong><span translate="no">${esc(B.msgFirstLine(p.content) || (p.attachments?.length ? tr('Pièce jointe') : ''))}</span></button>`;
+      <strong translate="no">${esc(whoDm(p))}</strong><span translate="no">${esc(B.msgFirstLine(p.content) || B.attachmentsText(p.attachments))}</span></button>`;
   };
   // Regroupement façon WhatsApp : bulles d'un même expéditeur rapprochées ; l'heure (et les coches) sous la
   // dernière bulle de la minute seulement. Bloc coupé après 5 minutes de silence (B.msgSameGroup, msgmenu.js).
@@ -599,7 +599,7 @@ B.pages.messages = async (view, [otherId]) => {
   function startReply(d) {
     replyTo = d;
     replyBar.innerHTML = `${icon('reply', 15)}<span class="reply-text">${tr('Répondre à {who}', { who: `<strong translate="no">${esc(whoDm(d))}</strong>` })}
-        <span class="muted" translate="no">${esc(B.msgFirstLine(d.content) || (d.attachments?.length ? tr('Pièce jointe') : ''))}</span></span>
+        <span class="muted" translate="no">${esc(B.msgFirstLine(d.content) || B.attachmentsText(d.attachments))}</span></span>
       <button type="button" class="icon-btn" data-reply-cancel title="${tr('Annuler la réponse')}" aria-label="${tr('Annuler la réponse')}">${icon('x', 15)}</button>`;
     paintIcons(replyBar);
     replyBar.classList.remove('hidden');

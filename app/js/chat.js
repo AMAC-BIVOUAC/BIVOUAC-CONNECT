@@ -134,6 +134,8 @@ B.chat = async (root, { project, channel, mode }) => {
   mountPinsButton();
   await Promise.all([loadExtras(st.messages.map((m) => m.id)), loadPins()]);
   render();
+  // Arrivée depuis la recherche (v0.8.81) : on montre le message trouvé
+  if (B.pendingJump) { const id = B.pendingJump; B.pendingJump = null; setTimeout(() => jumpTo(id), 60); }
 
   async function loadExtras(ids) {
     if (!ids.length) return;
@@ -289,6 +291,7 @@ B.chat = async (root, { project, channel, mode }) => {
           : `<div class="msg-text" translate="no">${md(m.content)}</div>`}
         ${files.length ? `<div class="msg-files">${files.map(fileCard).join('')}</div>` : ''}
         ${reactionsHtml(m.id)}
+        ${threadLinkHtml(m)}
         ${mine && !m.is_ai ? `<small class="msg-read muted">${readersIndicator(m.id)}</small>` : ''}
       </div>
       <div class="msg-tools">
@@ -312,6 +315,99 @@ B.chat = async (root, { project, channel, mode }) => {
   }
 
   function reactionsHtml(id) { return B.reactionsHtml(st.reactions.get(id)); }
+
+  // ---------------- Fils de discussion (v0.8.81) ----------------
+  // Un fil = un message et toutes les réponses qui le citent (reply_to, migration 038), sans nouvelle table.
+  // Sous un message qui a des réponses : « 3 réponses · dernière à 14:05 », qui ouvre le fil à part.
+  function repliesOf(id) { return st.messages.filter((x) => x.reply_to === id); }
+  function threadLinkHtml(m) {
+    const rs = repliesOf(m.id);
+    if (!rs.length) return '';
+    const last = rs[rs.length - 1];
+    return `<button type="button" class="thread-link" data-thread="${m.id}">${icon('thread', 14)}
+      <span>${tr(rs.length > 1 ? '{n} réponses' : '{n} réponse', { n: rs.length })}</span>
+      <small class="muted">${tr('dernière à {time}', { time: fmtTime(last.created_at) })}</small></button>`;
+  }
+  /** Un nouveau message qui répond : le compteur du message cité se met à jour */
+  function bumpThread(m) { if (m?.reply_to && st.messages.some((x) => x.id === m.reply_to)) rerenderOne(m.reply_to); refreshThread(); }
+
+  let threadRoot = null; // fil ouvert (identifiant du premier message)
+  /** Remonte au premier message du fil (tant que le message cité est connu) */
+  function threadTop(id) {
+    let cur = st.messages.find((x) => x.id === id) || st.parents.get(id);
+    for (let i = 0; cur?.reply_to && i < 20; i++) {
+      const up = st.messages.find((x) => x.id === cur.reply_to) || st.parents.get(cur.reply_to);
+      if (!up) break;
+      cur = up;
+    }
+    return cur?.id || id;
+  }
+  async function loadThread(rootId) {
+    const { data: root } = await B.sb.from('messages').select('*').eq('id', rootId).maybeSingle();
+    const all = root ? [root] : [];
+    let level = [rootId];
+    for (let depth = 0; level.length && depth < 5; depth++) { // réponses aux réponses, 5 niveaux au plus
+      const { data } = await B.sb.from('messages').select('*').eq('channel_id', channel.id).in('reply_to', level).order('created_at').limit(200);
+      const fresh = (data || []).filter((x) => !all.some((y) => y.id === x.id));
+      all.push(...fresh);
+      level = fresh.map((x) => x.id);
+    }
+    return all.sort((a, b) => a.created_at.localeCompare(b.created_at));
+  }
+  function threadMsgHtml(m, root) {
+    const author = B.person(m.author_id);
+    const files = st.files.get(m.id) || [];
+    return `<div class="thread-msg ${m.id === root ? 'root' : ''}">
+      ${m.is_ai ? aiAvatar(m.ai_provider, 28, author) : avatar(author, 28)}
+      <div><div class="msg-head"><span class="name" translate="no">${esc(whoWrote(m))}</span>${m.is_ai ? `<span class="tag ai">${tr('IA')}</span>` : ''}
+        <span class="time">${new Date(m.created_at).toLocaleString(B.locale(), { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}</span></div>
+        <div class="msg-text" translate="no">${md(m.content)}</div>
+        ${files.length ? `<div class="msg-files">${files.map(fileCard).join('')}</div>` : ''}</div></div>`;
+  }
+  async function openThread(id) {
+    threadRoot = threadTop(id);
+    const m = B.modal(`<div class="thread-panel"><div class="media-head"><h2>${icon('thread', 18)} ${tr('Fil de discussion')}</h2>
+      <button type="button" class="icon-btn" data-close aria-label="${tr('Fermer')}">×</button></div>
+      <div class="thread-list"><div class="loading">${tr('Chargement…')}</div></div>
+      <form class="thread-compose"><textarea rows="2" maxlength="40000" placeholder="${esc(tr('Répondre dans le fil…'))}" aria-label="${esc(tr('Répondre dans le fil…'))}"></textarea>
+        <button type="submit" class="btn primary">${icon('send', 15)} ${tr('Envoyer')}</button></form></div>`, { wide: true });
+    $('[data-close]', m).onclick = () => { threadRoot = null; B.closeModal(); };
+    const ta2 = $('.thread-compose textarea', m);
+    ta2.addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); $('.thread-compose', m).requestSubmit(); } });
+    $('.thread-compose', m).onsubmit = async (e) => {
+      e.preventDefault();
+      const text = ta2.value.trim();
+      if (!text) return;
+      ta2.value = '';
+      try {
+        // Toutes les réponses du fil citent son premier message : le compteur reste sous ce message
+        const { data, error: err } = await B.sb.from('messages').insert({ channel_id: channel.id, content: text, reply_to: threadRoot }).select().single();
+        if (err) throw err;
+        addLocal(data);
+        B.sendPush('message', data.id);
+        notifyMentions(text);
+        refreshThread();
+      } catch (err) { ta2.value = text; B.error(err); }
+    };
+    await refreshThread();
+    ta2.focus();
+  }
+  async function refreshThread() {
+    if (!threadRoot) return;
+    const box = $('#modal .thread-list');
+    if (!box) { threadRoot = null; return; }
+    const rootId = threadRoot;
+    const msgs = await loadThread(rootId);
+    const missing = msgs.map((x) => x.id).filter((id) => !st.files.has(id));
+    if (missing.length) {
+      const { data } = await B.sb.from('files').select('*').in('message_id', missing);
+      (data || []).forEach((x) => { if (!st.files.has(x.message_id)) st.files.set(x.message_id, []); if (!st.files.get(x.message_id).some((y) => y.id === x.id)) st.files.get(x.message_id).push(x); });
+    }
+    if (threadRoot !== rootId || !box.isConnected) return;
+    box.innerHTML = msgs.length ? msgs.map((x) => threadMsgHtml(x, rootId)).join('') : `<p class="muted">${tr('Message supprimé')}</p>`;
+    paintIcons(box);
+    box.scrollTop = box.scrollHeight;
+  }
 
   function rerenderOne(id) {
     const el = $(`.msg[data-id="${id}"]`, list);
@@ -358,6 +454,8 @@ B.chat = async (root, { project, channel, mode }) => {
     if (quick) return act(quick.dataset.quick, id);
     const jump = e.target.closest('[data-jump-reply]');
     if (jump) return jumpTo(jump.dataset.jumpReply);
+    const thread = e.target.closest('[data-thread]');
+    if (thread) return openThread(thread.dataset.thread);
 
     if (e.target.closest('[data-edit-cancel]')) return stopEdit();
     if (e.target.closest('[data-edit-save]')) return saveEdit();
@@ -370,6 +468,7 @@ B.chat = async (root, { project, channel, mode }) => {
     const m = st.messages.find((x) => x.id === id);
     if (!m) return;
     if (action === 'reply') return startReply(m);
+    if (action === 'thread') return openThread(id);
     if (action === 'copy') return copyMessage(m);
     if (action === 'react') return B.openMediaPicker({ emojisOnly: true, onEmoji: (emoji) => toggleReaction(id, emoji) });
     if (action === 'pin') return togglePin(m);
@@ -412,6 +511,7 @@ B.chat = async (root, { project, channel, mode }) => {
     const mine = m.author_id === B.me.id;
     const items = [
       { act: 'reply', icon: 'reply', label: tr('Répondre') },
+      { act: 'thread', icon: 'thread', label: m.reply_to || repliesOf(m.id).length ? tr('Voir le fil') : tr('Répondre dans un fil') },
       { act: 'copy', icon: 'copy', label: tr('Copier le message') },
       ...(st.pinsReady ? [{ act: 'pin', icon: 'pin', label: m.pinned_at ? tr('Désépingler') : tr('Épingler') }] : []),
       ...(mine && !m.is_ai ? [{ act: 'edit', icon: 'edit', label: tr('Modifier') }] : []),
@@ -635,6 +735,7 @@ B.chat = async (root, { project, channel, mode }) => {
         list.appendChild(h(msgHtml(p.new)));
         scrollDown();
       }
+      bumpThread(p.new);
     } else if (p.eventType === 'UPDATE') {
       const m = st.messages.find((x) => x.id === p.new.id);
       const wasPinned = st.pins.some((x) => x.id === p.new.id);
@@ -839,6 +940,7 @@ B.chat = async (root, { project, channel, mode }) => {
     st.messages.push(data);
     st.reactions.set(data.id, []);
     if (visible(data)) { $('.empty-chat', list)?.remove(); list.appendChild(h(msgHtml(data))); scrollDown(); }
+    bumpThread(data);
   }
 
   async function post(content) {
@@ -892,7 +994,7 @@ B.chat = async (root, { project, channel, mode }) => {
     e.preventDefault();
     const text = ta.value.trim();
     if (!text && !st.pendingFiles.length) return;
-    const content = text || st.pendingFiles.map((f) => `📎 ${f.name}`).join('\n');
+    const content = text || st.pendingFiles.map(B.attachmentLabel).join('\n');
     ta.value = '';
     B.grammarReset?.(ta);
     autoGrow();

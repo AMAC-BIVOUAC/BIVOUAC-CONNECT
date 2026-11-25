@@ -83,6 +83,7 @@ B.listAudioDevices = async () => {
 };
 
 /** Ouvre le micro choisi ; à défaut celui de Windows ; à défaut aucun (écoute seule) */
+B.openMic = () => openMic(); // aussi pour les messages vocaux (media.js)
 async function openMic() {
   const base = { echoCancellation: true, noiseSuppression: true, autoGainControl: true };
   const { mic } = B.voiceDevices();
@@ -231,6 +232,7 @@ B.voiceSwitchMic = async (id) => {
     v.mix.mic = v.ctx.createMediaStreamSource(new MediaStream([track]));
     v.mix.mic.connect(v.mix.dest);
   }
+  recWireMic(v);
   voiceMeter(v, B.me.id, v.stream);
   B.toast(tr('Micro changé.'), { type: 'success', timeout: 2500 });
 };
@@ -442,6 +444,7 @@ B.voiceLeave = async () => {
   const v = B.voice;
   if (!v) return;
   B.voice = null;
+  if (v.rec) await recStop(v).catch(console.error); // on garde l'enregistrement de la réunion en quittant
   if (!v.connecting) B.playSound('voiceOut');
   v.cam?.stop();
   v.cam = null;
@@ -479,7 +482,7 @@ B.voiceToggleDeafen = () => {
 };
 
 function voiceMyState(v) {
-  return { name: B.me.display_name, muted: v.muted || v.deafened || v.noMic, deafened: v.deafened, noMic: Boolean(v.noMic), cam: Boolean(v.cam), screen: Boolean(v.screen) };
+  return { name: B.me.display_name, muted: v.muted || v.deafened || v.noMic, deafened: v.deafened, noMic: Boolean(v.noMic), cam: Boolean(v.cam), screen: Boolean(v.screen), rec: Boolean(v.rec) };
 }
 
 /** Applique micro coupé / son coupé, et prévient les autres */
@@ -507,6 +510,13 @@ function voiceSync(v) {
   const others = (m) => [...m.keys()].filter((u) => u !== B.me.id);
   if (others(v.people).some((u) => !before.has(u)) && before.size) B.playSound('voiceIn');
   else if (others(before).some((u) => !v.people.has(u))) B.playSound('voiceOut');
+  // Quelqu'un lance l'enregistrement de la réunion : tout le monde est prévenu (bandeau + son)
+  for (const u of others(v.people)) {
+    if (v.people.get(u)?.rec && !before.get(u)?.rec) {
+      B.playSound('notif');
+      B.toast(tr('{name} enregistre la réunion. Un point rouge reste affiché tant que l’enregistrement dure.', { name: esc(v.people.get(u).name || B.person(u).display_name) }), { timeout: 8000 });
+    }
+  }
   for (const uid of v.people.keys()) {
     if (uid !== B.me.id && !v.peers.has(uid) && B.me.id < uid) voiceConnect(v, uid, true);
   }
@@ -553,6 +563,7 @@ function voiceConnect(v, uid, offerer) {
       peer.gain = v.ctx.createGain();
       peer.gain.gain.value = B.voicePersonVolume(uid);
       peer.src.connect(peer.gain).connect(v.master);
+      if (v.rec) peer.src.connect(v.rec.dest); // enregistrement en cours : la nouvelle voix y entre aussi
     } catch (err) {
       console.warn('mélangeur indisponible : son direct', err);
       audio.muted = v.deafened;
@@ -659,6 +670,117 @@ function voiceTick(v) {
 B.voiceSpeaking = (uid) => Boolean(B.voice?.meters.get(uid)?.speaking);
 
 // ---------------------------------------------------------------------
+// Enregistrement de la réunion (v0.8.81, Amaury)
+// Ce que J'entends (la voix des autres) + mon micro, mélangés dans l'appareil (Web Audio) puis enregistrés
+// (MediaRecorder, son seulement). Tout le monde est prévenu : « rec » dans la présence du vocal = point rouge
+// chez chacun, bandeau et son au démarrage. À la fin : fichier dans Documents → « Réunions » et message dans le salon.
+// Rien ne passe par un serveur pendant l'enregistrement. 2 h au plus (≈ 45 Mo, sous la limite de 50 Mo par fichier).
+// ---------------------------------------------------------------------
+B.REC_MAX_S = 2 * 3600;
+
+/** (Re)branche mon micro sur l'enregistrement (au démarrage et quand je change de micro) */
+function recWireMic(v) {
+  if (!v.rec) return;
+  try { v.rec.mic?.disconnect(); } catch { /* déjà débranché */ }
+  const t = v.mix?.track || v.stream.getAudioTracks()[0];
+  v.rec.mic = t ? v.ctx.createMediaStreamSource(new MediaStream([t])) : null;
+  v.rec.mic?.connect(v.rec.dest);
+}
+
+B.voiceToggleRecord = async () => {
+  const v = B.voice;
+  if (!v) return;
+  if (v.rec) return recStop(v);
+  if (!B.canRecordAudio?.()) return B.toast(tr('Cet appareil ne sait pas enregistrer le son.'), { type: 'error' });
+  const ok = await B.confirm(tr('Enregistrer la réunion ? Tout le monde dans le vocal verra un point rouge « Enregistrement » et sera prévenu. Dites-le aussi à voix haute : enregistrer quelqu’un sans le lui dire est interdit. Le fichier son arrivera dans Documents → Réunions.'), tr('Démarrer l’enregistrement'), false);
+  if (!ok || B.voice !== v || v.rec) return;
+  try {
+    v.ctx ||= new AudioContext();
+    await v.ctx.resume().catch(() => {});
+    const dest = v.ctx.createMediaStreamDestination();
+    const type = B.audioRecordType();
+    const rec = new MediaRecorder(dest.stream, type.mime ? { mimeType: type.mime, audioBitsPerSecond: 48000 } : {});
+    const r = { rec, dest, type, chunks: [], start: Date.now(), by: B.me.id };
+    v.rec = r;
+    recWireMic(v);
+    for (const p of v.peers.values()) p.src?.connect(dest);
+    // Le dernier morceau arrive APRÈS l'arrêt : on le range dans r (pas v.rec, déjà vidé à ce moment-là)
+    rec.ondataavailable = (e) => { if (e.data.size) r.chunks.push(e.data); };
+    rec.start(5000);
+    v.rec.timer = setInterval(() => {
+      if (!v.rec) return;
+      if ((Date.now() - v.rec.start) / 1000 >= B.REC_MAX_S) { B.toast(tr('Deux heures d’enregistrement : il s’arrête et le fichier est enregistré.'), { timeout: 8000 }); recStop(v); }
+      $$('[data-rec-time]').forEach((el) => { el.textContent = B.fmtDuration((Date.now() - v.rec.start) / 1000); });
+    }, 1000);
+    B.playSound('notif');
+    v.ch?.track(voiceMyState(v)).catch(() => {});
+    B.emit('voice');
+  } catch (err) {
+    v.rec = null;
+    B.error(err);
+  }
+};
+
+/** Arrête l'enregistrement ; le fichier part ensuite dans Documents (même si on a quitté le vocal) */
+function recStop(v) {
+  const r = v.rec;
+  if (!r) return Promise.resolve();
+  v.rec = null;
+  clearInterval(r.timer);
+  if (B.voice === v) { v.ch?.track(voiceMyState(v)).catch(() => {}); B.emit('voice'); }
+  return new Promise((resolve) => {
+    r.rec.onstop = () => {
+      try { r.mic?.disconnect(); for (const p of v.peers.values()) p.src?.disconnect(r.dest); } catch { /* déjà débranché */ }
+      resolve();
+      recSave(v, r).catch(B.error);
+    };
+    if (r.rec.state === 'inactive') r.rec.onstop(); else r.rec.stop();
+  });
+}
+
+async function recSave(v, r) {
+  const seconds = Math.round((Date.now() - r.start) / 1000);
+  if (!r.chunks.length || seconds < 2) return;
+  const d = new Date(r.start), z = (n) => String(n).padStart(2, '0');
+  const slug = String(v.channel.name || 'salon').normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/gi, '-').replace(/^-|-$/g, '').slice(0, 30) || 'salon';
+  const file = new File(r.chunks, `reunion-${slug}-${d.getFullYear()}-${z(d.getMonth() + 1)}-${z(d.getDate())}-${z(d.getHours())}h${z(d.getMinutes())}.${r.type.ext}`, { type: r.type.base });
+  const keepLocal = () => { // dernier recours : le fichier est proposé au téléchargement, rien n'est perdu
+    const a = document.createElement('a'); a.href = URL.createObjectURL(file); a.download = file.name; a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 60000);
+  };
+  if (file.size > B.MAX_FILE_MB * 1024 * 1024) {
+    keepLocal();
+    return B.toast(tr('L’enregistrement dépasse {max} Mo : il a été téléchargé sur cet appareil au lieu d’aller dans Documents.', { max: B.MAX_FILE_MB }), { type: 'error', timeout: 10000 });
+  }
+  const pid = v.project.id;
+  B.toast(tr('Enregistrement de la réunion en cours d’envoi dans Documents…'), { timeout: 4000 });
+  try {
+    // Dossier « Réunions » à la racine des Documents (créé la première fois)
+    const name = tr('Réunions');
+    let { data: folder } = await B.sb.from('folders').select('id').eq('project_id', pid).is('parent_id', null).ilike('name', name).maybeSingle();
+    let folderId = folder?.id || null;
+    if (!folderId) {
+      const { data: id, error } = await B.sb.rpc('create_folder', { p_project: pid, p_parent: null, p_name: name });
+      if (!error) folderId = id;
+    }
+    const { data: msg, error: e1 } = await B.sb.from('messages').insert({ channel_id: v.channel.id,
+      content: `🎙️ ${tr('Enregistrement de la réunion du {date} ({d})', { date: d.toLocaleString(B.locale(), { day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' }), d: B.fmtDuration(seconds) })}` }).select().single();
+    if (e1) throw e1;
+    await B.uploadFile(pid, file, msg.id, folderId);
+    B.sendPush('message', msg.id);
+    B.toast(tr('Enregistrement rangé dans Documents → Réunions et partagé dans #{channel}.', { channel: esc(v.channel.name) }), { type: 'success', timeout: 6000 });
+  } catch (err) {
+    keepLocal();
+    B.error(err);
+    B.toast(tr('L’enregistrement n’a pas pu être envoyé : il a été téléchargé sur cet appareil.'), { type: 'error', timeout: 10000 });
+  }
+}
+
+/** Quelqu'un enregistre-t-il ce vocal ? (moi compris) */
+const voiceRecording = (people) => [...people.entries()].some(([uid, i]) => (uid === B.me.id && B.voice ? Boolean(B.voice.rec) : i.rec));
+const voiceRecBadge = () => `<span class="rec-badge" role="status">${icon('rec', 13)} ${tr('Enregistrement')}${B.voice?.rec ? ` <span data-rec-time>${B.fmtDuration((Date.now() - B.voice.rec.start) / 1000)}</span>` : ''}</span>`;
+
+// ---------------------------------------------------------------------
 // Affichage
 // ---------------------------------------------------------------------
 
@@ -668,6 +790,7 @@ B.voiceSpeaking = (uid) => Boolean(B.voice?.meters.get(uid)?.speaking);
  */
 B.voiceStateIcons = (info = {}, size = 12, { onlyOff = false } = {}) => {
   const out = [];
+  if (info.rec) out.push(`<span class="vs-badge vs-rec" title="${esc(tr('Enregistre la réunion'))}" aria-label="${esc(tr('Enregistre la réunion'))}">${icon('rec', size)}</span>`);
   if (onlyOff) { // bandeau du salon et barre « Vocal connecté » : seulement ce qui est coupé (22/11, Amaury)
     if (info.deafened) out.push(`<span class="vs-badge vs-off" title="${esc(tr('Son coupé'))}" aria-label="${esc(tr('Son coupé'))}">${icon('headoff', size)}</span>`);
     else if (info.muted || info.noMic) out.push(`<span class="vs-badge vs-off" title="${esc(tr('Micro coupé'))}" aria-label="${esc(tr('Micro coupé'))}">${icon('micoff', size)}</span>`);
@@ -706,8 +829,10 @@ B.renderVoiceBar = () => {
       <button class="icon-btn ${v.deafened ? 'off' : ''}" data-voice="deafen" title="${v.deafened ? tr('Réactiver le son') : tr('Couper le son')} · ${tr('clic droit : sortie et volume')}">${icon(v.deafened ? 'headoff' : 'headphones', 17)}</button>
       <button class="icon-btn ${v.cam ? 'on' : ''}" data-voice="camera" title="${v.cam ? tr('Couper la caméra') : tr('Allumer la caméra')} · ${tr('clic droit : choisir la caméra')}">${icon(v.cam ? 'video' : 'videooff', 17)}</button>
       ${B.canShareScreen() ? `<button class="icon-btn ${v.screen ? 'on' : ''}" data-voice="screen" title="${v.screen ? tr('Arrêter le partage d\'écran') : tr('Partager l\'écran')}">${icon(v.screen ? 'screenoff' : 'screen', 17)}</button>` : ''}
+      <button class="icon-btn ${v.rec ? 'rec-on' : ''}" data-voice="record" title="${v.rec ? tr('Arrêter l’enregistrement') : tr('Enregistrer la réunion')}" aria-label="${v.rec ? tr('Arrêter l’enregistrement') : tr('Enregistrer la réunion')}">${icon('rec', 17)}</button>
       <button class="icon-btn leave" data-voice="leave" title="${tr('Quitter le vocal')}">${icon('hangup', 17)}</button>
     </div>
+    ${voiceRecording(v.people) ? voiceRecBadge() : ''}
     <div class="voice-quota">${quotaHtml(v.people)}</div>`;
 };
 
@@ -822,6 +947,7 @@ document.addEventListener('click', (e) => {
   if (action === 'camera') B.voiceToggleCamera().catch(B.error);
   if (action === 'screen') B.voiceToggleScreen().catch(B.error);
   if (action === 'leave') B.voiceLeave();
+  if (action === 'record') B.voiceToggleRecord().catch(B.error);
 });
 B.on('voice', () => { B.renderVoiceBar(); B.renderVideoDock(); });
 addEventListener('resize', debounce(() => B.renderVideoDock(), 300));
@@ -951,10 +1077,12 @@ B.voiceStrip = (el, project, channel) => {
       <span class="spacer"></span>
       ${full ? `<span class="muted small">${tr('Vocal complet ({n} personnes maximum).', { n: VOICE_MAX })}</span>` : ''}
       ${inRoom() && B.voice.noMic ? `<span class="voice-warning">${icon('micoff', 14)} ${tr('Aucun micro détecté ou micro désactivé : vous entendez les autres, mais ils ne vous entendent pas.')}</span>` : ''}
+      ${people.size && voiceRecording(people) ? voiceRecBadge() : ''}
       ${people.size ? `<span class="voice-quota light">${quotaHtml(people)}</span>` : ''}
       ${inRoom()
         ? `<button class="btn small ${B.voice.cam ? 'primary' : ''}" data-voice="camera" title="${tr('clic droit : choisir la caméra')}">${icon(B.voice.cam ? 'video' : 'videooff', 15)} ${B.voice.cam ? tr('Couper la caméra') : tr('Caméra')}</button>
            ${B.canShareScreen() ? `<button class="btn small ${B.voice.screen ? 'primary' : ''}" data-voice="screen">${icon(B.voice.screen ? 'screenoff' : 'screen', 15)} ${B.voice.screen ? tr('Arrêter le partage') : tr('Partager l\'écran')}</button>` : ''}
+           <button class="btn small ${B.voice.rec ? 'rec-on' : ''}" data-voice="record">${icon('rec', 15)} ${B.voice.rec ? tr('Arrêter l’enregistrement') : tr('Enregistrer')}</button>
            <button class="btn small danger-ghost" data-voice="leave">${icon('hangup', 15)} ${tr('Quitter le vocal')}</button>`
         : `<button class="btn small primary" id="voice-join" ${full || busy ? 'disabled' : ''}>${icon('mic', 15)} ${busy ? tr('Connexion…') : tr('Rejoindre le vocal')}</button>`}
 `;

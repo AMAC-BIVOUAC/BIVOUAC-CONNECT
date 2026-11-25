@@ -380,36 +380,188 @@ B.pickProject = (title, filter) => new Promise((resolve) => {
   $$('.pick', m).forEach((b) => (b.onclick = () => { B.closeModal(); resolve(b.dataset.id); }));
 });
 
-// ---------- Recherche ----------
+// ---------- Recherche (globale depuis la v0.8.81) ----------
+// Barre du haut : les premiers résultats en direct ; Entrée ou « Voir tous les résultats » ouvre la fenêtre complète
+// (messages des salons et de l'Atelier, messages privés, tâches, documents, décisions / idées / étapes, calendrier),
+// avec filtres Type, Projet, Personne et Période. Tout passe par le RLS : chacun ne trouve que ce qu'il peut voir.
+// Ctrl+K (⌘K sur Mac) place le curseur dans la recherche, partout.
+
+const SEARCH_TYPES = [
+  ['all', 'Tout', 'search'], ['msg', 'Messages', 'chat'], ['dm', 'Messages privés', 'whisper'], ['task', 'Tâches', 'checksq'],
+  ['doc', 'Documents', 'file'], ['item', 'Décisions et idées', 'bulb'], ['event', 'Calendrier', 'calendar']
+];
+const ITEM_KIND = { idea: 'Idée', decision: 'Décision', milestone: 'Étape', objective: 'Sommet' };
+const likeOf = (q) => `%${q.replace(/[%_,()\\]/g, ' ').trim()}%`;
+/** Extrait autour du mot trouvé, mot surligné (texte échappé) */
+function searchSnippet(text, q, len = 140) {
+  const t = String(text || '').replace(/\s+/g, ' ').trim();
+  const i = t.toLowerCase().indexOf(q.toLowerCase());
+  const from = Math.max(0, i - 40);
+  const part = (from ? '…' : '') + t.slice(from, from + len) + (t.length > from + len ? '…' : '');
+  if (i < 0) return esc(part);
+  const j = part.toLowerCase().indexOf(q.toLowerCase());
+  return esc(part.slice(0, j)) + `<mark>${esc(part.slice(j, j + q.length))}</mark>` + esc(part.slice(j + q.length));
+}
+
+/**
+ * Cherche partout. opts : { type, project, person, since (jours), limit }.
+ * Renvoie des lignes { kind, href, icon, title (HTML), sub, when, open? }
+ */
+B.searchAll = async (q, { type = 'all', project = '', person = '', since = 0, limit = 20 } = {}) => {
+  const like = likeOf(q);
+  if (like.length < 4) return [];
+  const sinceIso = since ? new Date(Date.now() - since * 864e5).toISOString() : null;
+  const want = (k) => type === 'all' || type === k;
+  const scope = (query, col = 'project_id') => (project ? query.eq(col, project) : query);
+  const byWho = (query, col) => (person ? query.eq(col, person) : query);
+  const after = (query) => (sinceIso ? query.gte('created_at', sinceIso) : query);
+  const none = Promise.resolve({ data: [] });
+  const [msgs, dms, tasks, files, items, events] = await Promise.all([
+    want('msg') ? after(byWho(B.sb.from('messages').select('id, content, channel_id, author_id, is_ai, ai_provider, created_at, channels!inner(project_id, kind, name)')
+      .ilike('content', like), 'author_id')).order('created_at', { ascending: false }).limit(limit)
+      .then((r) => (project ? { data: (r.data || []).filter((m) => m.channels?.project_id === project) } : r)) : none,
+    want('dm') && !project ? after(byWho(B.sb.from('direct_messages').select('id, sender_id, recipient_id, content, created_at')
+      .ilike('content', like).is('deleted_at', null), 'sender_id')).order('created_at', { ascending: false }).limit(limit) : none,
+    want('task') ? after(byWho(scope(B.sb.from('tasks').select('*').or(`title.ilike.${like},description.ilike.${like}`)), 'created_by')).order('created_at', { ascending: false }).limit(limit) : none,
+    want('doc') ? after(byWho(scope(B.sb.from('files').select('id, name, project_id, uploader_id, created_at, mime, size, path, folder_id').ilike('name', like)), 'uploader_id')).order('created_at', { ascending: false }).limit(limit) : none,
+    want('item') ? after(byWho(scope(B.sb.from('items').select('id, title, body, type, project_id, author_id, created_at').or(`title.ilike.${like},body.ilike.${like}`)), 'author_id')).order('created_at', { ascending: false }).limit(limit) : none,
+    want('event') ? after(byWho(scope(B.sb.from('events').select('id, title, description, day, project_id, author_id, created_at').or(`title.ilike.${like},description.ilike.${like}`)), 'author_id')).order('day', { ascending: false }).limit(limit) : none
+  ]);
+  const pname = (id) => B.project(id)?.name || '';
+  const rows = [];
+  (msgs.data || []).forEach((m) => rows.push({
+    kind: 'msg', icon: m.channels?.kind === 'ai' ? 'spark' : 'chat', when: m.created_at,
+    href: `#/p/${m.channels?.project_id}/${m.channels?.kind === 'ai' ? 'atelier' : 'discussion/' + m.channel_id}`, jump: m.id,
+    title: searchSnippet(m.content, q),
+    sub: `${m.is_ai ? aiName(m.ai_provider, B.person(m.author_id)) : B.person(m.author_id).display_name} · ${m.channels?.kind === 'ai' ? tr('Atelier IA') : '#' + (m.channels?.name || '')} · ${pname(m.channels?.project_id)}`
+  }));
+  (dms.data || []).forEach((d) => {
+    const other = d.sender_id === B.me.id ? d.recipient_id : d.sender_id;
+    rows.push({ kind: 'dm', icon: 'whisper', when: d.created_at, href: `#/messages/${other}`, title: searchSnippet(d.content, q),
+      sub: `${d.sender_id === B.me.id ? tr('Vous') : B.person(d.sender_id).display_name} → ${d.sender_id === B.me.id ? B.person(other).display_name : tr('vous')} · ${tr('Messages privés')}` });
+  });
+  (tasks.data || []).forEach((t) => rows.push({ kind: 'task', icon: 'checksq', when: t.created_at, href: `#/p/${t.project_id}/taches`, task: t,
+    title: searchSnippet(t.title, q, 120), sub: `${tr('Tâche')} · ${pname(t.project_id)}${t.description && !t.title.toLowerCase().includes(q.toLowerCase()) ? ' · ' + t.description.replace(/\s+/g, ' ').slice(0, 60) : ''}` }));
+  (files.data || []).forEach((f) => rows.push({ kind: 'doc', icon: 'file', when: f.created_at, href: `#/p/${f.project_id}/documents`, file: f,
+    title: searchSnippet(f.name, q, 120), sub: `${tr('Document')} · ${B.person(f.uploader_id).display_name} · ${pname(f.project_id)}` }));
+  (items.data || []).forEach((i) => rows.push({ kind: 'item', icon: i.type === 'decision' ? 'decision' : i.type === 'idea' ? 'bulb' : 'route', when: i.created_at,
+    href: `#/p/${i.project_id}/projet/tout`, title: searchSnippet(i.title, q, 120), sub: `${tr(ITEM_KIND[i.type] || 'Idée')} · ${pname(i.project_id)}` }));
+  (events.data || []).forEach((e) => rows.push({ kind: 'event', icon: 'calendar', when: e.created_at, href: `#/p/${e.project_id}/taches/calendrier`,
+    title: searchSnippet(e.title, q, 120), sub: `${new Date(e.day + 'T12:00').toLocaleDateString(B.locale(), { day: 'numeric', month: 'short', year: 'numeric' })} · ${pname(e.project_id)}` }));
+  return rows;
+};
+
+/** Ouvre un résultat : message = salon + message mis en évidence ; tâche = sa fenêtre ; le reste = la bonne page */
+B.openSearchResult = (r) => {
+  if (r.task) return B.openTask(r.task, () => {});
+  if (r.jump) B.pendingJump = r.jump;
+  location.hash = r.href;
+};
+
+function resultHtml(r, i) {
+  const when = r.when ? new Date(r.when).toLocaleDateString(B.locale(), { day: 'numeric', month: 'short' }) : '';
+  return `<a href="${esc(r.href)}" class="result" data-ri="${i}">${icon(r.icon, 16)}<span class="r-main"><span class="r-title" translate="no">${r.title}</span>
+    <small translate="no">${esc(r.sub || '')}</small></span><small class="r-when">${esc(when)}</small></a>`;
+}
+
+/** Fenêtre « Résultats de la recherche » avec filtres */
+B.openSearch = (q0 = '') => {
+  const people = [...new Map(B.projects.flatMap((p) => B.projectMembers(p.id)).map((p) => [p.id, p])).values()]
+    .sort((a, b) => (a.display_name || '').localeCompare(b.display_name || ''));
+  const m = B.modal(`<div class="search-panel"><div class="media-head"><h2>${icon('search', 18)} ${tr('Rechercher partout')}</h2>
+      <button type="button" class="icon-btn" data-close aria-label="${tr('Fermer')}">×</button></div>
+    <form class="search-form"><input type="search" maxlength="100" value="${esc(q0)}" placeholder="${esc(tr('Un mot, un nom, un fichier…'))}" aria-label="${esc(tr('Rechercher'))}"/>
+      <button class="btn primary" type="submit">${tr('Rechercher')}</button></form>
+    <div class="search-types" role="tablist">${SEARCH_TYPES.map(([k, label, ic]) => `<button type="button" class="pill ${k === 'all' ? 'on' : ''}" data-stype="${k}" role="tab">${icon(ic, 13)} ${tr(label)}</button>`).join('')}</div>
+    <div class="search-filters">
+      <label>${tr('Projet')}<select data-sf="project"><option value="">${tr('Tous les projets')}</option>${B.projects.map((p) => `<option value="${p.id}">${esc(p.name)}</option>`).join('')}</select></label>
+      <label>${tr('Écrit par')}<select data-sf="person"><option value="">${tr('Tout le monde')}</option>${people.map((p) => `<option value="${p.id}">${esc(p.id === B.me.id ? tr('Moi') : p.display_name)}</option>`).join('')}</select></label>
+      <label>${tr('Période')}<select data-sf="since"><option value="0">${tr('Depuis le début')}</option><option value="7">${tr('7 derniers jours')}</option><option value="30">${tr('30 derniers jours')}</option><option value="365">${tr('Cette année')}</option></select></label>
+    </div>
+    <div class="search-list" aria-live="polite"></div></div>`, { wide: true });
+  const input = $('.search-form input', m), box = $('.search-list', m);
+  let type = 'all', seq = 0, rows = [];
+  const run = async () => {
+    const q = input.value.trim();
+    if (q.length < 2) { box.innerHTML = `<p class="muted">${tr('Tapez au moins 2 lettres.')}</p>`; return; }
+    const cur = ++seq;
+    box.innerHTML = `<div class="loading">${tr('Chargement…')}</div>`;
+    const opts = { type, limit: type === 'all' ? 10 : 40 };
+    $$('[data-sf]', m).forEach((s) => { opts[s.dataset.sf] = s.dataset.sf === 'since' ? Number(s.value) : s.value; });
+    try { rows = await B.searchAll(q, opts); } catch (err) { if (cur === seq) box.innerHTML = `<p class="muted">${esc(errText(err))}</p>`; return; }
+    if (cur !== seq) return;
+    if (!rows.length) { box.innerHTML = `<p class="muted">${tr('Aucun résultat')}</p>`; return; }
+    // Regroupés par type, dans l'ordre des onglets
+    box.innerHTML = SEARCH_TYPES.slice(1).map(([k, label]) => {
+      const list = rows.map((r, i) => [r, i]).filter(([r]) => r.kind === k);
+      return list.length ? `<h3 class="search-group">${tr(label)} <span class="muted">· ${list.length}</span></h3>${list.map(([r, i]) => resultHtml(r, i)).join('')}` : '';
+    }).join('');
+    paintIcons(box);
+  };
+  $('[data-close]', m).onclick = () => B.closeModal();
+  $('.search-form', m).onsubmit = (e) => { e.preventDefault(); run(); };
+  input.addEventListener('input', debounce(run, 350));
+  $$('[data-sf]', m).forEach((s) => (s.onchange = run));
+  $$('[data-stype]', m).forEach((b) => (b.onclick = () => {
+    type = b.dataset.stype;
+    $$('[data-stype]', m).forEach((x) => x.classList.toggle('on', x === b));
+    run();
+  }));
+  box.addEventListener('click', (e) => {
+    const a = e.target.closest('[data-ri]');
+    if (!a) return;
+    e.preventDefault();
+    B.closeModal();
+    B.openSearchResult(rows[Number(a.dataset.ri)]);
+  });
+  input.focus();
+  run();
+};
 
 const searchInput = $('#search-input');
 const searchBox = $('#search-results');
+let quickRows = [];
 searchInput.addEventListener('input', debounce(async () => {
   const q = searchInput.value.trim();
   if (q.length < 2) return searchBox.classList.add('hidden');
-  const like = `%${q.replace(/[%_]/g, '')}%`;
-  const [msgs, tasks, items] = await Promise.all([
-    B.sb.from('messages').select('id, content, channel_id, channels(project_id, kind)').ilike('content', like).order('created_at', { ascending: false }).limit(5),
-    B.sb.from('tasks').select('id, title, project_id').ilike('title', like).limit(5),
-    B.sb.from('items').select('id, title, type, project_id').ilike('title', like).limit(5)
-  ]);
   const projects = B.projects.filter((p) => p.name.toLowerCase().includes(q.toLowerCase()));
-  const rows = [
-    ...projects.map((p) => [`#/p/${p.id}`, 'folder', p.name, tr('Espace')]),
-    ...(items.data || []).map((i) => [`#/p/${i.project_id}/projet`, 'bulb', i.title, B.project(i.project_id)?.name]),
-    ...(tasks.data || []).map((t) => [`#/p/${t.project_id}/taches`, 'checksq', t.title, B.project(t.project_id)?.name]),
-    ...(msgs.data || []).map((m) => [
-      `#/p/${m.channels.project_id}/${m.channels.kind === 'ai' ? 'atelier' : 'discussion/' + m.channel_id}`,
-      'chat', m.content.slice(0, 80), B.project(m.channels.project_id)?.name])
+  quickRows = [
+    ...projects.map((p) => ({ kind: 'project', href: `#/p/${p.id}`, icon: 'folder', title: esc(p.name), sub: tr('Espace') })),
+    ...(await B.searchAll(q, { limit: 3 }).catch(() => []))
   ];
-  searchBox.innerHTML = rows.length
-    ? rows.map(([href, ic, title, sub]) => `<a href="${href}" class="result">${icon(ic, 16)}<span>${esc(title)}</span><small>${esc(sub || '')}</small></a>`).join('')
-    : `<div class="result empty">${tr('Aucun résultat')}</div>`;
+  if (searchInput.value.trim() !== q) return;
+  searchBox.innerHTML = (quickRows.length ? quickRows.slice(0, 12).map(resultHtml).join('') : `<div class="result empty">${tr('Aucun résultat')}</div>`)
+    + `<button type="button" class="result all-results" data-all>${icon('search', 16)}<span>${tr('Voir tous les résultats')}</span><small>${tr('Entrée')}</small></button>`;
+  paintIcons(searchBox);
   searchBox.classList.remove('hidden');
 }, 300));
-searchBox.addEventListener('click', () => { searchBox.classList.add('hidden'); searchInput.value = ''; });
+searchInput.addEventListener('keydown', (e) => {
+  if (e.key !== 'Enter') return;
+  e.preventDefault();
+  const q = searchInput.value.trim();
+  searchBox.classList.add('hidden');
+  searchInput.value = '';
+  searchInput.blur();
+  B.openSearch(q);
+});
+searchBox.addEventListener('click', (e) => {
+  const q = searchInput.value.trim();
+  searchBox.classList.add('hidden'); searchInput.value = '';
+  if (e.target.closest('[data-all]')) return B.openSearch(q);
+  const a = e.target.closest('[data-ri]');
+  if (a) { e.preventDefault(); B.openSearchResult(quickRows[Number(a.dataset.ri)]); }
+});
 document.addEventListener('mousedown', (e) => {
   if (!e.target.closest('.search')) searchBox.classList.add('hidden');
+});
+// Ctrl+K / ⌘K : rechercher, de partout
+document.addEventListener('keydown', (e) => {
+  if (!(e.ctrlKey || e.metaKey) || e.key.toLowerCase() !== 'k' || e.altKey || e.shiftKey) return;
+  if (!B.me) return;
+  e.preventDefault();
+  if (B.isPhone?.()) return B.openSearch('');
+  searchInput.focus();
+  searchInput.select();
 });
 
 // ---------- Compteur de notifications ----------
