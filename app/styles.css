@@ -2553,6 +2553,10 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--teal); }
 .tasks-head .hide-done-btn { display: inline-flex; align-items: center; gap: var(--s-1); white-space: nowrap; }
 .tasks-head .hide-done-btn[aria-pressed="true"] { border-color: var(--link); color: var(--link); }
 .tasks-head .hide-done-btn[hidden] { display: none; }
+.tasks-head .sort-btn { display: inline-flex; align-items: center; gap: var(--s-1); white-space: nowrap; }
+.tasks-head .sort-btn.on { border-color: var(--link); color: var(--link); }
+.tasks-head .sort-btn[hidden] { display: none; }
+.sort-menu .pop-item .ico { flex: none; }
 .hide-done-btn .lbl-short { display: none; }
 .kanban.no-done { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .task-table th:has(.th-sort) { padding: 0; }
@@ -2566,7 +2570,9 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--teal); }
   .kanban.no-done { grid-template-columns: minmax(0, 1fr); }
   /* sous la vue et le filtre : « Masquer finies » */
   .tasks-phone-bar { order: 1; }
-  .tasks-head .hide-done-btn { order: 2; min-height: var(--touch); }
+  .tasks-head .hide-done-btn, .tasks-head .sort-btn { order: 2; min-height: var(--touch); }
+  .sort-btn .lbl-long { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+  .sort-menu .pop-item { min-height: var(--touch); }
   .hide-done-btn .lbl-long { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
   .hide-done-btn .lbl-short { display: inline; }
 }

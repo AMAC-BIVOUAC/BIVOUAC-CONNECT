@@ -21,6 +21,13 @@ const SORTS = {
   created: (t) => t.created_at || null
 };
 
+/** « Trier par » du Tableau et de Par personne : choix du menu et texte de chaque sens (croissant, décroissant) */
+const BOARD_SORTS = [
+  ['title', 'Tâche', 'De A à Z', 'De Z à A'],
+  ['due', 'Échéance', 'La plus proche d\'abord', 'La plus lointaine d\'abord'],
+  ['created', 'Date de création', 'La plus ancienne d\'abord', 'La plus récente d\'abord']
+];
+
 /** Fenêtre de création / modification d'une tâche */
 B.openTask = (task, after) => {
   const isNew = !task.id;
@@ -75,10 +82,16 @@ B.openTask = (task, after) => {
 /** « Mes tâches » (Camp de base) : l'onglet Tâches, filtré sur moi (réglage de ce poste, comme le filtre par personne) */
 B.myTasksInProject = (pid) => {
   store.set(`tasks-who:${pid}`, B.me.id);
-  const key = B.isPhone() ? 'tasks-view-phone' : 'tasks-view';
+  const key = tasksViewKey(pid);
   if (['people', 'calendar'].includes(store.get(key, ''))) store.set(key, B.isPhone() ? 'list' : 'kanban'); // ces vues n'ont pas de filtre
   location.hash = `#/p/${pid}/taches`;
 };
+
+/** Dernière vue de Tâches choisie (Tableau, Liste, Calendrier, Par personne), retenue PAR PROJET sur ce poste
+ *  (téléphone à part : la Liste y est la vue par défaut). Avant le 25/11 : un seul réglage pour tous les projets,
+ *  repris comme valeur de départ ; le Calendrier n'était pas retenu. */
+const tasksViewKey = (pid) => `${B.isPhone() ? 'tasks-view-phone' : 'tasks-view'}:${pid}`;
+const tasksViewOf = (pid) => store.get(tasksViewKey(pid), null) ?? store.get(B.isPhone() ? 'tasks-view-phone' : 'tasks-view', B.isPhone() ? 'list' : 'kanban');
 
 B.pages.tasks = async (el, p, sub) => {
   // Quatre vues : Tableau · Liste · Calendrier · Par personne. Le Calendrier a sa propre adresse
@@ -86,8 +99,11 @@ B.pages.tasks = async (el, p, sub) => {
   const onCalendar = sub === 'calendrier';
   // Téléphone : la Liste par défaut (les colonnes du Tableau s'empilent et deviennent très longues)
   const phone = B.isPhone();
-  const viewKey = phone ? 'tasks-view-phone' : 'tasks-view';
-  let view = onCalendar ? 'calendar' : store.get(viewKey, phone ? 'list' : 'kanban');
+  const viewKey = tasksViewKey(p.id);
+  // Onglet Tâches ouvert sur la dernière vue de CE projet, Calendrier compris (il a sa propre adresse)
+  if (!onCalendar && tasksViewOf(p.id) === 'calendar') return location.replace(`#/p/${p.id}/taches/calendrier`);
+  if (onCalendar) store.set(viewKey, 'calendar');
+  let view = onCalendar ? 'calendar' : tasksViewOf(p.id);
   if (!['list', 'people', 'calendar'].includes(view)) view = 'kanban';
   let tasks = [];
   // Filtre par personne (réglage de ce poste, par projet) : '' = tout le monde, 'none' = sans responsable
@@ -97,11 +113,15 @@ B.pages.tasks = async (el, p, sub) => {
   let hideDone = store.get(`tasks-hide-done:${p.id}`, false) === true;
   let sort = store.get(`tasks-sort:${p.id}`, null);
   if (!sort || !SORTS[sort.col] || !['asc', 'desc'].includes(sort.dir)) sort = null;
+  // « Trier par » du Tableau et de Par personne (un seul réglage pour les deux vues), à l'intérieur de chaque colonne / personne
+  let boardSort = store.get(`tasks-board-sort:${p.id}`, null);
+  if (!boardSort || !BOARD_SORTS.some(([c]) => c === boardSort.col) || !['asc', 'desc'].includes(boardSort.dir)) boardSort = null;
 
   el.innerHTML = `
     <div class="tasks">
       <div class="tasks-head">
         <h2>${esc(p.name)}</h2>
+        <button class="btn small sort-btn" id="sort-btn" aria-haspopup="menu" aria-expanded="false"></button>
         <button class="btn small hide-done-btn" id="hide-done" aria-pressed="false"></button>
         <div class="seg">
           <button data-v="kanban">${icon('kanban', 15)} ${tr('Tableau')}</button>
@@ -156,7 +176,47 @@ B.pages.tasks = async (el, p, sub) => {
   };
   paintHideDone();
   $('#hide-done', el).onclick = () => { hideDone = !hideDone; store.set(`tasks-hide-done:${p.id}`, hideDone); paintHideDone(); render(); };
+  /** Bouton « Trier par » : rappelle le choix en cours (« Trier par : Échéance ↑ ») */
+  const paintSort = () => {
+    const b = $('#sort-btn', el);
+    const cur = boardSort && BOARD_SORTS.find(([c]) => c === boardSort.col);
+    b.classList.toggle('on', !!cur);
+    b.innerHTML = cur
+      ? `<span class="lbl-long">${tr('Trier par')} :</span> ${tr(cur[1])} ${icon(boardSort.dir === 'asc' ? 'up' : 'down', 13)}`
+      : `${icon('down', 13)} ${tr('Trier par')}`;
+    b.title = cur ? tr(boardSort.dir === 'asc' ? cur[2] : cur[3]) : tr('Trier les tâches de chaque colonne');
+  };
+  const setBoardSort = (v) => { boardSort = v; store.set(`tasks-board-sort:${p.id}`, v); paintSort(); render(); };
+  /** Menu « Trier par » : Tâche, Échéance, Date de création, puis le sens. Un clic = trié tout de suite (croissant) ;
+   *  recliquer sur le choix en cours inverse le sens, comme les en-têtes de la Liste. */
+  $('#sort-btn', el).onclick = (e) => {
+    const btn = e.currentTarget;
+    if ($('.pop-menu.sort-menu')) { B.closePopMenu(); btn.setAttribute('aria-expanded', 'false'); return; }
+    const r = btn.getBoundingClientRect();
+    const check = (on) => on ? icon('check', 14) : '<span class="pop-space"></span>';
+    const cur = boardSort && BOARD_SORTS.find(([c]) => c === boardSort.col);
+    const m = B.popMenu(r.left, r.bottom + 6, `
+      <div class="pop-title">${tr('Trier par')}</div>
+      <div role="menu" aria-label="${tr('Trier par')}">
+        ${BOARD_SORTS.map(([c, label]) => `<button class="pop-item ${boardSort?.col === c ? 'on' : ''}" role="menuitemradio" aria-checked="${boardSort?.col === c}" data-col="${c}">${check(boardSort?.col === c)}<span>${tr(label)}</span></button>`).join('')}
+        <button class="pop-item ${boardSort ? '' : 'on'}" role="menuitemradio" aria-checked="${!boardSort}" data-col="">${check(!boardSort)}<span>${tr('Ordre habituel')}</span></button>
+        ${cur ? `<span class="pop-label">${tr('Sens')}</span>
+          ${[['asc', cur[2], 'up'], ['desc', cur[3], 'down']].map(([d, label, ic]) => `<button class="pop-item ${boardSort.dir === d ? 'on' : ''}" role="menuitemradio" aria-checked="${boardSort.dir === d}" data-dir="${d}">${icon(ic, 14)}<span>${tr(label)}</span></button>`).join('')}` : ''}
+      </div>`);
+    m.classList.add('sort-menu');
+    btn.setAttribute('aria-expanded', 'true');
+    const close = () => { B.closePopMenu(); btn.setAttribute('aria-expanded', 'false'); };
+    $$('[data-col]', m).forEach((b) => (b.onclick = () => {
+      const col = b.dataset.col;
+      close();
+      setBoardSort(!col ? null : boardSort?.col === col ? { col, dir: boardSort.dir === 'asc' ? 'desc' : 'asc' } : { col, dir: 'asc' });
+    }));
+    $$('[data-dir]', m).forEach((b) => (b.onclick = () => { close(); setBoardSort({ col: boardSort.col, dir: b.dataset.dir }); }));
+    (m.querySelector('.pop-item.on') || m.querySelector('.pop-item'))?.focus();
+  };
+  paintSort();
   if (onCalendar) {
+    $('#sort-btn', el).hidden = true;
     $('#hide-done', el).hidden = true; // le calendrier a son filtre « État »
     $$('.seg button', el).forEach((b) => b.classList.toggle('on', b.dataset.v === 'calendar'));
     $('.who-filter', el).hidden = true;
@@ -217,12 +277,13 @@ B.pages.tasks = async (el, p, sub) => {
   function render() {
     $$('.seg button', el).forEach((b) => { b.classList.toggle('on', b.dataset.v === view); b.setAttribute('aria-pressed', String(b.dataset.v === view)); });
     $('.who-filter', el).hidden = view === 'people'; // la vue Par personne montre déjà tout le monde
+    $('#sort-btn', el).hidden = !['kanban', 'people'].includes(view); // la Liste se trie par ses en-têtes
     if (view === 'people') return renderPeople();
     renderFilter();
     const tasks = shown();
     if (view === 'kanban') {
       body.innerHTML = `<div class="kanban ${hideDone ? 'no-done' : ''}">${STATUSES.filter(([s]) => !hideDone || s !== 'done').map(([s, label]) => {
-        const col = tasks.filter((t) => t.status === s);
+        const col = sortedBy(tasks.filter((t) => t.status === s), boardSort);
         return `<div class="col col-${s}" data-status="${s}">
           <div class="col-head">${tr(label)} (${col.length})</div>
           <div class="col-cards">${col.map(card).join('')}</div>
@@ -257,10 +318,12 @@ B.pages.tasks = async (el, p, sub) => {
 
   /** Tri de la Liste : clic sur un en-tête = croissant, puis décroissant, puis l'ordre habituel.
    *  Les cases vides (pas de responsable, pas d'échéance) restent toujours en bas. */
-  function sorted(list) {
-    if (!sort) return list;
-    const get = SORTS[sort.col];
-    const sign = sort.dir === 'asc' ? 1 : -1;
+  function sorted(list) { return sortedBy(list, sort); }
+  /** Même tri pour la Liste (en-têtes) et pour le « Trier par » du Tableau et de Par personne */
+  function sortedBy(list, how) {
+    if (!how) return list;
+    const get = SORTS[how.col];
+    const sign = how.dir === 'asc' ? 1 : -1;
     return list.map((t, i) => ({ t, i, v: get(t) })).sort((x, y) => {
       if (x.v === null || y.v === null) return ((x.v === null) - (y.v === null)) || x.i - y.i;
       const c = typeof x.v === 'number' ? x.v - y.v : x.v.localeCompare(y.v, B.locale(), { sensitivity: 'base', numeric: true });
@@ -333,7 +396,7 @@ B.pages.tasks = async (el, p, sub) => {
     </section>`;
 
     body.innerHTML = overview + `<div class="people-board">${groups.map(({ person, list }) => {
-      const open = list.filter((t) => t.status !== 'done').sort(order);
+      const open = boardSort ? sortedBy(list.filter((t) => t.status !== 'done'), boardSort) : list.filter((t) => t.status !== 'done').sort(order);
       const late = list.filter(isLate).length;
       return `<section class="person-tasks">
         <header>
@@ -408,6 +471,8 @@ B.pages.tasks = async (el, p, sub) => {
         col.classList.remove('over');
         const t = tasks.find((x) => x.id === dragged);
         if (!t) return;
+        // Colonnes triées : l'ordre affiché vient du tri, on ne change que le statut
+        if (boardSort) return t.status === col.dataset.status ? undefined : setStatus(t, col.dataset.status);
         // position : on place la carte avant celle survolée, sinon en bas
         const cards = $$('.task-card', col).filter((c) => c.dataset.id !== dragged);
         const after = cards.find((c) => e.clientY < c.getBoundingClientRect().top + c.offsetHeight / 2);
