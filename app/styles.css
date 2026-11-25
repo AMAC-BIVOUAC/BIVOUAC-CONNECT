@@ -2376,6 +2376,12 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--teal); }
 .admin-row select { width: auto; }
 .tag.danger-tag { background: var(--danger-soft); color: var(--danger); }
 .tag.late { background: var(--late-bg); color: var(--late-text); }
+.tag.ok-tag { background: var(--mint-soft); color: var(--done); }
+.tag.unknown-tag { background: var(--line); color: var(--text); }
+/* Santé des IA (migration 044) */
+.watch-group h3 { margin: var(--s-4) 0 var(--s-1); }
+.watch-row > .tag { flex: none; min-width: 84px; text-align: center; }
+.watch-row .report-text { overflow-wrap: anywhere; }
 .chips { display: flex; flex-wrap: wrap; gap: var(--s-1); }
 .admin-target { border: 1px solid var(--line); border-radius: var(--r-md); padding: var(--s-3); margin: var(--s-2) 0; }
 .admin-ctx-list { display: flex; flex-direction: column; gap: var(--s-2); max-height: 50vh; overflow: auto; }

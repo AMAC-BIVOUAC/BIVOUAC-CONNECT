@@ -221,7 +221,8 @@ function errText(err) {
     'admin:pas-membre': 'La personne doit d’abord être membre du projet.',
     'admin:introuvable': 'Introuvable : le contenu ou la personne n’existe plus.',
     'admin:interdit': 'Vous n’avez pas le droit de faire ça.',
-    'moderation:interdit': 'Seule l’équipe Bivouac peut masquer ou réafficher un contenu.'
+    'moderation:interdit': 'Seule l’équipe Bivouac peut masquer ou réafficher un contenu.',
+    'veille:trop-tot': 'Une vérification vient d’être lancée. Réessayez dans 2 minutes.'
   };
   const adm = Object.keys(admin).find((k) => m.includes(k));
   if (adm) return tr(admin[adm]);

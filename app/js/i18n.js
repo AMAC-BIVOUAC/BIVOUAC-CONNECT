@@ -2010,7 +2010,32 @@ const EN = {
   "La personne doit d’abord être membre du projet.": "The person must first be a member of the project.",
   "Introuvable : le contenu ou la personne n’existe plus.": "Not found: the content or the person no longer exists.",
   "Vous n’avez pas le droit de faire ça.": "You are not allowed to do that.",
-  "Seule l’équipe Bivouac peut masquer ou réafficher un contenu.": "Only the Bivouac team can hide or show a content again."
+  "Seule l’équipe Bivouac peut masquer ou réafficher un contenu.": "Only the Bivouac team can hide or show a content again.",
+  "Une vérification vient d’être lancée. Réessayez dans 2 minutes.": "A check has just been started. Try again in 2 minutes.",
+  "a lancé une vérification des IA": "started an AI check",
+  "Santé des IA": "AI health",
+  "À vérifier": "To check",
+  "En panne": "Down",
+  "Illisible": "Unreadable",
+  "Ce que Bivouac appelle": "What Bivouac calls",
+  "Pages d’état des fournisseurs": "Provider status pages",
+  "Annonces des fournisseurs": "Provider announcements",
+  "Bibliothèques du connecteur": "Connector libraries",
+  "Contrôlé {when}": "Checked {when}",
+  "dernier changement {when}": "last change {when}",
+  "Ouvrir la source": "Open the source",
+  "Chaque matin à 7 h, Bivouac vérifie ses liaisons avec les IA (connecteur, adresses des fournisseurs) et lit leurs annonces (modèles retirés, nouvelles versions). Les admins reçoivent un message dans Messages → Équipe Bivouac seulement quand quelque chose change ou casse.": "Every morning at 7 am (Paris time), Bivouac checks its links with the AIs (connector, provider addresses) and reads their announcements (retired models, new versions). Admins get a message in Messages → Bivouac team only when something changes or breaks.",
+  "Échec": "Failed",
+  "Dernière vérification : {when}": "Last check: {when}",
+  "automatique": "automatic",
+  "à la demande": "on demand",
+  "{n} problèmes": "{n} problems",
+  "{n} problème": "{n} problem",
+  "Aucune vérification pour l’instant.": "No check yet.",
+  "Vérifier maintenant": "Check now",
+  "Vérification en cours… (30 secondes environ)": "Checking… (about 30 seconds)",
+  "Vérification faite : {n} changement(s), message envoyé aux admins.": "Check done: {n} change(s), message sent to the admins.",
+  "Vérification faite : rien de nouveau.": "Check done: nothing new."
 };
 // ---- fin du dictionnaire
 

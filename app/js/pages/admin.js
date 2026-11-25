@@ -35,7 +35,7 @@ const ACTIONS = () => ({ voir_signalement: tr('a examiné un signalement'), trai
   lever_suspension: tr('a levé une suspension'), bannir: tr('a fermé un compte'), debannir: tr('a rouvert un compte'),
   ouvrir_projet: tr('a ouvert un projet en mode administration'), supprimer_projet: tr('a supprimé un projet'),
   transferer_projet: tr('a transféré un projet'), role: tr('a changé un rôle'),
-  reinitialiser_double_auth: tr('a réinitialisé une double authentification') });
+  reinitialiser_double_auth: tr('a réinitialisé une double authentification'), verifier_ia: tr('a lancé une vérification des IA') });
 const when = (iso) => iso ? `${fmtDate(iso)} ${fmtTime(iso)}` : '';
 const statusTag = (u) => u.banned_at ? `<span class="tag danger-tag">${tr('Compte fermé')}</span>`
   : u.suspended_until && new Date(u.suspended_until) > new Date() ? `<span class="tag late">${tr('Suspendu jusqu’au {date}', { date: when(u.suspended_until) })}</span>` : '';
@@ -65,8 +65,8 @@ async function rpc(name, args) {
 }
 
 /** Fonction serveur « admin » (bannir, réinitialiser la double authentification) */
-async function serverAction(body) {
-  const { data, error } = await B.sb.functions.invoke('admin', { body });
+async function serverAction(body, fn = 'admin') {
+  const { data, error } = await B.sb.functions.invoke(fn, { body });
   if (error) {
     let msg = error.message;
     try { msg = (await error.context?.json?.())?.error || msg; } catch { /* réponse illisible */ }
@@ -124,6 +124,7 @@ async function mfaGate(box) {
 const ADMIN_TABS = () => [
   ['signalements', 'flag', tr('Signalements'), false],
   ['surveiller', 'eye', tr('Comptes à surveiller'), false],
+  ['ia', 'bot', tr('Santé des IA'), false],
   ['utilisateurs', 'users', tr('Utilisateurs'), true],
   ['projets', 'folder', tr('Projets'), true],
   ['equipe', 'key', tr('Équipe Bivouac'), true],
@@ -153,7 +154,7 @@ B.pages.admin = async (view, [tab = 'signalements']) => {
   paintIcons(body);
   const box = $('#admin-tab', body);
   try {
-    await ({ signalements: tabReports, surveiller: tabWatch, utilisateurs: tabUsers, projets: tabProjects, equipe: tabStaff, journal: tabLog })[tab](box);
+    await ({ signalements: tabReports, surveiller: tabWatch, ia: tabAiWatch, utilisateurs: tabUsers, projets: tabProjects, equipe: tabStaff, journal: tabLog })[tab](box);
   } catch (err) {
     box.innerHTML = `<p class="msg error">${esc(errText(err))}</p>`;
   }
@@ -262,6 +263,52 @@ async function tabWatch(box) {
       <button class="btn small" data-suspend="${w.id}" data-name="${esc(w.name)}">${tr('Suspendre')}</button></div>`).join('')
       : `<p class="muted">${tr('Aucun compte à surveiller en ce moment.')}</p>`}`;
   $$('[data-suspend]', box).forEach((b) => (b.onclick = async () => { if (await suspend(b.dataset.suspend, b.dataset.name)) tabWatch(box); }));
+}
+
+// ---------- Santé des IA (migration 045, fonction serveur veille-ia) ----------
+
+const WATCH_STATUS = () => ({ ok: [tr('OK'), 'ok-tag'], alerte: [tr('À vérifier'), 'late'], panne: [tr('En panne'), 'danger-tag'],
+  inconnu: [tr('Illisible'), 'unknown-tag'] });
+const WATCH_KINDS = () => [['sante', tr('Ce que Bivouac appelle')], ['statut', tr('Pages d’état des fournisseurs')],
+  ['veille', tr('Annonces des fournisseurs')], ['version', tr('Bibliothèques du connecteur')]];
+
+/** Tableau d'état de chaque contrôle ; les alertes arrivent aussi aux admins dans Messages → Équipe Bivouac */
+async function tabAiWatch(box) {
+  const w = await rpc('admin_ai_watch');
+  const run = w.runs[0];
+  const probs = w.checks.filter((c) => c.status === 'alerte' || c.status === 'panne').length;
+  const row = (c) => {
+    const [label, cls] = WATCH_STATUS()[c.status] || [c.status, ''];
+    return `<div class="admin-row watch-row" data-watch="${esc(c.key)}">
+      <span class="tag ${cls}">${esc(label)}</span>
+      <div class="report-text"><b>${esc(c.label)}</b>
+        <span class="small" translate="no">${esc(c.summary)}</span>
+        <span class="muted small">${tr('Contrôlé {when}', { when: timeAgo(c.checked_at) })} · ${tr('dernier changement {when}', { when: timeAgo(c.changed_at) })}
+          ${c.url ? ` · <a href="${esc(c.url)}" class="ext">${tr('Ouvrir la source')}</a>` : ''}</span></div></div>`;
+  };
+  box.innerHTML = `<p class="muted small">${tr('Chaque matin à 7 h, Bivouac vérifie ses liaisons avec les IA (connecteur, adresses des fournisseurs) et lit leurs annonces (modèles retirés, nouvelles versions). Les admins reçoivent un message dans Messages → Équipe Bivouac seulement quand quelque chose change ou casse.')}</p>
+    <div class="admin-tools">
+      ${run ? `<span class="small">${run.error ? `<span class="tag danger-tag">${tr('Échec')}</span> ` : ''}${tr('Dernière vérification : {when}', { when: when(run.started_at) })}
+        (${run.trigger === 'auto' ? tr('automatique') : tr('à la demande')})${run.error ? '' : ` · ${tr(probs > 1 ? '{n} problèmes' : '{n} problème', { n: probs })}`}</span>`
+        : `<span class="small muted">${tr('Aucune vérification pour l’instant.')}</span>`}
+      <span class="spacer"></span>
+      ${B.isPlatformAdmin() ? `<button class="btn small primary" id="aw-run">${icon('spark', 14)} ${tr('Vérifier maintenant')}</button>` : ''}
+    </div>
+    ${w.checks.length ? WATCH_KINDS().map(([k, title]) => {
+      const list = w.checks.filter((c) => c.kind === k);
+      return list.length ? `<section class="watch-group"><h3>${esc(title)}</h3>${list.map(row).join('')}</section>` : '';
+    }).join('') : ''}`;
+  paintIcons(box);
+  const btn = $('#aw-run', box);
+  if (btn) btn.onclick = async () => {
+    btn.disabled = true;
+    btn.textContent = tr('Vérification en cours… (30 secondes environ)');
+    try {
+      const r = await serverAction({ manual: true }, 'veille-ia');
+      B.toast(r?.changes ? tr('Vérification faite : {n} changement(s), message envoyé aux admins.', { n: r.changes }) : tr('Vérification faite : rien de nouveau.'), { type: 'success' });
+    } catch (err) { B.error(err); }
+    tabAiWatch(box).catch(B.error);
+  };
 }
 
 // ---------- Utilisateurs (admins) ----------

@@ -150,7 +150,7 @@ async function renderNotices(view) {
         <span class="avatar staff-av" style="width:32px;height:32px">${icon('lock', 15)}</span><div><strong>${tr('Équipe Bivouac')}</strong>
         <small>${tr('Modération de l’application · lecture seule')}</small></div></header>
         <div class="dm-msgs">${B.notices.slice().reverse().map((n) => `<div class="dm-msg staff-notice">
-          <div class="dm-bubble"><p translate="no">${esc(n.text)}</p>
+          <div class="dm-bubble">${n.kind === 'ai_watch' ? `<div class="msg-text" translate="no">${md(n.text)}</div>` : `<p translate="no">${esc(n.text)}</p>`}
             ${n.excerpt ? `<blockquote class="small report-quote" translate="no">${esc(n.excerpt)}</blockquote>` : ''}
             ${n.reason ? `<p class="small"><b>${tr('Raison :')}</b> <span translate="no">${esc(n.reason)}</span></p>` : ''}</div>
           <small>${fmtDate(n.created_at)} ${fmtTime(n.created_at)}</small></div>`).join('') || `<p class="muted small dm-pad">${tr('Aucun message pour l\'instant.')}</p>`}</div>
