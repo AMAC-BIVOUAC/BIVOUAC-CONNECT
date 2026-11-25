@@ -284,15 +284,7 @@ B.chat = async (root, { project, channel, mode }) => {
       <span><strong>${esc(f.name)}</strong><small>${fmtSize(f.size)}</small></span></button>`;
   }
 
-  function reactionsHtml(id) {
-    const rs = st.reactions.get(id) || [];
-    if (!rs.length) return '';
-    const groups = {};
-    rs.forEach((r) => { (groups[r.emoji] ||= []).push(r.user_id); });
-    return `<div class="reactions">${Object.entries(groups).map(([e, users]) =>
-      `<button class="reaction ${users.includes(B.me.id) ? 'mine' : ''}" data-emoji="${e}"
-        title="${esc(users.map((u) => B.person(u).display_name).join(', '))}">${e} ${users.length}</button>`).join('')}</div>`;
-  }
+  function reactionsHtml(id) { return B.reactionsHtml(st.reactions.get(id)); }
 
   function rerenderOne(id) {
     const el = $(`.msg[data-id="${id}"]`, list);
@@ -386,129 +378,25 @@ B.chat = async (root, { project, channel, mode }) => {
     B.toast(esc(ok ? tr('Message copié.') : tr('Impossible de copier ce message.')), { type: ok ? 'success' : 'error', timeout: 2000 });
   }
 
-  const QUICK_EMOJIS = ['👍', '❤️', '😂', '😮', '😢', '🙏'];
-  let ctx = null; // menu ouvert : { el, back, id, opener, off }
-
-  function closeMsgMenu({ focus = false } = {}) {
-    if (!ctx) return;
-    const { el, back, id, opener, off } = ctx;
-    ctx = null;
-    off();
-    el.remove(); back?.remove();
-    $(`.msg[data-id="${id}"]`, list)?.classList.remove('ctx-on');
-    opener?.setAttribute('aria-expanded', 'false');
-    if (focus) opener?.focus();
-  }
-
-  /** Ouvre le menu d'un message : au pointeur (clic droit), sous un bouton (⋯), ou en bas d'écran (téléphone) */
+  /** Ouvre le menu d'un message (menu partagé avec les messages privés : msgmenu.js) */
   function openMsgMenu(id, { x, y, anchor } = {}) {
     const m = st.messages.find((z) => z.id === id);
     if (!m) return;
-    const wasSame = ctx?.id === id && anchor && ctx.opener === anchor;
-    closeMsgMenu();
-    if (wasSame) return; // second clic sur ⋯ = refermer
     const mine = m.author_id === B.me.id;
-    const mine_reacts = (st.reactions.get(id) || []).filter((r) => r.user_id === B.me.id).map((r) => r.emoji);
-    const item = (a, ic, label, cls = '') => `<button type="button" role="menuitem" class="ctx-item ${cls}" data-act="${a}">${icon(ic, 16)}<span>${label}</span></button>`;
-    const sheet = B.isPhone?.();
-    const el = h(`<div class="msg-ctx ${sheet ? 'sheet' : ''}" role="menu" aria-label="${tr('Actions du message')}">
-      <div class="ctx-emojis" role="group" aria-label="${tr('Ajouter une réaction')}">
-        ${QUICK_EMOJIS.map((e) => `<button type="button" role="menuitem" class="ctx-emoji ${mine_reacts.includes(e) ? 'on' : ''}" data-emoji="${e}" aria-label="${tr('Réagir avec {emoji}', { emoji: e })}">${e}</button>`).join('')}
-        <button type="button" role="menuitem" class="ctx-emoji more" data-act="react" title="${tr('Autres réactions')}" aria-label="${tr('Autres réactions')}">${icon('plus', 16)}</button>
-      </div>
-      ${item('reply', 'reply', tr('Répondre'))}
-      ${item('copy', 'copy', tr('Copier le message'))}
-      ${st.pinsReady ? item('pin', 'pin', m.pinned_at ? tr('Désépingler') : tr('Épingler')) : ''}
-      ${mine && !m.is_ai ? item('edit', 'edit', tr('Modifier')) : ''}
-      ${mine || B.isManager(project.id) ? item('del', 'trash', mine ? tr('Supprimer') : tr('Supprimer (modération)'), 'danger') : ''}
-      ${mine ? '' : item('report', 'flag', tr('Signaler'))}
-    </div>`);
-    const back = sheet ? h('<div class="msg-ctx-back"></div>') : null;
-    if (back) document.body.appendChild(back);
-    document.body.appendChild(el);
-    paintIcons(el);
-    const msgEl = $(`.msg[data-id="${id}"]`, list);
-    msgEl?.classList.add('ctx-on');
-    if (!sheet) {
-      // Placé au pointeur ou sous le bouton, sans jamais sortir de la fenêtre
-      const r = anchor?.getBoundingClientRect();
-      const px = r ? r.right : (x ?? msgEl?.getBoundingClientRect().left ?? 0);
-      const py = r ? r.bottom + 4 : (y ?? msgEl?.getBoundingClientRect().top ?? 0);
-      const w = el.offsetWidth, hgt = el.offsetHeight, pad = 8;
-      const left = Math.max(pad, Math.min(r ? px - w : px, innerWidth - w - pad));
-      const top = py + hgt + pad > innerHeight ? Math.max(pad, (r ? r.top - 4 : py) - hgt) : py;
-      el.style.left = `${left}px`; el.style.top = `${top}px`;
-    }
-    anchor?.setAttribute('aria-expanded', 'true');
-
-    el.addEventListener('click', (e) => {
-      const em = e.target.closest('[data-emoji]');
-      const a = e.target.closest('[data-act]');
-      if (!em && !a) return;
-      closeMsgMenu();
-      if (em) toggleReaction(id, em.dataset.emoji);
-      else act(a.dataset.act, id);
-    });
-    const items = () => $$('[role="menuitem"]', el);
-    el.addEventListener('keydown', (e) => {
-      const all = items(), i = all.indexOf(document.activeElement);
-      if (e.key === 'Escape') { e.preventDefault(); closeMsgMenu({ focus: true }); }
-      else if (e.key === 'ArrowDown' || e.key === 'ArrowRight') { e.preventDefault(); all[(i + 1) % all.length].focus(); }
-      else if (e.key === 'ArrowUp' || e.key === 'ArrowLeft') { e.preventDefault(); all[(i - 1 + all.length) % all.length].focus(); }
-      else if (e.key === 'Tab') closeMsgMenu();
-    });
-    // Se ferme dès qu'on clique ailleurs, qu'on fait défiler le fil, ou qu'on change de taille de fenêtre
-    const outside = (e) => { if (ctx?.el === el && !el.contains(e.target) && !anchor?.contains(e.target)) closeMsgMenu(); };
-    const onScroll = () => { if (ctx?.el === el) closeMsgMenu(); };
-    let alive = true;
-    setTimeout(() => { if (alive) document.addEventListener('pointerdown', outside, true); }, 0);
-    list.addEventListener('scroll', onScroll);
-    window.addEventListener('resize', onScroll);
-    ctx = { el, back, id, opener: anchor || null, off: () => {
-      alive = false;
-      document.removeEventListener('pointerdown', outside, true);
-      list.removeEventListener('scroll', onScroll);
-      window.removeEventListener('resize', onScroll);
-    } };
-    (anchor || !sheet ? items()[0] : null)?.focus({ preventScroll: true });
+    const items = [
+      { act: 'reply', icon: 'reply', label: tr('Répondre') },
+      { act: 'copy', icon: 'copy', label: tr('Copier le message') },
+      ...(st.pinsReady ? [{ act: 'pin', icon: 'pin', label: m.pinned_at ? tr('Désépingler') : tr('Épingler') }] : []),
+      ...(mine && !m.is_ai ? [{ act: 'edit', icon: 'edit', label: tr('Modifier') }] : []),
+      ...(mine || B.isManager(project.id) ? [{ act: 'del', icon: 'trash', label: mine ? tr('Supprimer') : tr('Supprimer (modération)'), danger: true }] : []),
+      ...(mine ? [] : [{ act: 'report', icon: 'flag', label: tr('Signaler') }])
+    ];
+    B.openMsgMenu({ key: id, x, y, anchor, items, scroller: list, msgEl: $(`.msg[data-id="${id}"]`, list),
+      reacted: (st.reactions.get(id) || []).filter((r) => r.user_id === B.me.id).map((r) => r.emoji),
+      onEmoji: (emoji) => toggleReaction(id, emoji), onAct: (a) => act(a, id) });
   }
-  B.onLeave(() => closeMsgMenu());
-
-  // Clic droit sur un message (ordinateur) ; sur Android, l'appui long envoie aussi « contextmenu »
-  let pressed = null; // appui long en cours (téléphone) : { id, x, y, timer, fired }
-  list.addEventListener('contextmenu', (e) => {
-    const msgEl = e.target.closest('.msg');
-    if (!msgEl || e.target.closest('.msg-edit')) return; // dans la modification d'un message : menu habituel (couper, coller…)
-    e.preventDefault();
-    if (pressed?.fired || ctx?.id === msgEl.dataset.id) return; // déjà ouvert par l'appui long
-    const keyboard = !e.clientX && !e.clientY;
-    openMsgMenu(msgEl.dataset.id, keyboard ? {} : { x: e.clientX, y: e.clientY });
-  });
-  // Appui long au doigt (iPhone n'envoie pas « contextmenu »)
-  list.addEventListener('touchstart', (e) => {
-    const msgEl = e.target.closest('.msg');
-    if (!msgEl || e.touches.length > 1 || e.target.closest('.msg-edit, button, a, .file-card')) { pressed = null; return; }
-    const t = e.touches[0];
-    pressed = { id: msgEl.dataset.id, x: t.clientX, y: t.clientY, fired: false };
-    pressed.timer = setTimeout(() => {
-      if (!pressed) return;
-      pressed.fired = true;
-      navigator.vibrate?.(10);
-      openMsgMenu(pressed.id, { x: pressed.x, y: pressed.y });
-    }, 450);
-  }, { passive: true });
-  list.addEventListener('touchmove', (e) => {
-    if (!pressed || pressed.fired) return;
-    const t = e.touches[0];
-    if (Math.hypot(t.clientX - pressed.x, t.clientY - pressed.y) > 10) { clearTimeout(pressed.timer); pressed = null; }
-  }, { passive: true });
-  list.addEventListener('touchend', (e) => {
-    if (!pressed) return;
-    clearTimeout(pressed.timer);
-    if (pressed.fired && e.cancelable) e.preventDefault(); // pas de « clic » juste après l'ouverture du menu
-    pressed = null;
-  });
-  list.addEventListener('touchcancel', () => { if (pressed) clearTimeout(pressed.timer); pressed = null; });
+  B.onLeave(() => B.closeMsgMenu());
+  B.bindMsgPress(list, { selector: '.msg', idOf: (el) => el.dataset.id, open: openMsgMenu });
 
   // ---------------- Répondre à un message ----------------
 
@@ -540,19 +428,14 @@ B.chat = async (root, { project, channel, mode }) => {
     renderPins();
   }
 
-  function firstLine(text) {
-    const line = String(text || '').replace(/```[\s\S]*?```/g, ' ').split('\n').find((l) => l.trim()) || '';
-    return line.length > 120 ? line.slice(0, 117) + '…' : line;
-  }
+  function firstLine(text) { return B.msgFirstLine(text); }
 
   // Bouton « Messages épinglés » en haut à droite de la discussion (en-tête du salon / de l'Atelier)
   function mountPinsButton() {
     const pinsSlot = root.closest('.channel-main')?.querySelector('.pins-slot') || $('.chat-filters', root);
     if (!pinsSlot) return;
-    pinsBtn = h(`<button type="button" class="icon-btn pins-btn hidden" aria-haspopup="dialog" aria-expanded="false"
-      title="${tr('Messages épinglés')}" aria-label="${tr('Messages épinglés')}">${icon('pin', 17)}<span class="pins-count"></span></button>`);
-    pinsSlot.appendChild(pinsBtn);
-    paintIcons(pinsBtn);
+    pinsBtn = B.pinsButton(pinsSlot);
+    pinsBtn.classList.add('hidden');
     pinsBtn.onclick = () => (pinsPop ? closePins() : openPins());
     B.onLeave(() => { closePins(); pinsBtn.remove(); });
   }
@@ -560,12 +443,9 @@ B.chat = async (root, { project, channel, mode }) => {
   function renderPins() {
     if (pinsBtn) {
       pinsBtn.classList.toggle('hidden', !st.pinsReady);
-      const n = st.pins.length;
-      $('.pins-count', pinsBtn).textContent = n ? String(n) : '';
-      pinsBtn.classList.toggle('has-pins', n > 0);
-      pinsBtn.setAttribute('aria-label', n ? tr(n > 1 ? '{n} messages épinglés' : '{n} message épinglé', { n }) : tr('Messages épinglés'));
+      B.paintPinsButton(pinsBtn, st.pins.length);
     }
-    if (pinsPop) fillPins();
+    pinsPop?.fill();
   }
 
   function jumpTo(id) {
@@ -576,16 +456,9 @@ B.chat = async (root, { project, channel, mode }) => {
     el.classList.remove('flash'); void el.offsetWidth; el.classList.add('flash');
   }
 
-  function closePins() {
-    if (!pinsPop) return;
-    pinsPop.off();
-    pinsPop.el.remove();
-    pinsPop = null;
-    pinsBtn?.setAttribute('aria-expanded', 'false');
-  }
+  function closePins() { pinsPop?.close(); }
 
-  function fillPins() {
-    const el = pinsPop.el;
+  function fillPins(el) {
     const hint = B.isPhone?.() ? tr('Appui long sur un message, puis « Épingler ».') : tr('Clic droit sur un message, puis « Épingler ».');
     el.innerHTML = `<div class="pins-head"><h3>${icon('pin', 16)} ${tr('Messages épinglés')}${st.pins.length ? ` <span class="muted">· ${st.pins.length}</span>` : ''}</h3>
         <button type="button" class="icon-btn" data-pins-close aria-label="${tr('Fermer')}">${icon('x', 15)}</button></div>
@@ -599,7 +472,6 @@ B.chat = async (root, { project, channel, mode }) => {
             <button type="button" class="btn small" data-unpin>${tr('Désépingler')}</button></div>
         </div>`).join('')}</div>`
       : `<p class="pins-empty muted">${tr('Aucun message épinglé dans ce salon.')}<br>${hint}</p>`}`;
-    paintIcons(el);
     $('[data-pins-close]', el).onclick = () => { closePins(); pinsBtn?.focus(); };
     $$('.pin-item', el).forEach((it) => {
       const p = st.pins.find((x) => x.id === it.dataset.id);
@@ -609,33 +481,9 @@ B.chat = async (root, { project, channel, mode }) => {
     });
   }
 
-  /** Petite fenêtre sous le bouton ; se ferme dès qu'on clique ailleurs (ou Échap) */
   function openPins() {
     if (!pinsBtn) return;
-    const el = h(`<div class="pins-pop" role="dialog" aria-label="${tr('Messages épinglés')}"></div>`);
-    document.body.appendChild(el);
-    pinsPop = { el, off: () => {} };
-    fillPins();
-    const place = () => {
-      const r = pinsBtn.getBoundingClientRect(), pad = 8;
-      el.style.top = `${r.bottom + 6}px`;
-      el.style.left = `${Math.max(pad, Math.min(r.right - el.offsetWidth, innerWidth - el.offsetWidth - pad))}px`;
-    };
-    place();
-    const outside = (e) => { if (pinsPop?.el === el && !el.contains(e.target) && !pinsBtn.contains(e.target)) closePins(); };
-    const esc_ = (e) => { if (e.key === 'Escape' && pinsPop?.el === el) { closePins(); pinsBtn.focus(); } };
-    let alive = true;
-    setTimeout(() => { if (alive) document.addEventListener('pointerdown', outside, true); }, 0);
-    document.addEventListener('keydown', esc_);
-    window.addEventListener('resize', place);
-    pinsPop.off = () => {
-      alive = false;
-      document.removeEventListener('pointerdown', outside, true);
-      document.removeEventListener('keydown', esc_);
-      window.removeEventListener('resize', place);
-    };
-    pinsBtn.setAttribute('aria-expanded', 'true');
-    $('[data-go], [data-unpin], [data-pins-close]', el)?.focus({ preventScroll: true });
+    pinsPop = B.openPinsPop(pinsBtn, fillPins, () => { pinsPop = null; });
   }
 
   async function togglePin(m) {

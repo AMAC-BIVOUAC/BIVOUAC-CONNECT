@@ -220,9 +220,10 @@ B.pages.messages = async (view, [otherId]) => {
   const conv = $('.dm-conv', view);
   conv.innerHTML = `
     <header class="dm-head"><a class="icon-btn dm-back" href="#/messages" title="${tr('Retour')}">${icon('arrow', 16)}</a>
-      ${avatar(other, 32)}<div><strong translate="no">${esc(other.display_name)}</strong><small class="dm-status"></small></div></header>
+      ${avatar(other, 32)}<div><strong translate="no">${esc(other.display_name)}</strong><small class="dm-status"></small></div>
+      <span class="pins-slot dm-pins"></span></header>
     <div class="dm-msgs"><div class="loading">${tr('Chargement…')}</div></div>
-    <form class="dm-compose"><div class="dm-pending"></div><div class="dm-compose-row">
+    <form class="dm-compose"><div class="reply-bar hidden"></div><div class="dm-pending"></div><div class="dm-compose-row">
       <button type="button" class="icon-btn dm-attach" title="${tr('Joindre un fichier')}">${icon('plus', 20)}</button>
       <input type="file" class="dm-file-input hidden" multiple />
       <textarea rows="2" maxlength="4000" placeholder="${esc(tr('Écrire à {name}…', { name: other.display_name }))}"></textarea>
@@ -234,6 +235,8 @@ B.pages.messages = async (view, [otherId]) => {
   B.watchMessageImages(conv);
   const box = $('.dm-msgs', conv);
   const shown = new Map();
+  const parents = new Map(); // messages cités par une réponse, absents des 200 derniers
+  let pins = [], pinsReady = true, replyTo = null, pinsPop = null, pinsBtn = null;
   let active = true, loading = true, reading = false, sending = false, editing = null;
   const atBottom = () => box.scrollHeight - box.scrollTop - box.clientHeight < 32;
   B.dmAtBottom = atBottom;
@@ -255,18 +258,30 @@ B.pages.messages = async (view, [otherId]) => {
   const indicator = (d) => B.readIndicator({ seen: Boolean(d.read_at), label: d.read_at
     ? `${tr('Vu par {names}', { names: other.display_name })} · ${fmtDate(d.read_at)} ${fmtTime(d.read_at)}` : tr('Envoyé') });
   const receipt = (d) => d.sender_id === B.me.id && !d.deleted_at ? ` <span class="dm-receipt">${indicator(d)}</span>` : '';
-  const bubble = (d) => `<div class="dm-msg ${d.sender_id === B.me.id ? 'mine' : ''}" data-dm-id="${esc(d.id)}">
+  const whoDm = (d) => (d.sender_id === B.me.id ? B.me : other).display_name;
+  const dmReactions = (d) => (Array.isArray(d.reactions) ? d.reactions : []).map((r) => ({ emoji: r.e, user_id: r.u }));
+  // Citation au-dessus d'une réponse (clic = aller au message cité)
+  const replyQuote = (d) => {
+    if (!d.reply_to) return '';
+    const p = shown.get(d.reply_to) || parents.get(d.reply_to);
+    if (!p || p.deleted_at) return `<div class="msg-reply gone">${icon('reply', 13)} <span>${tr('Message supprimé')}</span></div>`;
+    return `<button type="button" class="msg-reply" data-jump-reply="${esc(p.id)}" title="${tr('Aller au message')}">${icon('reply', 13)}
+      <strong translate="no">${esc(whoDm(p))}</strong><span translate="no">${esc(B.msgFirstLine(p.content) || (p.attachments?.length ? tr('Pièce jointe') : ''))}</span></button>`;
+  };
+  const bubble = (d) => `<div class="dm-msg ${d.sender_id === B.me.id ? 'mine' : ''} ${d.pinned_at && !d.deleted_at ? 'pinned' : ''}" data-dm-id="${esc(d.id)}">
+    ${d.deleted_at ? '' : replyQuote(d)}
     ${d.deleted_at ? `<em class="muted">${tr('Message supprimé')}</em>` : editing?.id === d.id ? `<div class="msg-edit"><textarea rows="2" maxlength="4000">${esc(editing.draft)}</textarea>
       <div class="msg-edit-actions"><button type="button" class="btn small" data-dm-cancel>${tr('Annuler')}</button><button type="button" class="btn small primary" data-dm-save>${tr('Enregistrer')}</button></div></div>`
       : d.content ? `<div class="dm-bubble" translate="no">${md(d.content)}</div>` : ''}
     ${(d.attachments || []).map((f, i) => `${B.messageMedia(f, 'dm-files') ? `<div class="file-media">${B.messageMedia(f, 'dm-files')}</div>` : ''}<button type="button" class="file-card dm-file" data-dm-file="${i}" title="${tr('Ouvrir')}">
       ${B.messageImage(f, 'dm-files')}${icon('file', 20)}<span><strong translate="no">${esc(f.name)}</strong><small>${fmtSize(f.size)}</small></span></button>`).join('')}
+    ${d.deleted_at ? '' : B.reactionsHtml(dmReactions(d))}
     ${d.hidden_at && !d.deleted_at ? `<small class="hidden-note">${icon('eyeoff', 12)} ${tr('Masqué par l’équipe Bivouac : vous seul le voyez.')}</small>` : ''}
-    <small>${fmtTime(d.created_at)}${d.edited_at && !d.deleted_at ? ` · ${tr('(modifié)')}` : ''}${receipt(d)}</small>
-    ${d.sender_id !== B.me.id && !d.deleted_at ? `<div class="dm-tools"><button type="button" class="icon-btn" data-dm-menu aria-label="${tr('Actions du message')}" aria-expanded="false">⋯</button>
-      <div class="dm-actions" hidden><button type="button" class="btn small" data-dm-report>${icon('flag', 13)} ${tr('Signaler')}</button></div></div>` : ''}
-    ${d.sender_id === B.me.id && !d.deleted_at ? `<div class="dm-tools"><button type="button" class="icon-btn" data-dm-menu aria-label="${tr('Actions du message')}" aria-expanded="false">⋯</button>
-      <div class="dm-actions" hidden><button type="button" class="btn small" data-dm-edit>${tr('Modifier')}</button><button type="button" class="btn small" data-dm-delete>${tr('Supprimer')}</button></div></div>` : ''}</div>`;
+    <small>${d.pinned_at && !d.deleted_at ? `<span class="pin-tag">${icon('pin', 12)} ${tr('Épinglé')}</span> · ` : ''}${fmtTime(d.created_at)}${d.edited_at && !d.deleted_at ? ` · ${tr('(modifié)')}` : ''}${receipt(d)}</small>
+    ${d.deleted_at ? '' : `<div class="dm-tools">
+      <button type="button" class="icon-btn" data-dm-quick="reply" title="${tr('Répondre')}" aria-label="${tr('Répondre')}">${icon('reply', 15)}</button>
+      <button type="button" class="icon-btn" data-dm-quick="react" title="${tr('Ajouter une réaction')}" aria-label="${tr('Ajouter une réaction')}">${icon('smile', 15)}</button>
+      <button type="button" class="icon-btn" data-dm-menu aria-haspopup="menu" aria-expanded="false" title="${tr('Plus d’actions (ou clic droit sur le message)')}" aria-label="${tr('Actions du message')}">⋯</button></div>`}</div>`;
   const repaint = id => {
     const el = box.querySelector(`[data-dm-id="${id}"]`), d = shown.get(id);
     if (el && d) el.replaceWith(h(bubble(d)));
@@ -274,6 +289,7 @@ B.pages.messages = async (view, [otherId]) => {
   const change = d => {
     if (!active || !shown.has(d.id)) return;
     shown.set(d.id, d);
+    syncPin(d);
     if (d.deleted_at && editing?.id === d.id) editing = null;
     if (editing?.id !== d.id) repaint(d.id);
     renderList();
@@ -311,34 +327,16 @@ B.pages.messages = async (view, [otherId]) => {
   };
   box.addEventListener('click', async (e) => {
     const msg = e.target.closest('[data-dm-id]'), d = shown.get(msg?.dataset.dmId);
-    if (e.target.closest('[data-dm-menu]')) {
-      const menu = $('.dm-actions', msg), button = $('[data-dm-menu]', msg); menu.hidden = !menu.hidden;
-      button.setAttribute('aria-expanded', String(!menu.hidden)); return;
-    }
-    if (e.target.closest('[data-dm-edit]') && d?.sender_id === B.me.id && !d.deleted_at) {
-      if (editing?.saving) return;
-      cancelEdit(); editing = { id: d.id, draft: d.content }; repaint(d.id);
-      const ta = box.querySelector(`[data-dm-id="${d.id}"] textarea`); ta.focus(); ta.setSelectionRange(ta.value.length, ta.value.length); return;
-    }
-    if (e.target.closest('[data-dm-report]') && d && d.sender_id !== B.me.id) {
-      return B.reportContent({ type: 'dm', targetId: d.id, targetUser: d.sender_id, excerpt: d.content });
-    }
-        if (e.target.closest('[data-dm-cancel]')) return cancelEdit();
+    const menuBtn = e.target.closest('[data-dm-menu]');
+    if (menuBtn && d) return openDmMenu(d.id, { anchor: menuBtn });
+    const quick = e.target.closest('[data-dm-quick]');
+    if (quick && d) return dmAct(quick.dataset.dmQuick, d.id);
+    const rb = e.target.closest('.reaction');
+    if (rb && d) return toggleDmReaction(d, rb.dataset.emoji);
+    const jump = e.target.closest('[data-jump-reply]');
+    if (jump) return jumpTo(jump.dataset.jumpReply);
+    if (e.target.closest('[data-dm-cancel]')) return cancelEdit();
     if (e.target.closest('[data-dm-save]')) return saveEdit();
-    if (e.target.closest('[data-dm-delete]') && d?.sender_id === B.me.id && !d.deleted_at) {
-      if (!(await B.confirm(tr('Supprimer ce message ?'), tr('Supprimer')))) return;
-      try {
-        const { data, error } = await B.sb.rpc('delete_dm_message', { p_message: d.id });
-        if (error) throw error;
-        if (!data) throw new Error(tr('Message introuvable.'));
-        change(data);
-        if (d.attachments?.length) {
-          const cleanup = await B.sb.storage.from('dm-files').remove(d.attachments.map(f => f.path));
-          if (cleanup.error) console.warn('Nettoyage des fichiers privés', cleanup.error.message);
-        }
-      } catch (err) { B.error(err); }
-      return;
-    }
     const read = e.target.closest('.read-indicator');
     if (read) return B.showReadDetails(read);
     const btn = e.target.closest('[data-dm-file]');
@@ -371,7 +369,8 @@ B.pages.messages = async (view, [otherId]) => {
     if (active) (data || []).forEach(d => {
       const old = shown.get(d.id);
       if (!old) add(d);
-      else if (old.content !== d.content || old.deleted_at !== d.deleted_at || old.edited_at !== d.edited_at) change(d);
+      else if (old.content !== d.content || old.deleted_at !== d.deleted_at || old.edited_at !== d.edited_at
+        || old.pinned_at !== d.pinned_at || JSON.stringify(old.reactions || []) !== JSON.stringify(d.reactions || [])) change(d);
       else updateReceipt(d);
     });
   };
@@ -427,7 +426,10 @@ B.pages.messages = async (view, [otherId]) => {
   };
   ta.focus();
   readConversation();
-  ta.addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) { e.preventDefault(); form.requestSubmit(); } });
+  ta.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && replyTo) { e.preventDefault(); return cancelReply(); }
+    if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) { e.preventDefault(); form.requestSubmit(); }
+  });
   form.onsubmit = async (e) => {
     e.preventDefault();
     const content = ta.value.trim();
@@ -440,9 +442,17 @@ B.pages.messages = async (view, [otherId]) => {
       for (const f of pending) uploaded.push(await B.uploadDmFile(other.id, f));
       const payload = { sender_id: B.me.id, recipient_id: other.id, content };
       if (uploaded.length) payload.attachments = uploaded;
-      const { data, error: err } = await B.sb.from('direct_messages').insert(payload).select().single();
+      const answering = replyTo && shown.has(replyTo.id) ? replyTo.id : null;
+      if (answering) payload.reply_to = answering;
+      let { data, error: err } = await B.sb.from('direct_messages').insert(payload).select().single();
+      // Migration 044 pas encore appliquée : on envoie sans la citation plutôt que de bloquer le message
+      if (err && answering && /reply_to/.test(err.message || '')) {
+        delete payload.reply_to;
+        ({ data, error: err } = await B.sb.from('direct_messages').insert(payload).select().single());
+      }
       if (err) throw new Error(/row-level security/.test(err.message || '') ? tr('Vous ne partagez plus de projet avec cette personne.') : errText(err));
       committed = true;
+      if (answering) cancelReply();
       B.sendPush('dm', data.id);
       ta.value = '';
       B.grammarReset?.(ta);
@@ -459,5 +469,169 @@ B.pages.messages = async (view, [otherId]) => {
       if (active) ta.focus();
     }
   };
-};
 
+  // ---------------- Menu d'un message (le même que dans les salons : msgmenu.js) ----------------
+
+  async function loadParents(list) {
+    const need = [...new Set(list.map((d) => d.reply_to).filter((id) => id && !shown.has(id) && !parents.has(id)))];
+    if (!need.length) return;
+    const { data } = await B.sb.from('direct_messages').select('*').in('id', need);
+    need.forEach((id) => parents.set(id, (data || []).find((x) => x.id === id) || null));
+    if (active) list.filter((d) => need.includes(d.reply_to)).forEach((d) => { if (editing?.id !== d.id) repaint(d.id); });
+  }
+
+  function openDmMenu(id, { x, y, anchor } = {}) {
+    const d = shown.get(id);
+    if (!d || d.deleted_at) return;
+    const mine = d.sender_id === B.me.id;
+    const items = [
+      { act: 'reply', icon: 'reply', label: tr('Répondre') },
+      { act: 'copy', icon: 'copy', label: tr('Copier le message') },
+      ...(pinsReady ? [{ act: 'pin', icon: 'pin', label: d.pinned_at ? tr('Désépingler') : tr('Épingler') }] : []),
+      ...(mine ? [{ act: 'edit', icon: 'edit', label: tr('Modifier') }, { act: 'del', icon: 'trash', label: tr('Supprimer'), danger: true }]
+        : [{ act: 'report', icon: 'flag', label: tr('Signaler') }])
+    ];
+    B.openMsgMenu({ key: id, x, y, anchor, items, scroller: box, msgEl: box.querySelector(`[data-dm-id="${id}"]`),
+      reacted: dmReactions(d).filter((r) => r.user_id === B.me.id).map((r) => r.emoji),
+      onEmoji: (emoji) => toggleDmReaction(d, emoji), onAct: (a) => dmAct(a, id) });
+  }
+  B.onLeave(() => B.closeMsgMenu());
+  B.bindMsgPress(box, { selector: '.dm-msg', idOf: (el) => (shown.get(el.dataset.dmId)?.deleted_at ? null : el.dataset.dmId), open: openDmMenu });
+
+  async function dmAct(action, id) {
+    const d = shown.get(id);
+    if (!d || d.deleted_at) return;
+    if (action === 'reply') return startReply(d);
+    if (action === 'copy') return copyDm(d);
+    if (action === 'react') return B.openMediaPicker({ emojisOnly: true, onEmoji: (emoji) => toggleDmReaction(d, emoji) });
+    if (action === 'pin') return toggleDmPin(d);
+    if (action === 'report' && d.sender_id !== B.me.id) return B.reportContent({ type: 'dm', targetId: d.id, targetUser: d.sender_id, excerpt: d.content });
+    if (d.sender_id !== B.me.id) return;
+    if (action === 'edit') {
+      if (editing?.saving) return;
+      cancelEdit(); editing = { id: d.id, draft: d.content }; repaint(d.id);
+      const ed = box.querySelector(`[data-dm-id="${d.id}"] textarea`); ed.focus(); ed.setSelectionRange(ed.value.length, ed.value.length);
+      return;
+    }
+    if (action === 'del') {
+      if (!(await B.confirm(tr('Supprimer ce message ?'), tr('Supprimer')))) return;
+      try {
+        const { data, error } = await B.sb.rpc('delete_dm_message', { p_message: d.id });
+        if (error) throw error;
+        if (!data) throw new Error(tr('Message introuvable.'));
+        if (replyTo?.id === d.id) cancelReply();
+        change(data);
+        if (d.attachments?.length) {
+          const cleanup = await B.sb.storage.from('dm-files').remove(d.attachments.map(f => f.path));
+          if (cleanup.error) console.warn('Nettoyage des fichiers privés', cleanup.error.message);
+        }
+      } catch (err) { B.error(err); }
+    }
+  }
+
+  async function copyDm(d) {
+    const text = [d.content, ...(d.attachments || []).map((f) => `📎 ${f.name}`)].filter(Boolean).join('\n');
+    let ok = false;
+    try { await navigator.clipboard.writeText(text); ok = true; } catch {
+      const tmp = h('<textarea class="copy-tmp" aria-hidden="true"></textarea>');
+      tmp.value = text; document.body.appendChild(tmp); tmp.select();
+      try { ok = document.execCommand('copy'); } catch { ok = false; }
+      tmp.remove();
+    }
+    B.toast(esc(ok ? tr('Message copié.') : tr('Impossible de copier ce message.')), { type: ok ? 'success' : 'error', timeout: 2000 });
+  }
+
+  async function toggleDmReaction(d, emoji) {
+    const { data, error } = await B.sb.rpc('toggle_dm_reaction', { p_message: d.id, p_emoji: emoji });
+    if (error) return B.error(/toggle_dm_reaction/.test(error.message || '') ? tr('Les réactions en privé ne sont pas encore installées sur le serveur (migration 044).') : error);
+    if (data) change(data);
+  }
+
+  function jumpTo(id) {
+    const el = box.querySelector(`[data-dm-id="${id}"]`);
+    if (!el) return B.toast(esc(tr('Ce message est plus ancien que ceux affichés.')), { timeout: 4000 });
+    el.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    el.classList.remove('flash'); void el.offsetWidth; el.classList.add('flash');
+  }
+
+  // ----- Répondre -----
+  const replyBar = $('.reply-bar', form);
+  function startReply(d) {
+    replyTo = d;
+    replyBar.innerHTML = `${icon('reply', 15)}<span class="reply-text">${tr('Répondre à {who}', { who: `<strong translate="no">${esc(whoDm(d))}</strong>` })}
+        <span class="muted" translate="no">${esc(B.msgFirstLine(d.content) || (d.attachments?.length ? tr('Pièce jointe') : ''))}</span></span>
+      <button type="button" class="icon-btn" data-reply-cancel title="${tr('Annuler la réponse')}" aria-label="${tr('Annuler la réponse')}">${icon('x', 15)}</button>`;
+    paintIcons(replyBar);
+    replyBar.classList.remove('hidden');
+    $('[data-reply-cancel]', replyBar).onclick = () => { cancelReply(); ta.focus(); };
+    ta.focus();
+  }
+  function cancelReply() {
+    replyTo = null;
+    replyBar.classList.add('hidden');
+    replyBar.innerHTML = '';
+  }
+
+  // ----- Épingles de la conversation -----
+  pinsBtn = B.pinsButton($('.dm-pins', conv));
+  pinsBtn.classList.add('hidden');
+  pinsBtn.onclick = () => (pinsPop ? pinsPop.close() : (pinsPop = B.openPinsPop(pinsBtn, fillPins, () => { pinsPop = null; })));
+  B.onLeave(() => pinsPop?.close());
+  async function loadPins() {
+    const { data, error } = await B.sb.from('direct_messages').select('*')
+      .or(`and(sender_id.eq.${B.me.id},recipient_id.eq.${other.id}),and(sender_id.eq.${other.id},recipient_id.eq.${B.me.id})`)
+      .not('pinned_at', 'is', null).order('pinned_at', { ascending: false }).limit(25);
+    if (error) { pinsReady = false; return; } // migration 044 pas encore appliquée : on cache la fonction
+    pins = (data || []).filter((d) => !d.deleted_at);
+    paintPins();
+  }
+  function paintPins() {
+    if (!pinsBtn) return;
+    pinsBtn.classList.toggle('hidden', !pinsReady);
+    B.paintPinsButton(pinsBtn, pins.length);
+    pinsPop?.fill();
+  }
+  function syncPin(d) {
+    if (!pinsReady) return;
+    const had = pins.some((p) => p.id === d.id);
+    if (d.pinned_at && !d.deleted_at) pins = [d, ...pins.filter((p) => p.id !== d.id)].sort((a, b) => b.pinned_at.localeCompare(a.pinned_at));
+    else if (had) pins = pins.filter((p) => p.id !== d.id);
+    else return;
+    paintPins();
+  }
+  async function toggleDmPin(d) {
+    const pin = !d.pinned_at;
+    const { data, error } = await B.sb.rpc('set_dm_pin', { p_message: d.id, p_pin: pin });
+    if (error) return B.error(error);
+    if (data) change(data);
+    if (pin) B.toast(esc(tr('Message épinglé : retrouvez-le avec le bouton 📌 en haut à droite.')), { type: 'success', timeout: 3000 });
+  }
+  function fillPins(el) {
+    const hint = B.isPhone?.() ? tr('Appui long sur un message, puis « Épingler ».') : tr('Clic droit sur un message, puis « Épingler ».');
+    el.innerHTML = `<div class="pins-head"><h3>${icon('pin', 16)} ${tr('Messages épinglés')}${pins.length ? ` <span class="muted">· ${pins.length}</span>` : ''}</h3>
+        <button type="button" class="icon-btn" data-pins-close aria-label="${tr('Fermer')}">${icon('x', 15)}</button></div>
+      ${pins.length ? `<div class="pins-list">${pins.map((p) => `
+        <div class="pin-item" data-id="${esc(p.id)}">
+          <div class="pin-item-head"><strong translate="no">${esc(whoDm(p))}</strong><span class="muted small">${fmtDate(p.created_at)} ${fmtTime(p.created_at)}
+            ${p.pinned_by ? ` · ${tr('épinglé par {who}', { who: esc((p.pinned_by === B.me.id ? B.me : other).display_name) })}` : ''}</span></div>
+          <div class="msg-text pin-text" translate="no">${md(p.content || (p.attachments?.length ? '📎 ' + p.attachments.map((f) => f.name).join(', ') : ''))}</div>
+          <div class="pin-actions">
+            ${shown.has(p.id) ? `<button type="button" class="btn small" data-go>${tr('Aller au message')}</button>` : ''}
+            <button type="button" class="btn small" data-unpin>${tr('Désépingler')}</button></div>
+        </div>`).join('')}</div>`
+      : `<p class="pins-empty muted">${tr('Aucun message épinglé dans cette conversation.')}<br>${hint}</p>`}`;
+    $('[data-pins-close]', el).onclick = () => { pinsPop?.close(); pinsBtn.focus(); };
+    $$('.pin-item', el).forEach((it) => {
+      const p = pins.find((x) => x.id === it.dataset.id);
+      const go = $('[data-go]', it);
+      if (go) go.onclick = () => { pinsPop?.close(); jumpTo(p.id); };
+      $('[data-unpin]', it).onclick = async () => {
+        const { data, error } = await B.sb.rpc('set_dm_pin', { p_message: p.id, p_pin: false });
+        if (error) return B.error(error);
+        if (data) { if (shown.has(data.id)) change(data); else syncPin(data); }
+      };
+    });
+  }
+  paintPins();
+  await Promise.all([loadParents([...shown.values()]), loadPins()]);
+};

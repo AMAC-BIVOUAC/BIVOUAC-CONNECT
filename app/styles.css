@@ -2627,3 +2627,22 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--teal); }
   /* Messages privés : un peu plus d'air entre les conversations */
   .dm-person { padding: var(--s-3) var(--s-2); }
 }
+
+/* Messages privés : le même menu que les salons (clic droit, appui long, ⋯), réponses, épingles, réactions (v0.8.68) */
+.dm-head .dm-pins { margin-left: auto; }
+.dm-msg { border-radius: var(--r-md); padding: 2px 4px; }
+.dm-msg.ctx-on { background: var(--tint); }
+.dm-msg.flash { animation: msg-flash 1.6s ease; }
+.dm-msg.pinned .dm-bubble { box-shadow: inset 3px 0 0 var(--orange); }
+.dm-msg .pin-tag { margin-left: 0; }
+.dm-msg .reactions { margin-top: 4px; }
+.dm-msg .msg-reply { max-width: 320px; }
+.dm-tools [data-dm-quick] { display: none; }
+.dm-msg:hover .dm-tools [data-dm-quick], .dm-msg:focus-within .dm-tools [data-dm-quick] { display: inline-flex; }
+@media (hover: none) {
+  .dm-msg { -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; }
+  .dm-msg .msg-edit textarea { -webkit-user-select: text; user-select: text; }
+}
+@media (max-width: 760px), (hover: none) {
+  .dm-tools [data-dm-quick], .dm-msg:hover .dm-tools [data-dm-quick] { display: none; }
+}
