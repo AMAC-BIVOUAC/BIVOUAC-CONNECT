@@ -498,26 +498,73 @@ B.paintUnread = (root = document) => {
   });
 };
 
+/**
+ * Rattrapage après une coupure du direct (veille du PC, réseau, fenêtre longtemps cachée) : Supabase se reconnecte
+ * tout seul, mais ce qui est arrivé pendant la coupure n'est jamais renvoyé. `B.onRejoin(fn)` = rappel de
+ * `.subscribe()` qui lance `fn` à chaque reconnexion (pas à la première). `B.catchUpSince()` = depuis quand relire
+ * (heure du dernier élément vu, 2 min de marge pour l'horloge du PC ; les doublons sont écartés par identifiant).
+ */
+B.onRejoin = (fn) => {
+  let joined = false;
+  return (status) => {
+    if (status !== 'SUBSCRIBED') return;
+    if (!joined) { joined = true; return; }
+    Promise.resolve().then(fn).catch(console.error);
+  };
+};
+B.catchUpSince = () => {
+  let last = new Date().toISOString();
+  return {
+    see: (iso) => { if (iso && iso > last) last = iso; },
+    get: () => new Date(new Date(last).getTime() - 2 * 60 * 1000).toISOString()
+  };
+};
+
 B.startGlobalLive = () => {
   // Nouveau message dans un de mes projets (la RLS filtre) : badge à jour, ou lu tout de suite
   // si le salon est affiché et la fenêtre active
   const refresh = debounce(() => B.loadUnread(), 400);
   const readOpen = debounce(() => B.openChannel && B.markRead(B.openChannel), 400);
+  const msgSince = B.catchUpSince();
+  const seenMsgs = new Set();
+  const onMessage = (m) => {
+    if (seenMsgs.has(m.id)) return;
+    seenMsgs.add(m.id);
+    msgSince.see(m.created_at);
+    if (m.author_id === B.me.id) return;
+    if (m.channel_id === B.openChannel && document.hasFocus()) readOpen();
+    else refresh();
+    // Prévenu quand le message n'est pas sous mes yeux (salon fermé, fenêtre cachée ou en arrière-plan) :
+    // dans l'app si elle est au premier plan, sinon notification Windows (B.notifyMessage)
+    if (m.channel_id !== B.openChannel || !document.hasFocus() || document.hidden) B.notifyMessage?.(m).catch(console.error);
+  };
   B.sb.channel('me-unread')
-    .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, (p) => {
-      if (p.new.author_id === B.me.id) return;
-      if (p.new.channel_id === B.openChannel && document.hasFocus()) readOpen();
-      else refresh();
-      // Notification Windows quand le message n'est pas sous mes yeux (salon fermé, fenêtre cachée ou en arrière-plan)
-      if (p.new.channel_id !== B.openChannel || !document.hasFocus() || document.hidden) B.notifyMessage?.(p.new).catch(console.error);
-    })
-    .subscribe();
+    .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, (p) => onMessage(p.new))
+    .subscribe(B.onRejoin(async () => {
+      B.loadUnread();
+      const { data } = await B.sb.from('messages').select('*').gt('created_at', msgSince.get())
+        .neq('author_id', B.me.id).order('created_at').limit(50);
+      (data || []).forEach(onMessage); // au plus une notification par salon (B.notifyMessage)
+    }));
   window.addEventListener('focus', () => { if (B.openChannel) B.markRead(B.openChannel); });
 
+  const notifSince = B.catchUpSince();
+  const seenNotifs = new Set();
+  const onNotif = (n) => {
+    if (seenNotifs.has(n.id)) return;
+    seenNotifs.add(n.id);
+    notifSince.see(n.created_at);
+    B.emit('notification', n);
+  };
   B.sb.channel('me-notifs')
     .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'notifications', filter: `user_id=eq.${B.me.id}` },
-      (p) => B.emit('notification', p.new))
-    .subscribe();
+      (p) => onNotif(p.new))
+    .subscribe(B.onRejoin(async () => {
+      const { data } = await B.sb.from('notifications').select('*').eq('user_id', B.me.id)
+        .gt('created_at', notifSince.get()).is('read_at', null).order('created_at').limit(10);
+      (data || []).forEach(onNotif);
+      B.refreshBadge?.();
+    }));
   B.sb.channel('me-requests')
     .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'ai_requests', filter: `target_id=eq.${B.me.id}` },
       (p) => B.emit('ai_request', p.new))

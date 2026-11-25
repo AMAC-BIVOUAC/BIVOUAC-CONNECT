@@ -166,24 +166,44 @@ B.paintPresence = (root = document) => $$('[data-online]', root).forEach((d) => 
   d.title = B.statusText(d.dataset.online);
 });
 
-/** Notification Windows / navigateur, sauf en statut « Occupé ». `link` : adresse ouverte au clic (#/…) */
-B.pcNotify = (title, body, silent, link = null) => {
-  if (B.myStatus().state === 'busy') return Promise.resolve();
+/** La personne regarde l'app en ce moment (fenêtre ou onglet visible ET actif) */
+B.appInFront = () => !document.hidden && document.hasFocus();
+
+/**
+ * Notification Windows / navigateur, sauf en statut « Occupé ». `link` : adresse ouverte au clic (#/…).
+ * Règle (25/11, Apo) : app au premier plan = rien ici (l'appelant prévient DANS l'app : bandeau, son, badge) ;
+ * sinon vraie notification du système. `group` = { id, title } : en-tête du centre de notifications de Windows
+ * (un par projet : B.notifyGroup) ; `tag` = identifiant, une même chose n'est jamais affichée deux fois.
+ */
+B.pcNotify = (title, body, silent, link = null, { group = null, tag = null } = {}) => {
+  if (B.myStatus().state === 'busy') return Promise.resolve(false);
+  if (B.appInFront()) return Promise.resolve(false);
   // Web avec notifications app fermée actives : onglet caché = la notification arrive déjà par le service worker
-  if (window.BIVOUAC_WEB && B.pushActive && document.hidden) return Promise.resolve();
-  return window.bivouac.notify(title, body, silent, link);
+  if (window.BIVOUAC_WEB && B.pushActive && document.hidden) return Promise.resolve(false);
+  return window.bivouac.notify(title, body, silent, link, { group: group?.id || null, groupTitle: group?.title || null, tag });
+};
+/** En-tête du centre de notifications : le projet (sinon « BIVOUAC-TECH ») */
+B.notifyGroup = (projectId) => {
+  const p = projectId && B.project(projectId);
+  return p ? { id: `p-${p.id}`.slice(0, 64), title: p.name } : { id: 'bivouac', title: 'BIVOUAC-TECH' };
 };
 
 // ---------- Réglages des notifications de ce poste ----------
 // tray : fermer la fenêtre la cache près de l'horloge (Windows) pour continuer à prévenir.
 // Quels messages préviennent : niveau par projet (onglet Équipe, B.projectNotifyLevel, push.js).
-const NOTIFY_DEFAULTS = { tray: true };
+// autostart : lancer au démarrage de Windows, directement près de l'horloge (25/11, Apo ; app installée seulement).
+const NOTIFY_DEFAULTS = { tray: true, autostart: true };
 B.notifyPrefs = () => ({ ...NOTIFY_DEFAULTS, ...(store.get('notify') || {}) });
+const applyNotifyPrefs = () => {
+  const p = B.notifyPrefs();
+  window.bivouac.setKeepInTray?.(p.tray);
+  window.bivouac.setAutostart?.(p.tray && p.autostart); // sans icône près de l'horloge, la fenêtre s'ouvrirait au démarrage
+};
 B.setNotifyPrefs = (patch) => {
   store.set('notify', { ...B.notifyPrefs(), ...patch });
-  window.bivouac.setKeepInTray?.(B.notifyPrefs().tray);
+  applyNotifyPrefs();
 };
-window.bivouac.setKeepInTray?.(B.notifyPrefs().tray);
+applyNotifyPrefs();
 window.bivouac.onNotifyClick?.((link) => { if (typeof link === 'string' && link.startsWith('#/')) location.hash = link; });
 
 /**
@@ -220,8 +240,15 @@ B.notifyMessage = async (msg) => {
   const who = msg.is_ai ? aiName(msg.ai_provider, author) : author.display_name;
   const text = String(msg.content || '').replace(/\s+/g, ' ').trim();
   const link = isAtelier ? `#/p/${ch.project_id}/atelier` : `#/p/${ch.project_id}/discussion/${ch.id}`;
+  const short = text.length > 140 ? `${text.slice(0, 140)}…` : text;
   B.playSound('notif');
-  B.pcNotify(project ? `${project.name} · ${where}` : where, `${who} : ${text.length > 140 ? `${text.slice(0, 140)}…` : text}`, B.soundPrefs().notif, link);
+  // App au premier plan (autre page, autre salon) : prévenu dans l'app ; sinon notification Windows
+  if (B.appInFront()) {
+    if (B.myStatus().state !== 'busy') B.toast(`<strong translate="no">${esc(project ? `${project.name} · ${where}` : where)}</strong> <span translate="no">${esc(`${who} : ${short}`)}</span> <a href="${esc(link)}">${tr('Ouvrir')}</a>`);
+    return;
+  }
+  B.pcNotify(project ? `${project.name} · ${where}` : where, `${who} : ${short}`, B.soundPrefs().notif, link,
+    { group: B.notifyGroup(ch.project_id), tag: `m-${msg.id}` });
 };
 
 /** Menu du statut (clic sur ma carte en bas de la colonne) */

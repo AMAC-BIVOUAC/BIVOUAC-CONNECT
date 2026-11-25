@@ -285,7 +285,8 @@ B.on('notification', (n) => {
   if (n.project_id && B.projectNotifyLevel(n.project_id) === 'mute') return; // projet en sourdine : la cloche seulement
   if (n.type !== 'ai_request') {
     B.playSound('notif');
-    B.pcNotify('BIVOUAC-TECH', n.text, B.soundPrefs().notif, n.link || null);
+    B.pcNotify(B.project(n.project_id)?.name || 'BIVOUAC-TECH', n.text, B.soundPrefs().notif, n.link || null,
+      { group: B.notifyGroup(n.project_id), tag: `n-${n.id}` });
     B.toast(`${esc(n.text)}${n.link ? ` <a href="${esc(n.link)}">${tr('Ouvrir')}</a>` : ''}`);
   }
 });

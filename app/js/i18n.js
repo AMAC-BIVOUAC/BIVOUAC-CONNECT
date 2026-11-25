@@ -1676,6 +1676,8 @@ const EN = {
   "Quand l'app est fermée (cet appareil)": "When the app is closed (this device)",
   "Pour moi, sur tous mes appareils": "For me, on all my devices",
   "Messages privés": "Private messages",
+  "Lancer BIVOUAC-TECH au démarrage de Windows, directement près de l'horloge": "Start BIVOUAC-TECH with Windows, straight to the area near the clock",
+  "Quand BIVOUAC-TECH n'est pas au premier plan, tout arrive en notification Windows, rangé par projet. Quand vous êtes dedans, tout reste dans l'app.": "When BIVOUAC-TECH is not in the foreground, everything arrives as a Windows notification, grouped by project. When you are using it, everything stays in the app.",
   "Son": "Sound",
   "Vibreur (téléphone)": "Vibration (phone)",
   "Pour chaque projet, choisissez quels messages vous préviennent (tous, mentions, seulement vous, muet) : onglet Équipe du projet.": "For each project, choose which messages notify you (all, mentions, only you, muted): the project's Team tab.",

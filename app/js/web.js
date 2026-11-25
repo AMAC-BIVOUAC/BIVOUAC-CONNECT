@@ -91,6 +91,7 @@
     },
     onNotifyClick: () => {}, // le clic est géré directement par la notification du navigateur
     setKeepInTray: () => {}, // pas d'icône près de l'horloge dans un navigateur
+    setAutostart: () => {}, // pas de lancement au démarrage du PC pour un site
 
     openExternal: async (url) => open(url),
 

@@ -89,33 +89,49 @@ B.on('online', () => { B.renderOnline(); if (B.dmOpen) B.emit('dm-presence'); })
 
 // ---------- Temps réel : nouveau message privé pour moi ----------
 
+/** Un message privé pour moi est arrivé (en direct, ou rattrapé après une coupure : B.catchUp) */
+const seenDms = new Set();
+const onIncomingDm = (msg) => {
+  if (seenDms.has(msg.id)) return;
+  seenDms.add(msg.id);
+  B.emit('dm', msg);
+  if (msg.sender_id === B.dmOpen && !document.hidden && document.hasFocus() && B.dmAtBottom?.()) return;
+  B.dmUnread.set(msg.sender_id, (B.dmUnread.get(msg.sender_id) || 0) + 1);
+  dmChanged();
+  if (B.notifySettings?.prefs.dm === false) return; // Paramètres → Notifications : messages privés coupés
+  B.playSound('notif');
+  const who = B.person(msg.sender_id).display_name;
+  B.pcNotify(tr('Message privé de {name}', { name: who }), String(msg.content || '').replace(/\s+/g, ' ').trim().slice(0, 140),
+    B.soundPrefs().notif, `#/messages/${msg.sender_id}`, { group: { id: 'messages', title: tr('Messages privés') }, tag: `d-${msg.id}` });
+  if (msg.sender_id !== B.dmOpen) {
+    B.toast(`${tr('Message privé de {name}', { name: `<span translate="no">${esc(who)}</span>` })} <a href="#/messages/${msg.sender_id}">${tr('Ouvrir')}</a>`);
+  }
+};
+
 B.startDmLive = () => {
   B.loadDmUnread();
+  const since = B.catchUpSince();
   B.sb.channel('me-dm')
-    .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'direct_messages', filter: `recipient_id=eq.${B.me.id}` }, (p) => {
-      const msg = p.new;
-      B.emit('dm', msg);
-      if (msg.sender_id === B.dmOpen && !document.hidden && document.hasFocus() && B.dmAtBottom?.()) return;
-      B.dmUnread.set(msg.sender_id, (B.dmUnread.get(msg.sender_id) || 0) + 1);
-      dmChanged();
-      if (B.notifySettings?.prefs.dm === false) return; // Paramètres → Notifications : messages privés coupés
-      B.playSound('notif');
-      const who = B.person(msg.sender_id).display_name;
-      B.pcNotify('BIVOUAC-TECH', tr('Message privé de {name}', { name: who }), B.soundPrefs().notif, `#/messages/${msg.sender_id}`);
-      if (msg.sender_id !== B.dmOpen) {
-        B.toast(`${tr('Message privé de {name}', { name: `<span translate="no">${esc(who)}</span>` })} <a href="#/messages/${msg.sender_id}">${tr('Ouvrir')}</a>`);
-      }
-    })
+    .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'direct_messages', filter: `recipient_id=eq.${B.me.id}` }, (p) => onIncomingDm(p.new))
     .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'staff_notices', filter: `user_id=eq.${B.me.id}` }, (p) => {
       B.notices.unshift(p.new);
       B.noticesUnread += 1;
       paintDmBadges();
       B.toast(`${tr('Message de l’équipe Bivouac')} <a href="#/messages/equipe">${tr('Ouvrir')}</a>`);
+      B.playSound('notif');
+      B.pcNotify(tr('Message de l’équipe Bivouac'), String(p.new.text || '').replace(/[*_#`>]/g, '').replace(/\s+/g, ' ').trim().slice(0, 140),
+        B.soundPrefs().notif, '#/messages/equipe', { group: { id: 'equipe', title: tr('Équipe Bivouac') }, tag: `s-${p.new.id}` });
       if (/^#\/messages(\/equipe)?$/.test(location.hash)) B.route();
     })
     .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'direct_messages', filter: `sender_id=eq.${B.me.id}` }, (p) => { B.emit('dm-read', p.new); B.emit('dm-change', p.new); })
     .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'direct_messages', filter: `recipient_id=eq.${B.me.id}` }, (p) => { B.emit('dm-change', p.new); if (p.new.deleted_at) B.loadDmUnread(); })
-    .subscribe();
+    // Reconnexion (veille du PC, réseau coupé) : les messages privés arrivés pendant la coupure préviennent quand même
+    .subscribe(B.onRejoin(async () => {
+      B.loadDmUnread();
+      const { data } = await B.sb.from('direct_messages').select('*').eq('recipient_id', B.me.id)
+        .gt('created_at', since.get()).is('read_at', null).is('deleted_at', null).order('created_at').limit(10);
+      (data || []).forEach((m) => { since.see(m.created_at); onIncomingDm(m); });
+    }));
 };
 
 /** Documents privés : bucket séparé, jamais ajoutés aux documents du projet. */

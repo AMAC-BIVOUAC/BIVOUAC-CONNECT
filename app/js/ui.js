@@ -462,7 +462,8 @@ B.showIncomingRequest = (req) => {
   const who = B.person(req.requester_id).display_name;
   const label = PROVIDERS[req.provider]?.label || req.provider;
   B.playSound('notif');
-  B.pcNotify(tr('{who} veut utiliser votre {ai}', { who, ai: label }), B.project(req.project_id)?.name || '', B.soundPrefs().notif, `#/demande/${req.id}`);
+  B.pcNotify(tr('{who} veut utiliser votre {ai}', { who, ai: label }), B.project(req.project_id)?.name || '', B.soundPrefs().notif, `#/demande/${req.id}`,
+    { group: B.notifyGroup(req.project_id), tag: `r-${req.id}` });
   B.refreshRequests().catch(console.error);
 };
 

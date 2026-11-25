@@ -188,7 +188,9 @@ B.pages.settings = async (view) => {
         <label class="check"><input type="checkbox" id="n-vibrate" ${B.notifySettings.prefs.vibrate ? 'checked' : ''} /> ${tr('Vibreur (téléphone)')}</label>
         <p class="muted small">${tr("Pour chaque projet, choisissez quels messages vous préviennent (tous, mentions, seulement vous, muet) : onglet Équipe du projet.")}</p>
         ${window.BIVOUAC_WEB ? '' : `<label class="check"><input type="checkbox" id="n-tray" ${B.notifyPrefs().tray ? 'checked' : ''} /> ${tr("Quand je ferme la fenêtre, BIVOUAC-TECH reste ouvert près de l'horloge pour me prévenir")}</label>
-        <p class="muted small">${tr("Pour le fermer vraiment : clic droit sur son icône près de l'horloge → Quitter.")}</p>`}
+        <p class="muted small">${tr("Pour le fermer vraiment : clic droit sur son icône près de l'horloge → Quitter.")}</p>
+        <label class="check"><input type="checkbox" id="n-autostart" ${B.notifyPrefs().autostart ? 'checked' : ''} ${B.notifyPrefs().tray ? '' : 'disabled'} /> ${tr("Lancer BIVOUAC-TECH au démarrage de Windows, directement près de l'horloge")}</label>
+        <p class="muted small">${tr("Quand BIVOUAC-TECH n'est pas au premier plan, tout arrive en notification Windows, rangé par projet. Quand vous êtes dedans, tout reste dans l'app.")}</p>`}
       </section>
 
       <section class="card" data-sec="sons">
@@ -480,7 +482,12 @@ B.pages.settings = async (view) => {
     paint();
   }
   const nTray = $('#n-tray', view);
-  if (nTray) nTray.onchange = () => B.setNotifyPrefs({ tray: nTray.checked });
+  const nAuto = $('#n-autostart', view);
+  if (nTray) nTray.onchange = () => {
+    B.setNotifyPrefs({ tray: nTray.checked });
+    if (nAuto) nAuto.disabled = !nTray.checked; // sans icône près de l'horloge, pas de lancement caché
+  };
+  if (nAuto) nAuto.onchange = () => B.setNotifyPrefs({ autostart: nAuto.checked });
 
   // Sons : activés par type, volume (réglage de ce poste)
   $$('[data-sound]', view).forEach((c) => c.onchange = () => B.setSoundPrefs({ [c.dataset.sound]: c.checked }));
