@@ -530,7 +530,8 @@ B.chat = async (root, { project, channel, mode }) => {
       onEmoji: (emoji) => toggleReaction(id, emoji), onAct: (a) => act(a, id) });
   }
   B.onLeave(() => B.closeMsgMenu());
-  B.bindMsgPress(list, { selector: '.msg', idOf: (el) => el.dataset.id, open: openMsgMenu });
+  B.bindMsgPress(list, { selector: '.msg', idOf: (el) => el.dataset.id, open: openMsgMenu,
+    onSwipe: (id) => act('reply', id) });
 
   // ---------------- Répondre à un message ----------------
 

@@ -16,6 +16,10 @@ B.SCENE_CONFIG = {
   // Écran plus étroit que le fond : on recadre autour de ce point (le feu), placé à cet endroit de l'écran
   focal: { x: 1157, y: 880 },
   focalOnScreen: { x: 0.5, y: 0.72 },
+  // Ce qui doit toujours se voir en entier (robot, feu, humain), même sur un téléphone en hauteur (26/11, Amaury) :
+  // si l'écran est trop étroit, la scène rétrécit jusqu'à ce que cette zone tienne en largeur, posée en bas de l'écran ;
+  // le haut est complété par le même fond, flouté (pas de bande vide).
+  keep: { x0: 730, x1: 1580 },
   crossfadeMs: 1500, // passage jour ↔ nuit (toute la scène en fondu)
 
   // Respiration : étirement vertical léger, pivot en bas

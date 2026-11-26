@@ -108,9 +108,23 @@ B.openMsgMenu = ({ key, x, y, anchor, msgEl, scroller, items, reacted = [], onEm
  * (0,45 s ; iPhone n'envoie pas « contextmenu ») sur les messages d'une liste.
  * selector : un message ; idOf(el) : son identifiant ; open(id, { x, y }) ouvre le menu.
  * Dans la modification d'un message (.msg-edit), le menu habituel du système reste (couper, coller…).
+ * onSwipe(id) (facultatif) : glisser un message vers la droite au doigt = y répondre (façon WhatsApp).
  */
-B.bindMsgPress = (list, { selector, idOf, open }) => {
+B.SWIPE_REPLY_PX = 64; // distance à glisser pour répondre
+B.bindMsgPress = (list, { selector, idOf, open, onSwipe }) => {
   let pressed = null; // appui long en cours : { id, x, y, timer, fired }
+  let swipe = null;   // glissement possible : { id, el, x, y, on, dx, ico }
+  const endSwipe = (done) => {
+    if (!swipe) return;
+    const { el, ico, id, on, dx } = swipe;
+    swipe = null;
+    if (!on) return;
+    el.classList.add('swipe-back');
+    el.style.transform = '';
+    ico?.remove();
+    setTimeout(() => el.classList.remove('swipe-back', 'swiping'), 220);
+    if (done && dx >= B.SWIPE_REPLY_PX) onSwipe(id);
+  };
   list.addEventListener('contextmenu', (e) => {
     const msgEl = e.target.closest(selector);
     if (!msgEl || e.target.closest('.msg-edit')) return;
@@ -123,6 +137,11 @@ B.bindMsgPress = (list, { selector, idOf, open }) => {
   });
   list.addEventListener('touchstart', (e) => {
     const msgEl = e.target.closest(selector);
+    endSwipe(false);
+    if (onSwipe && msgEl && e.touches.length === 1 && !e.target.closest('.msg-edit, video, audio') && idOf(msgEl)
+      && e.touches[0].clientX > 24) { // le bord gauche reste au geste « retour » du téléphone
+      swipe = { id: idOf(msgEl), el: msgEl, x: e.touches[0].clientX, y: e.touches[0].clientY, on: false, dx: 0 };
+    }
     if (!msgEl || e.touches.length > 1 || e.target.closest('.msg-edit, button, a, .file-card, video, audio')) { pressed = null; return; }
     const id = idOf(msgEl);
     if (!id) { pressed = null; return; }
@@ -136,17 +155,41 @@ B.bindMsgPress = (list, { selector, idOf, open }) => {
     }, 450);
   }, { passive: true });
   list.addEventListener('touchmove', (e) => {
+    if (swipe && !pressed?.fired) {
+      const t = e.touches[0], dx = t.clientX - swipe.x, dy = t.clientY - swipe.y;
+      if (!swipe.on && (Math.abs(dy) > 12 || dx < -12)) swipe = null; // défilement ou glissement vers la gauche
+      else if (!swipe.on && dx > 14 && dx > Math.abs(dy) * 1.5) {
+        swipe.on = true;
+        swipe.el.classList.add('swiping');
+        swipe.ico = h(`<span class="swipe-reply-ico" aria-hidden="true">${icon('reply', 18)}</span>`);
+        swipe.el.prepend(swipe.ico);
+        if (pressed) { clearTimeout(pressed.timer); pressed = null; }
+      }
+      if (swipe?.on) {
+        const was = swipe.dx >= B.SWIPE_REPLY_PX;
+        swipe.dx = Math.max(0, dx);
+        const shift = Math.min(swipe.dx, B.SWIPE_REPLY_PX * 1.4);
+        swipe.el.style.transform = `translateX(${shift}px)`;
+        swipe.ico.style.opacity = String(Math.min(1, swipe.dx / B.SWIPE_REPLY_PX));
+        const ready = swipe.dx >= B.SWIPE_REPLY_PX;
+        swipe.ico.classList.toggle('ready', ready);
+        if (ready && !was) navigator.vibrate?.(10);
+        return;
+      }
+    }
     if (!pressed || pressed.fired) return;
     const t = e.touches[0];
     if (Math.hypot(t.clientX - pressed.x, t.clientY - pressed.y) > 10) { clearTimeout(pressed.timer); pressed = null; }
   }, { passive: true });
   list.addEventListener('touchend', (e) => {
+    if (swipe?.on && e.cancelable) e.preventDefault(); // pas de « clic » à la fin du glissement
+    endSwipe(true);
     if (!pressed) return;
     clearTimeout(pressed.timer);
     if (pressed.fired && e.cancelable) e.preventDefault(); // pas de « clic » juste après l'ouverture du menu
     pressed = null;
   });
-  list.addEventListener('touchcancel', () => { if (pressed) clearTimeout(pressed.timer); pressed = null; });
+  list.addEventListener('touchcancel', () => { endSwipe(false); if (pressed) clearTimeout(pressed.timer); pressed = null; });
 };
 
 /** Pastilles de réactions sous un message ; rs = [{ emoji, user_id }] */

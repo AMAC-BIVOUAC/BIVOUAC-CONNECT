@@ -539,7 +539,8 @@ B.pages.messages = async (view, [otherId]) => {
       onEmoji: (emoji) => toggleDmReaction(d, emoji), onAct: (a) => dmAct(a, id) });
   }
   B.onLeave(() => B.closeMsgMenu());
-  B.bindMsgPress(box, { selector: '.dm-msg', idOf: (el) => (shown.get(el.dataset.dmId)?.deleted_at ? null : el.dataset.dmId), open: openDmMenu });
+  B.bindMsgPress(box, { selector: '.dm-msg', idOf: (el) => (shown.get(el.dataset.dmId)?.deleted_at ? null : el.dataset.dmId), open: openDmMenu,
+    onSwipe: (id) => dmAct('reply', id) });
 
   async function dmAct(action, id) {
     const d = shown.get(id);

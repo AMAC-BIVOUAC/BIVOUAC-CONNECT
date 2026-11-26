@@ -147,8 +147,12 @@ window.B = window.B || {};
   function buildSet(mode, C, POS, smallBg) {
     const base = C.base;
     const set = el('div', `scn-set scn-${mode}`);
+    // Haut du dessin en miroir, flouté : seulement quand la scène rétrécie ne remplit pas l'écran en hauteur (téléphone)
+    const backdrop = el('img', 'scn-backdrop');
+    backdrop.alt = ''; backdrop.decoding = 'async'; backdrop.hidden = true;
+    backdrop.dataset.src = `${C.folder}/${C.background[mode]}${C.background.small}.webp`;
     const stage = el('div', 'scn-stage');
-    set.append(stage);
+    set.append(backdrop, stage);
     const bg = el('img', 'scn-bg');
     bg.alt = ''; bg.decoding = 'async';
     bg.src = `${C.folder}/${C.background[mode]}${smallBg ? C.background.small : ''}.webp`;
@@ -179,7 +183,7 @@ window.B = window.B || {};
     stage.append(fire.fire);
     const sparks = el('div', 'scn-sparks');
     stage.append(sparks);
-    return { mode, set, stage, fire, animals, sparks, anims: [], sparkEls: [] };
+    return { mode, set, stage, backdrop, fire, animals, sparks, anims: [], sparkEls: [] };
   }
 
   /** Les images facultatives (ours en deux morceaux, yeux fermés) : ajoutées dès qu'elles sont chargées */
@@ -242,11 +246,24 @@ window.B = window.B || {};
     const layout = () => {
       const W = container.clientWidth, H = container.clientHeight, b = C.base;
       if (!W || !H) return;
+      const K = C.keep;
       scale = Math.max(W / b.w, H / b.h);
+      // Écran étroit (téléphone en hauteur) : la scène rétrécit pour que les personnages et le feu se voient en entier
+      if (K && (K.x1 - K.x0) * scale > W) scale = Math.max(W / b.w, W / (K.x1 - K.x0));
       const sw = b.w * scale, sh = b.h * scale;
-      const left = Math.min(0, Math.max(W - sw, W * C.focalOnScreen.x - C.focal.x * scale));
-      const top = Math.min(0, Math.max(H - sh, H * C.focalOnScreen.y - C.focal.y * scale));
-      Object.values(sets).forEach((S) => Object.assign(S.stage.style, { left: `${left}px`, top: `${top}px`, width: `${sw}px`, height: `${sh}px` }));
+      let left = W * C.focalOnScreen.x - C.focal.x * scale;
+      if (K) left = Math.max(W - K.x1 * scale, Math.min(-K.x0 * scale, left));
+      left = Math.min(0, Math.max(W - sw, left));
+      const gap = sh < H - 0.5;
+      const top = gap ? H - sh : Math.min(0, Math.max(H - sh, H * C.focalOnScreen.y - C.focal.y * scale));
+      Object.values(sets).forEach((S) => {
+        Object.assign(S.stage.style, { left: `${left}px`, top: `${top}px`, width: `${sw}px`, height: `${sh}px` });
+        // Le haut vide reprend le haut du dessin en miroir, flouté : les couleurs se suivent sans couture
+        if (gap && !S.backdrop.src) S.backdrop.src = S.backdrop.dataset.src;
+        if (gap) Object.assign(S.backdrop.style, { left: `${left}px`, top: `${top - sh + 24}px`, width: `${sw}px`, height: `${sh}px` });
+        S.backdrop.hidden = !gap;
+        S.stage.classList.toggle('scn-fade-top', gap);
+      });
     };
 
     // ---- étincelles (nuit) : chacune repart avec un nouveau trajet à la fin du précédent

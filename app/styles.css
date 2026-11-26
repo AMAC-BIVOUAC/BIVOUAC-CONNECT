@@ -1265,7 +1265,15 @@ label.check.small { font-size: var(--fs-label); color: var(--muted); }
   /* Au doigt : l'appui long ouvre le menu du message, pas la sélection du texte ni la bulle de l'iPhone */
   .messages .msg { -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; }
   .messages .msg-edit textarea { -webkit-user-select: text; user-select: text; }
+  /* Glisser un message vers la droite = y répondre (msgmenu.js, B.bindMsgPress) : le défilement vertical reste au navigateur */
+  .messages, .dm-msgs { overflow-x: hidden; }
+  .messages .msg, .dm-msgs .dm-msg { touch-action: pan-y; }
 }
+.msg.swiping, .dm-msg.swiping { position: relative; }
+.msg.swipe-back, .dm-msg.swipe-back { transition: transform .2s ease; }
+.swipe-reply-ico { position: absolute; left: -40px; top: 50%; width: 32px; height: 32px; margin-top: -16px; display: grid;
+  place-items: center; border-radius: var(--r-round); background: var(--column); color: var(--muted); opacity: 0; pointer-events: none; }
+.swipe-reply-ico.ready { background: var(--action); color: var(--card); }
 @media (max-width: 760px), (hover: none) {
   .msg-tools [data-quick], .msg:hover .msg-tools [data-quick] { display: none; }
 }
@@ -2563,6 +2571,9 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--teal); }
 .scn-set { position: absolute; inset: 0; opacity: 0; transition: opacity var(--scn-fade, 1.5s) ease-in-out; }
 .scn-set.on { opacity: 1; }
 .scn-stage { position: absolute; left: 0; top: 0; width: 100%; height: 100%; }
+.scn-backdrop { position: absolute; display: block; transform: scale(1.06, -1.06); filter: blur(14px); }
+.scn-stage.scn-fade-top { -webkit-mask-image: linear-gradient(to bottom, transparent 0, var(--navy) 48px); mask-image: linear-gradient(to bottom, transparent 0, var(--navy) 48px); }
+.scn-backdrop[hidden] { display: none; }
 .scn-bg { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
 .scn-a, .scn-fire, .scn-glow { position: absolute; }
 .scn-move, .scn-breath, .scn-head, .scn-flicker { position: absolute; inset: 0; }
