@@ -548,6 +548,10 @@ modules["motion/conversation.js"]=(()=>{
 const {sampleGesture,smooth}=modules["motion/library.js"];
 const randomBetween=(lo,hi)=>lo+Math.random()*(hi-lo);
 const pick=list=>list[Math.floor(Math.random()*list.length)];
+// Rythme des personnages (26/11, Amaury : « pas assez réaliste, trop rapide »).
+// TEMPO = durée des gestes, pauses et moments au coin du feu (1 = réglage d'origine, plus grand = plus lent).
+// CALM = vitesse de la respiration, des phrases et de la bouche (1 = origine, plus petit = plus calme).
+const TEMPO=1.7, CALM=.72;
 function actor() {return {nextBlink:randomBetween(1,4),phase:randomBetween(0,6),blinkAt:-1}}
 class Conversation {
   constructor() {
@@ -560,10 +564,10 @@ class Conversation {
       const choices=['explain','offer','enumerate','landscape','question','emphasis','shrug'];
       this.gesture=pick(choices.filter(x=>x!==this.previous[this.speaker]));
       this.previous[this.speaker]=this.gesture;
-      this.duration=randomBetween(3.5,5.8); this.reaction=pick(['nod','nod','amused','consider','surprise',null]);
+      this.duration=randomBetween(3.5,5.8)*TEMPO; this.reaction=pick(['nod','nod','amused','consider','surprise',null]);
       this.reactionStart=randomBetween(.32,.55); this.reactionLength=randomBetween(.30,.43);
     } else {
-      this.duration=state==='hearth'?randomBetween(4.1,7.7):randomBetween(.65,1.55);
+      this.duration=(state==='hearth'?randomBetween(4.1,7.7):randomBetween(.65,1.55))*TEMPO;
       if(state==='hearth')this.rest=pick(['warm','warm','knees','rub','stretch','chin','fold']);
     }
   }
@@ -581,13 +585,13 @@ class Conversation {
       if(t>=a.nextBlink){a.blinkAt=t; a.nextBlink=t+randomBetween(2.9,6.4)}
       const since=t-a.blinkAt;
       const blink=since<.09?smooth(since/.09):1-smooth((since-.09)/.13);
-      const p={head:0,upper:0,fore:0,farUpper:0,farFore:0,blink,hand:'rest',talk:0,gaze:0,breath:Math.sin(t*(i===0?1.52:1.09)+a.phase)};
+      const p={head:0,upper:0,fore:0,farUpper:0,farFore:0,blink,hand:'rest',talk:0,gaze:0,breath:Math.sin(t*CALM*(i===0?1.52:1.09)+a.phase)};
       p.head=p.breath*.32*direction;
       if(this.state==='speak'){
         if(i===this.speaker) {
           sampleGesture(this.gesture,u,p,direction);
-          const phrase=(.5+.5*Math.sin(t*4.1+a.phase));
-          p.talk=smooth(u/.11)*smooth((1-u)/.15)*smooth(phrase*2)*(.52+.48*Math.sin(t*12.2+.42*Math.sin(t*7.3)));
+          const phrase=(.5+.5*Math.sin(t*CALM*4.1+a.phase));
+          p.talk=smooth(u/.11)*smooth((1-u)/.15)*smooth(phrase*2)*(.52+.48*Math.sin(t*CALM*12.2+.42*Math.sin(t*CALM*7.3)));
           p.gaze=this.gesture==='landscape'?-.8*Math.sin(Math.PI*u):.2;
         } else {
           sampleGesture(this.reaction,(u-this.reactionStart)/this.reactionLength,p,direction);
