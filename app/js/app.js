@@ -219,6 +219,7 @@ async function onSession(session) {
   const uid = session?.user?.id || null;
   if (uid === sessionUser) return;
   sessionUser = uid;
+  B.emit('session', uid); // pwa.js : le cache hors connexion change de propriétaire (ou se vide)
 
   if (!uid) {
     await B.voiceLeave();
@@ -251,6 +252,7 @@ async function onSession(session) {
     B.loadUnread();
     B.loadStaff().catch(() => {});   // équipe Bivouac : entrée « Administration » (migration 042)
     B.loadNotices?.().catch(() => {}); // avis de l'équipe Bivouac dans Messages
+    B.syncStatusFromProfile?.(); // statut identique sur tous mes appareils (migration 049)
     B.startGlobalLive();
     B.startDmLive();
     B.refreshBadge();
@@ -282,7 +284,7 @@ B.on('unread', () => B.paintUnread());
 B.on('me', () => { if (B.me) B.renderSidebar(); });
 B.on('notification', (n) => {
   B.refreshBadge();
-  if (n.project_id && B.projectNotifyLevel(n.project_id) === 'mute') return; // projet en sourdine : la cloche seulement
+  if (n.project_id && n.type !== 'reminder' && B.projectNotifyLevel(n.project_id) === 'mute') return; // projet en sourdine : la cloche seulement
   if (n.type !== 'ai_request') {
     B.playSound('notif');
     B.pcNotify(B.project(n.project_id)?.name || 'BIVOUAC-TECH', n.text, B.soundPrefs().notif, n.link || null,

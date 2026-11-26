@@ -94,7 +94,8 @@ function onlineRecompute() {
 /** Rejoint la présence de chacun de mes projets (appelé après chaque chargement des projets) */
 B.syncOnline = async () => {
   if (!B.me) return;
-  const ids = new Set((B.projects || []).map((p) => p.id));
+  // Pas de présence dans un projet où je ne suis qu'invité (migration 050 : la base la refuse)
+  const ids = new Set((B.projects || []).map((p) => p.id).filter((id) => !B.isGuest?.(id)));
   for (const [pid, ch] of onlineChannels) {
     if (!ids.has(pid)) { onlineChannels.delete(pid); B.sb.removeChannel(ch).catch(() => {}); }
   }
@@ -127,22 +128,52 @@ B.isOnline = (uid) => uid === B.me?.id || B.online.has(uid);
 // Occupé = ne pas déranger : pas de son de notification ni de notification Windows (les bandeaux restent).
 // ---------------------------------------------------------------------
 
+// Depuis la v0.8.82 (migration 049), le statut est AUSSI rangé dans mon profil (status_state, status_text, status_relay) :
+// il est le même sur tous mes appareils (le dernier changé gagne, temps réel sur ma ligne de profils) et mes coéquipiers
+// voient « Absent » et le relais même quand je suis hors ligne. Le store reste une copie locale (démarrage rapide).
 const STATUS_STATES = ['free', 'busy', 'away'];
 B.statusLabel = (state) => ({ free: tr('Disponible'), busy: tr('Occupé'), away: tr('Absent') }[state] || tr('Disponible'));
 B.myStatus = () => {
   const s = store.get('status') || {};
-  return { state: STATUS_STATES.includes(s.state) ? s.state : 'free', text: String(s.text || '').slice(0, 80) };
+  return { state: STATUS_STATES.includes(s.state) ? s.state : 'free', text: String(s.text || '').slice(0, 80),
+    relay: String(s.relay || '').slice(0, 1000), at: s.at || null };
 };
-B.setMyStatus = (patch) => {
-  store.set('status', { ...B.myStatus(), ...patch });
+const applyStatus = (st) => {
+  store.set('status', st);
   for (const [pid, ch] of onlineChannels) ch.track(onlineState(pid)).catch(() => {});
   B.emit('status');
+};
+B.setMyStatus = (patch) => {
+  const st = { ...B.myStatus(), ...patch, at: new Date().toISOString() };
+  if (st.state !== 'away') st.relay = ''; // le relais ne vaut que pendant l'absence
+  applyStatus(st);
+  if (B.me && 'status_state' in B.me) {
+    B.updateMe({ status_state: st.state, status_text: st.text, status_relay: st.relay, status_at: st.at }).catch(console.error);
+  }
+};
+/** Au démarrage et quand un autre appareil change mon statut : le plus récent gagne */
+B.syncStatusFromProfile = (p = B.me) => {
+  if (!p || !('status_state' in p) || !p.status_at) return;
+  const mine = B.myStatus();
+  if (mine.at && mine.at >= p.status_at) {
+    // ce poste a un statut plus récent que le profil (changé hors ligne) : on le publie
+    if (mine.at > p.status_at) B.updateMe({ status_state: mine.state, status_text: mine.text, status_relay: mine.relay, status_at: mine.at }).catch(() => {});
+    return;
+  }
+  applyStatus({ state: STATUS_STATES.includes(p.status_state) ? p.status_state : 'free', text: p.status_text || '',
+    relay: p.status_relay || '', at: p.status_at });
+};
+/** Le relais laissé par une personne absente (même hors ligne), '' sinon */
+B.relayOf = (uid) => {
+  if (uid === B.me?.id) return B.myStatus().state === 'away' ? B.myStatus().relay : '';
+  const p = B.person(uid);
+  return p?.status_state === 'away' ? String(p.status_relay || '') : '';
 };
 
 /** Le statut d'une personne connectée ({ state, text }), null si hors ligne */
 B.statusOf = (uid) => {
   if (uid === B.me?.id) return B.myStatus();
-  if (!B.online.has(uid)) return null;
+  if (!B.online.has(uid)) return null; // hors ligne (B.offlineStatusOf donne le statut gardé dans son profil)
   for (const ch of onlineChannels.values()) {
     const st = (ch.presenceState()[uid] || []).map((m) => m.status).find(Boolean);
     if (st) return { state: STATUS_STATES.includes(st.state) ? st.state : 'free', text: String(st.text || '').slice(0, 80) };
@@ -157,7 +188,11 @@ B.presenceClass = (uid) => {
 /** « Occupé · En réunion jusqu'à 15 h » ; « Hors ligne » */
 B.statusText = (uid) => {
   const st = B.statusOf(uid);
-  if (!st) return tr('Hors ligne');
+  if (!st) {
+    const p = B.person(uid); // hors ligne mais parti en le disant (statut gardé dans son profil)
+    if (p?.status_state === 'away') return p.status_text ? `${tr('Hors ligne')} · ${B.statusLabel('away')} · ${p.status_text}` : `${tr('Hors ligne')} · ${B.statusLabel('away')}`;
+    return tr('Hors ligne');
+  }
   return st.text ? `${B.statusLabel(st.state)} · ${st.text}` : B.statusLabel(st.state);
 };
 /** Met à jour toutes les pastilles [data-online] d'une zone */
@@ -263,11 +298,19 @@ B.openStatusMenu = (x, y) => {
     <label class="pop-label">${tr('Message (facultatif)')}</label>
     <form class="pop-status-text"><input maxlength="80" placeholder="${esc(tr('Ex. : En réunion jusqu\'à 15 h'))}" value="${esc(cur.text)}" />
       <button class="btn small primary" type="submit">${tr('OK')}</button></form>
+    <label class="pop-label" for="pop-relay">${tr('Passer le relais (si vous partez)')}</label>
+    <textarea id="pop-relay" class="pop-relay" rows="3" maxlength="1000" placeholder="${esc(tr('En cours : … · À surveiller : … · Me joindre si : …'))}">${esc(cur.relay)}</textarea>
+    <button class="pop-item" data-relay-save>${icon('check', 14)} <span>${tr('Passer en Absent avec ce relais')}</span></button>
     ${cur.text ? `<button class="pop-item" data-status-clear>${icon('x', 14)} <span>${tr('Effacer le message')}</span></button>` : ''}`);
   menu.addEventListener('click', (e) => {
     const b = e.target.closest('[data-status]');
-    if (b) { B.setMyStatus({ state: b.dataset.status, text: $('input', menu).value.trim() }); B.closePopMenu(); }
+    if (b) { B.setMyStatus({ state: b.dataset.status, text: $('input', menu).value.trim(), relay: $('.pop-relay', menu).value.trim() }); B.closePopMenu(); }
     if (e.target.closest('[data-status-clear]')) { B.setMyStatus({ text: '' }); B.closePopMenu(); }
+    if (e.target.closest('[data-relay-save]')) {
+      B.setMyStatus({ state: 'away', text: $('input', menu).value.trim(), relay: $('.pop-relay', menu).value.trim() });
+      B.closePopMenu();
+      B.toast(tr('Vous êtes Absent : votre équipe voit votre relais.'), { type: 'success', timeout: 3000 });
+    }
   });
   $('form', menu).addEventListener('submit', (e) => {
     e.preventDefault();
@@ -313,6 +356,21 @@ B.voiceIn = (pid, channelId) => {
     if (voice) out.push({ id: uid, ...voice });
   }
   return out.sort((a, b) => B.person(a.id).display_name.localeCompare(B.person(b.id).display_name, B.locale()));
+};
+
+/** Les vocals en cours dans mes projets : [{ projectId, channelId, people: [uid…] }] (Autour du feu, v0.8.83) */
+B.voiceGatherings = () => {
+  const out = new Map();
+  for (const [pid, ch] of onlineChannels) {
+    for (const [uid, metas] of Object.entries(ch.presenceState())) {
+      const v = (metas || []).map((m) => m.voice).find(Boolean);
+      if (!v?.channel) continue;
+      const k = pid + '|' + v.channel;
+      if (!out.has(k)) out.set(k, { projectId: pid, channelId: v.channel, people: [] });
+      if (!out.get(k).people.includes(uid)) out.get(k).people.push(uid);
+    }
+  }
+  return [...out.values()];
 };
 
 /** Dans quel salon vocal est cette personne (dans ce projet, ou dans n'importe lequel) ? */

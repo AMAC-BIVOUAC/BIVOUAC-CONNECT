@@ -201,6 +201,7 @@ const campHref = (p, sub = '') => `#/p/${p.id}/projet${sub ? '/' + sub : ''}`;
 const subHead = (p, title) => `<header class="sub-head">
   <a class="icon-btn" href="${campHref(p)}" aria-label="${tr('Retour au camp de base')}">${icon('back', 20)}</a>
   <h2>${title}</h2></header>`;
+B.campSubHead = subHead; // ensemble.js : « Demander au projet », « La veillée »
 
 /** Une porte : icône, titre, une ligne. `tint` = celle qui demande d'agir (une seule par écran) */
 const door = (href, ic, title, line, { tint = false, badge = 0 } = {}) => `<a class="door ${tint ? 'tint' : ''}" href="${href}">
@@ -261,6 +262,8 @@ B.pages.camp = async (el, p, sub) => {
   if (sub === 'chemin') return renderChemin(el, p);
   if (sub === 'decider') return renderDecider(el, p);
   if (sub === 'idees') return renderIdees(el, p);
+  if (sub === 'memoire') return B.renderMemory(el, p);   // Demander au projet (v0.8.83)
+  if (sub === 'veillee') return B.renderVeillee(el, p);  // La veillée de la semaine (v0.8.83)
   if (sub === 'tout') {
     el.innerHTML = `<div class="subpage wide">${subHead(p, tr('Tout le projet'))}<div id="camp-hub"></div></div>`;
     await B.pages.hub($('#camp-hub', el), p);
@@ -393,8 +396,11 @@ async function renderCampHome(el, p) {
         missing ? tr('Votre vote manque') : open.length ? tr(open.length > 1 ? '{n} votes ouverts' : '{n} vote ouvert', { n: open.length }) : tr('Rien à trancher'),
         { tint: tintDecide, badge: missing }),
       door(campHref(p, 'idees'), 'bulb', tr('Idées'), ideas ? tr(ideas > 1 ? '{n} idées' : '{n} idée', { n: ideas }) : tr('Notez la première')),
-      door(campHref(p, 'chemin'), 'route', tr('Le chemin'), tr('Les étapes jusqu’au sommet'))
-    ].join('');
+      door(campHref(p, 'chemin'), 'route', tr('Le chemin'), tr('Les étapes jusqu’au sommet')),
+      door(campHref(p, 'memoire'), 'search', tr('Demander au projet'), tr('Pourquoi on a choisi… ? La mémoire répond')),
+      door(campHref(p, 'veillee'), 'flame', tr('La veillée'), B.isVeillee?.() ? tr('Le récap de la semaine est prêt') : tr('Le récap de la semaine'), { tint: false })
+    ].join('') + '<div class="weather-slot"></div>';
+    B.paintWeather?.($('.weather-slot', box), p);
   };
 
   const render = () => { renderLand(); renderTodo(); renderDoors(); paintIcons(el); };
@@ -510,6 +516,7 @@ async function renderChemin(el, p) {
       const { error } = await B.sb.from('items').update(patch).eq('id', s.id);
       if (error) return B.error(error);
       B.closeModal();
+      if (act === 'reach') B.celebrateStep?.(p, s); // fêter l'étape franchie (v0.8.83)
       const said = { reach: tr('Étape franchie : « {title} »'), undo: tr('Étape remise à faire : « {title} »'), drop: tr('Étape abandonnée : « {title} »'), restore: tr('Étape reprise : « {title} »') }[act];
       B.toast(esc(said.replace('{title}', s.title)), { type: 'success' });
       load();

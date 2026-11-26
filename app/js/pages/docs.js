@@ -92,6 +92,7 @@ B.pages.docs = async (el, p) => {
         // version web et téléphone : pas de modification sur place (web.js), le document s'ouvre ou se télécharge
         ? tr('Touchez un document pour l’ouvrir ou le télécharger ; les anciennes versions restent dans « Versions ».')
         : tr('Cliquez sur un document pour l\'ouvrir dans le logiciel de votre PC (Word, Excel…). Quand vous l\'enregistrez, la nouvelle version est envoyée toute seule au projet ; les précédentes restent dans « Versions ».')} ${tr('Les images s\'ouvrent d\'abord en aperçu.')}</p>
+      <section class="notes-strip" aria-label="${tr('Notes du projet')}"></section>
       <div class="docs-tools">
         <label class="docs-search">${icon('search', 16)}<span class="sr-only">${tr('Rechercher un document')}</span>
           <input type="search" id="doc-q" placeholder="${tr('Rechercher un document…')}" autocomplete="off" /></label>
@@ -105,6 +106,7 @@ B.pages.docs = async (el, p) => {
       <div class="docs-bar">
         <nav class="crumbs" aria-label="${tr('Dossiers')}"></nav>
         <span class="docs-bar-actions">
+          <button class="link small docs-trash-btn" id="doc-trash" title="${tr('Documents supprimés depuis moins de 30 jours : on peut les récupérer')}">${icon('trash', 15)} ${tr('Corbeille')}</button>
           ${B.isManager(p.id) ? `<button class="link small docs-journal-btn" id="doc-journal" title="${tr('Qui a ajouté, modifié, déplacé ou supprimé quoi, et quand (visible du Créateur et des Administrateurs)')}">${icon('clock', 15)} ${tr('Journal')}</button>` : ''}
           <button class="btn small" id="new-folder">${icon('folder', 16)} ${tr('Nouveau dossier')}</button>
         </span>
@@ -130,6 +132,7 @@ B.pages.docs = async (el, p) => {
   const count = (id) => files.filter((f) => f.folder_id === id).length + kids(id).reduce((n, d) => n + count(d.id), 0);
   const setCur = (id) => { cur = id; store.set('docs-folder:' + p.id, id); paint(); };
 
+  B.renderNotesStrip($('.notes-strip', el), p);
   const load = async () => {
     const [fi, fo] = await Promise.all([
       B.sb.from('files').select('*').eq('project_id', p.id).order('created_at', { ascending: false }),
@@ -150,7 +153,8 @@ B.pages.docs = async (el, p) => {
     <button class="icon-btn" data-dl title="${tr('Télécharger')}" aria-label="${tr('Télécharger')}">${icon('download', 16)}</button>
     ${(f.version || 1) > 1 ? `<button class="link small" data-versions>${tr('Versions')}</button>` : ''}
     ${folders.length ? `<button class="icon-btn" data-move title="${tr('Ranger dans un dossier')}" aria-label="${tr('Ranger dans un dossier')}">${icon('arrow', 16)}</button>` : ''}
-    ${B.canDelete(f.project_id, f.uploader_id) ? `<button class="icon-btn" data-del title="${tr('Supprimer')}" aria-label="${tr('Supprimer')}">${icon('trash', 16)}</button>` : ''}`;
+    <button class="icon-btn" data-share title="${tr('Partager par un lien')}" aria-label="${tr('Partager par un lien')}">${icon('link', 16)}</button>
+    ${B.canDelete(f.project_id, f.uploader_id) ? `<button class="icon-btn" data-del title="${tr('Mettre à la corbeille')}" aria-label="${tr('Mettre à la corbeille')}">${icon('trash', 16)}</button>` : ''}`;
   const folderActions = () => `
     <button class="icon-btn" data-dl-folder title="${tr('Télécharger le dossier (zip)')}" aria-label="${tr('Télécharger le dossier (zip)')}">${icon('download', 16)}</button>
     <button class="icon-btn" data-rename title="${tr('Renommer')}" aria-label="${tr('Renommer')}">${icon('edit', 16)}</button>
@@ -337,6 +341,7 @@ B.pages.docs = async (el, p) => {
   };
 
   if ($('#doc-journal', el)) $('#doc-journal', el).onclick = () => B.openDocJournal(p).catch(B.error);
+  $('#doc-trash', el).onclick = () => B.openTrash(p, load).catch(B.error);
   $('#new-folder', el).onclick = async () => {
     const name = await askName(tr('Nouveau dossier'));
     if (!name) return;
@@ -430,10 +435,13 @@ B.pages.docs = async (el, p) => {
       if (to !== undefined && (to || null) !== (f.folder_id || null)) moveFile(f, to);
       return;
     }
+    if (e.target.closest('[data-share]')) return B.openShareFile(f).catch(B.error);
     if (e.target.closest('[data-del]')) {
-      if (!(await B.confirm(tr('Supprimer « {name} » ?', { name: f.name }), tr('Supprimer')))) return;
-      await B.deleteFile(f).catch(B.error);
+      if (!(await B.confirm(tr('Mettre « {name} » à la corbeille ? Vous pourrez le récupérer pendant 30 jours.', { name: f.name }), tr('Mettre à la corbeille')))) return;
+      try { await B.trashFile(f); } catch (err) { return B.error(err); }
       load();
+      B.toast(tr('« {name} » est dans la corbeille.', { name: esc(f.name) }), { type: 'success', timeout: 8000,
+        actions: [[tr('Annuler'), '', async () => { await B.restoreFile(f.id).catch(B.error); load(); }]] });
     }
   });
 
@@ -742,4 +750,221 @@ B.openDocJournal = async (p) => {
       setTimeout(() => URL.revokeObjectURL(a.href), 60000);
     } catch (err) { B.error(err); } finally { e.target.disabled = false; }
   };
+};
+
+// ---------------------------------------------------------------------
+// Corbeille (v0.8.82, migration 049) : documents supprimés depuis moins de 30 jours. Tout membre la voit ;
+// restaurer = la personne qui l'a envoyé ou supprimé, ou un responsable ; supprimer définitivement = la personne qui
+// l'a envoyé ou un responsable. Au-delà de 30 jours, ce qu'on a le droit d'effacer l'est à l'ouverture de la corbeille.
+// ---------------------------------------------------------------------
+B.openTrash = async (p, after = () => {}) => {
+  const m = B.modal(`<h2>${icon('trash', 20)} ${tr('Corbeille')}</h2>
+    <p class="muted small">${tr('Les documents supprimés restent ici 30 jours, puis disparaissent pour de bon.')}</p>
+    <div class="trash-list"><div class="loading">${tr('Chargement…')}</div></div>
+    <div class="actions"><button class="btn primary" data-close>${tr('Fermer')}</button></div>`, { wide: true });
+  $('[data-close]', m).onclick = B.closeModal;
+  const box = $('.trash-list', m);
+  const canPurge = (r) => r.uploader_id === B.me.id || B.isManager(p.id);
+  const canRestore = (r) => canPurge(r) || r.deleted_by === B.me.id;
+  const paint = async () => {
+    const { data, error } = await B.sb.rpc('list_trash', { p_project: p.id });
+    if (error) { box.innerHTML = `<p class="muted">${esc(errText(error))}</p>`; return; }
+    // Plus de 30 jours : effacés pour de bon par la première personne qui en a le droit
+    const old = (data || []).filter((r) => r.expired && canPurge(r));
+    for (const r of old) await B.purgeFile(r.id).catch(() => {});
+    const rows = (data || []).filter((r) => !old.includes(r));
+    box.innerHTML = rows.length ? rows.map((r) => {
+      const left = Math.max(0, 30 - Math.floor((Date.now() - new Date(r.deleted_at)) / 864e5));
+      return `<div class="trash-row" data-id="${r.id}">${icon('file', 18)}
+        <span class="trash-name"><strong translate="no">${esc(r.name)}</strong>
+          <small>${tr('Supprimé par {who}, {when}', { who: esc(r.deleted_by_name || ''), when: esc(new Date(r.deleted_at).toLocaleDateString(B.locale(), { day: 'numeric', month: 'long' })) })} · ${tr(left > 1 ? 'encore {n} jours' : 'encore {n} jour', { n: left })}</small></span>
+        ${canRestore(r) ? `<button class="btn small" data-restore>${icon('restore', 14)} ${tr('Restaurer')}</button>` : ''}
+        ${canPurge(r) ? `<button class="icon-btn" data-purge title="${tr('Supprimer définitivement')}" aria-label="${tr('Supprimer définitivement')}">${icon('x', 15)}</button>` : ''}</div>`;
+    }).join('') : `<p class="muted">${tr('La corbeille est vide.')}</p>`;
+    paintIcons(box);
+  };
+  box.addEventListener('click', async (e) => {
+    const row = e.target.closest('.trash-row');
+    if (!row) return;
+    if (e.target.closest('[data-restore]')) {
+      try { await B.restoreFile(row.dataset.id); } catch (err) { return B.error(err); }
+      B.toast(tr('Document restauré.'), { type: 'success', timeout: 2500 });
+      after(); paint();
+    }
+    if (e.target.closest('[data-purge]')) {
+      if (!(await B.confirm(tr('Supprimer définitivement ce document ? Il ne pourra plus être récupéré.'), tr('Supprimer définitivement')))) return B.openTrash(p, after);
+      try { await B.purgeFile(row.dataset.id); } catch (err) { B.error(err); }
+      B.openTrash(p, after);
+    }
+  });
+  await paint();
+};
+
+// ---------------------------------------------------------------------
+// Partager un document par un lien (v0.8.82, migration 049) : quelqu'un qui n'a pas de compte télécharge le document
+// depuis la page publique « Partage » pendant 1, 7 ou 30 jours. Le lien se coupe à tout moment. Tout est noté
+// dans le journal des Documents. Le jeton n'est lisible que par la personne qui a créé le lien.
+// ---------------------------------------------------------------------
+B.openShareFile = async (f) => {
+  const m = B.modal(`<h2>${icon('link', 20)} ${tr('Partager « {name} »', { name: esc(f.name) })}</h2>
+    <p class="muted small">${tr('Toute personne qui a le lien peut télécharger ce document, sans compte, jusqu’à la date choisie. Vous pouvez couper le lien à tout moment.')}</p>
+    <div class="share-list"></div>
+    <form class="share-new"><label for="share-days">${tr('Nouveau lien valable')}</label>
+      <div class="when-row"><select id="share-days"><option value="1">${tr('1 jour')}</option><option value="7" selected>${tr('7 jours')}</option><option value="30">${tr('30 jours')}</option></select>
+      <button class="btn primary" type="submit">${icon('link', 15)} ${tr('Créer le lien')}</button></div></form>
+    <div class="actions"><button class="btn" data-close>${tr('Fermer')}</button></div>`);
+  $('[data-close]', m).onclick = B.closeModal;
+  const box = $('.share-list', m);
+  const copy = async (tok) => {
+    const url = SHARE_PAGE + '#' + tok;
+    try { await navigator.clipboard.writeText(url); B.toast(tr('Lien copié : collez-le dans un e-mail ou un message.'), { type: 'success' }); }
+    catch { window.prompt(tr('Copiez ce lien'), url); }
+  };
+  const paint = async () => {
+    const { data, error } = await B.sb.from('file_shares').select('id, created_by, expires_at, revoked_at, downloads, created_at')
+      .eq('file_id', f.id).is('revoked_at', null).gt('expires_at', new Date().toISOString()).order('created_at', { ascending: false });
+    if (error) { box.innerHTML = `<p class="muted">${esc(errText(error))}</p>`; $('.share-new', m).hidden = true; return; }
+    box.innerHTML = (data || []).map((s) => `<div class="share-row" data-id="${s.id}">
+      <span><strong>${tr('Lien de {who}', { who: esc(B.person(s.created_by).display_name) })}</strong>
+        <small>${tr('jusqu’au {date}', { date: esc(B.whenText(s.expires_at)) })} · ${tr(s.downloads > 1 ? '{n} téléchargements' : '{n} téléchargement', { n: s.downloads })}</small></span>
+      ${s.created_by === B.me.id ? `<button class="btn small" data-copy>${icon('copy', 14)} ${tr('Copier')}</button>` : ''}
+      ${s.created_by === B.me.id || B.isManager(f.project_id) ? `<button class="link small" data-revoke>${tr('Couper le lien')}</button>` : ''}</div>`).join('');
+    paintIcons(box);
+  };
+  box.addEventListener('click', async (e) => {
+    const row = e.target.closest('.share-row');
+    if (!row) return;
+    if (e.target.closest('[data-copy]')) {
+      const { data: tok, error } = await B.sb.rpc('share_token', { p_share: row.dataset.id });
+      if (error || !tok) return B.error(error || new Error(tr('Ce lien n’est plus valable.')));
+      return copy(tok);
+    }
+    if (e.target.closest('[data-revoke]')) {
+      const { error } = await B.sb.rpc('revoke_file_share', { p_share: row.dataset.id });
+      if (error) return B.error(error);
+      B.toast(tr('Lien coupé : il ne fonctionne plus.'), { type: 'success', timeout: 3000 });
+      paint();
+    }
+  });
+  $('.share-new', m).onsubmit = async (e) => {
+    e.preventDefault();
+    const { data: tok, error } = await B.sb.rpc('create_file_share', { p_file: f.id, p_days: Number($('#share-days', m).value) });
+    if (error) return B.error(error);
+    await copy(tok);
+    paint();
+  };
+  await paint();
+};
+
+// ---------------------------------------------------------------------
+// Notes du projet (v0.8.82, migration 049) : un petit wiki (compte rendu, mode d'emploi, liste…) écrit en Markdown,
+// modifiable par tout membre. Chaque enregistrement fait avancer la version : si quelqu'un a enregistré entre-temps,
+// on le dit au lieu d'écraser son travail. Lues (et écrites, à la demande) par les IA via le connecteur.
+// ---------------------------------------------------------------------
+B.renderNotesStrip = async (box, p) => {
+  if (!box) return;
+  const paint = async () => {
+    const { data, error } = await B.sb.from('project_notes').select('id, title, updated_at, updated_by, created_by')
+      .eq('project_id', p.id).order('updated_at', { ascending: false });
+    if (!box.isConnected) return;
+    if (error) { box.hidden = true; return; } // migration 049 pas encore passée
+    box.innerHTML = `<div class="notes-head"><h2>${icon('edit', 16)} ${tr('Notes du projet')}</h2>
+        <button class="btn small" data-note-new>${icon('plus', 14)} ${tr('Nouvelle note')}</button></div>
+      ${data.length ? `<div class="notes-list">${data.map((n) => `<button class="note-card" data-note="${n.id}">
+        <strong translate="no">${esc(n.title)}</strong>
+        <small>${tr('Modifiée par {who}, {when}', { who: esc(B.person(n.updated_by || n.created_by).display_name), when: esc(new Date(n.updated_at || Date.now()).toLocaleDateString(B.locale(), { day: 'numeric', month: 'short' })) })}</small></button>`).join('')}</div>`
+        : `<p class="muted small">${tr('Un compte rendu, un mode d’emploi, une liste à garder : écrivez-le ici, toute l’équipe (et ses IA) pourra le lire et le compléter.')}</p>`}`;
+    paintIcons(box);
+  };
+  box.onclick = (e) => {
+    if (e.target.closest('[data-note-new]')) return B.openNote(p, null, paint);
+    const c = e.target.closest('[data-note]');
+    if (c) B.openNote(p, c.dataset.note, paint);
+  };
+  B.live('notes', 'project_notes', `project_id=eq.${p.id}`, paint);
+  await paint();
+};
+
+B.openNote = async (p, id, after = () => {}) => {
+  let note = null;
+  if (id) {
+    const { data, error } = await B.sb.from('project_notes').select('*').eq('id', id).maybeSingle();
+    if (error) return B.error(error);
+    if (!data) return B.toast(tr('Cette note a été supprimée.'), { type: 'error' });
+    note = data;
+  }
+  let editing = !note;
+  const canDel = note && (note.created_by === B.me.id || B.isManager(p.id));
+  const m = B.modal(`<div class="note-panel">
+    <div class="media-head"><h2>${icon('edit', 18)} <span class="note-title-view" translate="no"></span></h2>
+      <button type="button" class="icon-btn" data-close aria-label="${tr('Fermer')}">×</button></div>
+    <div class="note-alert hidden" role="status"></div>
+    <div class="note-read"><div class="note-meta muted small"></div><div class="note-body msg-text" translate="no"></div></div>
+    <form class="note-edit hidden">
+      <label for="note-title">${tr('Titre')}</label><input id="note-title" maxlength="200" required />
+      <label for="note-text">${tr('Texte')} <small class="muted">${tr('(Markdown : **gras**, - liste, # titre)')}</small></label>
+      <textarea id="note-text" rows="16" maxlength="100000"></textarea>
+    </form>
+    <div class="actions">
+      ${canDel ? `<button class="btn danger-ghost" data-note-del>${icon('trash', 15)} ${tr('Supprimer')}</button>` : ''}
+      <span class="spacer"></span>
+      <button class="btn" data-note-edit>${icon('edit', 15)} ${tr('Modifier')}</button>
+      <button class="btn primary hidden" data-note-save>${tr('Enregistrer')}</button>
+    </div></div>`, { wide: true });
+  const paint = () => {
+    $('.note-title-view', m).textContent = note ? note.title : tr('Nouvelle note');
+    if (note) {
+      $('.note-meta', m).textContent = tr('Version {v} · modifiée par {who}, le {when}', { v: note.version,
+        who: B.person(note.updated_by || note.created_by).display_name, when: B.whenText(note.updated_at || note.created_at || Date.now()) });
+      $('.note-body', m).innerHTML = note.content ? md(note.content) : `<p class="muted">${tr('Note vide.')}</p>`;
+    }
+    $('.note-read', m).classList.toggle('hidden', editing);
+    $('.note-edit', m).classList.toggle('hidden', !editing);
+    $('[data-note-edit]', m).classList.toggle('hidden', editing);
+    $('[data-note-save]', m).classList.toggle('hidden', !editing);
+  };
+  const startEdit = () => {
+    editing = true;
+    $('#note-title', m).value = note?.title || '';
+    $('#note-text', m).value = note?.content || '';
+    paint();
+    $(note ? '#note-text' : '#note-title', m).focus();
+  };
+  $('[data-close]', m).onclick = () => {
+    if (editing && note && $('#note-text', m).value !== note.content && !confirm(tr('Fermer sans enregistrer vos changements ?'))) return;
+    B.closeModal();
+  };
+  $('[data-note-edit]', m).onclick = startEdit;
+  $('[data-note-save]', m).onclick = async () => {
+    const title = $('#note-title', m).value.trim(), content = $('#note-text', m).value;
+    if (!title) return B.toast(tr('Donnez un titre à la note.'), { type: 'error' });
+    if (!note) {
+      const { data, error } = await B.sb.from('project_notes').insert({ project_id: p.id, title, content, created_by: B.me.id }).select().single();
+      if (error) return B.error(error);
+      note = data;
+    } else {
+      // Seulement si personne n'a enregistré depuis que j'ai ouvert la note (même version)
+      const { data, error } = await B.sb.from('project_notes').update({ title, content }).eq('id', note.id).eq('version', note.version).select();
+      if (error) return B.error(error);
+      if (!data?.length) {
+        const { data: fresh } = await B.sb.from('project_notes').select('*').eq('id', note.id).maybeSingle();
+        const a = $('.note-alert', m);
+        a.classList.remove('hidden');
+        a.innerHTML = fresh ? tr('{who} a enregistré cette note pendant que vous écriviez. Copiez vos changements, puis rechargez la note pour repartir de sa version.', { who: esc(B.person(fresh.updated_by).display_name) })
+          + ` <button class="link small" data-note-reload>${tr('Recharger la note')}</button>` : tr('Cette note a été supprimée.');
+        $('[data-note-reload]', a)?.addEventListener('click', () => { note = fresh; a.classList.add('hidden'); startEdit(); });
+        return;
+      }
+      note = data[0];
+    }
+    editing = false;
+    paint(); after();
+    B.toast(tr('Note enregistrée.'), { type: 'success', timeout: 2000 });
+  };
+  $('[data-note-del]', m)?.addEventListener('click', async () => {
+    if (!(await B.confirm(tr('Supprimer la note « {title} » ?', { title: note.title }), tr('Supprimer')))) return B.openNote(p, note.id, after);
+    try { await B.deleteRow('project_notes', note.id); } catch (err) { return B.error(err); }
+    after();
+  });
+  if (editing) startEdit(); else paint();
 };

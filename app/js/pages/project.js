@@ -42,9 +42,12 @@ B.pages.project = async (view, [pid, tab = 'projet', sub]) => {
     view.innerHTML = `<div class="page"><div class="empty">${icon('compass', 30)}<p>${tr("Ce projet n'existe pas ou vous n'en faites plus partie.")}</p><a class="btn" href="#/home">${tr("Retour à l'accueil")}</a></div></div>`;
     return;
   }
+  // Invité (migration 050) : seulement son salon, ni onglets ni Camp de base
+  const guestCh = B.guestChannel(pid);
+  if (guestCh) { tab = 'discussion'; sub = guestCh; }
   const humans = p.memberCount;
   view.innerHTML = `
-    <div class="project">
+    <div class="project ${guestCh ? 'guest-view' : ''}">
       <header class="project-head">
         <a class="icon-btn proj-back" href="#/projects" aria-label="${tr('Retour à mes projets')}">${icon('back', 20)}</a>
         <span class="proj-icon" style="background:${esc(p.color)}">${projectIcon(p, 20)}</span>
@@ -64,13 +67,19 @@ B.pages.project = async (view, [pid, tab = 'projet', sub]) => {
       <div id="tab" class="tab tab-${shownTab}"></div>
     </div>`;
   // Petit écran : les onglets défilent ; on montre l'onglet ouvert (sinon « Tâches », « Documents »… restent cachés à droite)
+  document.body.classList.toggle('guest-project', !!guestCh);
+  B.onLeave(() => document.body.classList.remove('guest-project'));
+  if (guestCh) {
+    $('#missed', view)?.remove();
+    view.querySelector('.project-title p').textContent = tr('Vous êtes invité dans un seul salon de ce projet.');
+  }
   const tabsNav = $('.tabs', view), onTab = $('.tabs a.on', view);
   if (tabsNav && onTab && tabsNav.scrollWidth > tabsNav.clientWidth) {
     const left = onTab.getBoundingClientRect().left - tabsNav.getBoundingClientRect().left + tabsNav.scrollLeft;
     tabsNav.scrollLeft = Math.max(0, left - (tabsNav.clientWidth - onTab.offsetWidth) / 2);
   }
   $('#invite', view)?.addEventListener('click', () => B.openInvite(pid));
-  $('#missed', view).onclick = () => (location.hash = `#/p/${pid}/projet/absence`);
+  $('#missed', view)?.addEventListener('click', () => (location.hash = `#/p/${pid}/projet/absence`));
   $('#proj-more', view).onclick = (e) => B.projectMoreMenu(e.currentTarget, pid);
   B.enterProject(pid); // retient ma visite précédente (point de départ du résumé)
 
@@ -82,6 +91,8 @@ B.pages.project = async (view, [pid, tab = 'projet', sub]) => {
 
   const el = $('#tab', view);
   if (tab === 'discussion') return renderDiscussion(el, p, sub);
+  // Nouvel arrivant (rejoint depuis moins de 14 jours) : « Bienvenue », l'essentiel en un écran, une seule fois (v0.8.83)
+  if (!guestCh) setTimeout(() => { if (B.project(p.id)) B.welcomeNewcomer?.(p).catch(console.error); }, 900);
   if (tab === 'atelier') return renderDiscussion(el, p, null, { atelier: true });
   if (tab === 'projet') return B.pages.camp(el, p, sub);
   if (tab === 'taches') return B.pages.tasks(el, p, sub);
@@ -256,7 +267,7 @@ async function renderDiscussion(el, p, channelId, { atelier = false } = {}) {
     e.currentTarget.setAttribute('aria-expanded', String(open));
   });
   if (current) {
-    B.voiceStrip($('.voice-strip', el), p, current);
+    if (!B.isGuest(p.id)) B.voiceStrip($('.voice-strip', el), p, current); // un invité n'a pas le vocal
     await B.chat($('.chat-slot', el), { project: p, channel: current, mode: 'team' });
   }
 }

@@ -360,6 +360,7 @@ B.pages.hub = async (el, p) => {
     }
     if (e.target.matches('input[type=checkbox]')) {
       const { error } = await B.sb.from('items').update({ done: e.target.checked }).eq('id', item.id);
+      if (!error && e.target.checked && item.type === 'milestone') B.celebrateStep?.(p, item); // fêter l'étape (v0.8.83)
       if (error) B.error(new Error(/responsables|Administrateurs/i.test(error.message || '') ? tr('Seuls le Créateur et les Administrateurs peuvent revenir en arrière sur une étape.') : errText(error)));
       return load();
     }

@@ -23,4 +23,19 @@
   if (!window.BIVOUAC_WEB || !('serviceWorker' in navigator)) return;
   const secure = location.protocol === 'https:' || ['localhost', '127.0.0.1'].includes(location.hostname);
   if (secure) window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
+
+  // Lecture hors connexion (v0.8.82) : le cache des données appartient au compte connecté ; un autre compte
+  // (ou la déconnexion) le vide. Bandeau « Hors connexion » tant que le réseau manque.
+  const owner = (id) => navigator.serviceWorker.ready.then((r) => r.active?.postMessage({ type: 'bivouac:offline-owner', owner: id || '' })).catch(() => {});
+  B.on('session', (uid) => owner(uid));
+  const banner = () => {
+    let b = $('#offline-banner');
+    if (navigator.onLine) { b?.remove(); return; }
+    if (b) return;
+    b = h(`<div id="offline-banner" class="offline-banner" role="status">${icon('wifi', 15)} ${tr('Hors connexion : vous lisez la dernière version enregistrée sur cet appareil. Rien ne peut être envoyé pour l’instant.')}</div>`);
+    document.body.appendChild(b);
+  };
+  window.addEventListener('online', banner);
+  window.addEventListener('offline', banner);
+  banner();
 })();

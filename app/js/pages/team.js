@@ -90,6 +90,7 @@ B.pages.team = async (el, p) => {
   const roleCell = (m) => {
     if (isOwner && m.role !== 'owner') {
       return `<select class="role-select" data-user="${m.id}" title="${tr('Changer le statut')}">
+        ${m.role === 'guest' ? `<option value="guest" selected disabled>${roles.guest}</option>` : ''}
         <option value="admin" ${m.role === 'admin' ? 'selected' : ''}>${roles.admin}</option>
         <option value="member" ${m.role === 'member' ? 'selected' : ''}>${roles.member}</option></select>`;
     }
@@ -108,6 +109,7 @@ B.pages.team = async (el, p) => {
               <span class="team-name">${esc(m.display_name)}<small>@${esc(m.handle)}</small></span>
               <span class="tag human">${tr('Humain')}</span>
               <span class="team-role">${m.title ? esc(m.title) : ''}${B.localTimeHtml?.(m, { mode: 'place', always: true }) || ''}</span>
+              ${B.relayOf?.(m.id) ? `<div class="team-relay"><strong>${icon('route', 13)} ${tr('Relais de {name}', { name: esc(m.display_name) })}</strong><span translate="no">${esc(B.relayOf(m.id))}</span></div>` : ''}
               <span class="team-extra">${m.id === B.me.id ? '' : `<a class="icon-btn dm-btn" href="#/messages/${m.id}" title="${esc(tr('Message privé à {name}', { name: m.display_name }))}" aria-label="${esc(tr('Message privé à {name}', { name: m.display_name }))}">${icon('whisper', 16)}</a>`}${roleCell(m)}
                 ${B.canRemove(p.id, m) ? `<button class="icon-btn" data-remove="${m.id}" title="${tr('Retirer du projet')}">${icon('x', 15)}</button>` : ''}
                 ${m.id === B.me.id ? '' : `<button class="icon-btn" data-report-user="${m.id}" title="${esc(tr('Signaler {name}', { name: m.display_name }))}" aria-label="${esc(tr('Signaler {name}', { name: m.display_name }))}">${icon('flag', 15)}</button>`}</span>

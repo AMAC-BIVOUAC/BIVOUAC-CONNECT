@@ -44,11 +44,13 @@ B.openTask = (task, after) => {
     </div>
     <div class="actions">
       ${isNew || !B.canDelete(task.project_id, task.created_by) ? '' : `<button class="btn danger-ghost" id="tk-del">${icon('trash', 15)} ${tr('Supprimer')}</button>`}
+      ${isNew ? '' : `<button class="btn" id="tk-ai" title="${tr('Une IA de l’équipe propose un plan ou un premier livrable dans l’Atelier IA')}">${icon('spark', 15)} ${tr('Confier à une IA')}</button>`}
       <span class="spacer"></span>
       <button class="btn" data-close>${tr('Annuler')}</button><button class="btn primary" id="tk-save">${isNew ? tr('Créer') : tr('Enregistrer')}</button>
     </div>`, { wide: true });
   B.growTextarea($('#tk-desc', m));
   $('[data-close]', m).onclick = B.closeModal;
+  $('#tk-ai', m)?.addEventListener('click', () => { const p = B.project(task.project_id); B.closeModal(); if (p) B.entrust(p, { task }); });
   $('#tk-save', m).onclick = async () => {
     const title = $('#tk-title', m).value.trim();
     if (!title) return;

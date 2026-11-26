@@ -89,7 +89,7 @@ B.loadProjects = async () => {
   const [{ data: projects, error: e1 }, { data: members, error: e2 }, { data: tasks, error: e3 }] =
     await Promise.all([
       B.sb.from('projects').select('*').order('created_at'),
-      B.sb.from('project_members').select('project_id, user_id, role, joined_at, profiles(*)'),
+      B.sb.from('project_members').select('*, profiles(*)'), // guest_channel : invité limité à un salon (migration 050)
       B.sb.from('tasks').select('project_id, status')
     ]);
   if (e1 || e2 || e3) throw e1 || e2 || e3;
@@ -98,7 +98,7 @@ B.loadProjects = async () => {
   for (const m of members) {
     if (m.profiles) B.profiles.set(m.user_id, m.profiles);
     if (!B.members.has(m.project_id)) B.members.set(m.project_id, []);
-    B.members.get(m.project_id).push({ user_id: m.user_id, role: m.role, joined_at: m.joined_at });
+    B.members.get(m.project_id).push({ user_id: m.user_id, role: m.role, joined_at: m.joined_at, guest_channel: m.guest_channel || null });
   }
   B.projects = projects.map((p) => {
     const t = tasks.filter((x) => x.project_id === p.id);
@@ -141,11 +141,19 @@ B.joinProject = async (codeOrLink) => {
 
 B.myRole = (projectId) => (B.members.get(projectId) || []).find((m) => m.user_id === B.me?.id)?.role || null;
 B.canInvite = (projectId) => ['owner', 'admin'].includes(B.myRole(projectId));
+/** Invité limité à un salon (migration 050) : le salon, sinon null */
+B.guestChannel = (projectId) => (B.members.get(projectId) || []).find((m) => m.user_id === B.me?.id && m.role === 'guest')?.guest_channel || null;
+B.isGuest = (projectId) => B.myRole(projectId) === 'guest';
+B.createGuestInvite = async (projectId, channelId) => {
+  const { data, error } = await B.sb.rpc('create_guest_invite', { p_project: projectId, p_channel: channelId });
+  if (error) throw error;
+  return Array.isArray(data) ? data[0] : data;
+};
 /** Puis-je retirer cette personne ? Créateur : tout le monde sauf lui ; Administrateur : les Membres */
 B.canRemove = (projectId, member) => {
   const me = B.myRole(projectId);
   if (member.id === B.me.id || member.role === 'owner') return false;
-  return me === 'owner' || (me === 'admin' && member.role === 'member');
+  return me === 'owner' || (me === 'admin' && ['member', 'guest'].includes(member.role));
 };
 
 B.inviteLink = (code) => INVITE_PAGE + '#' + code;
@@ -407,6 +415,25 @@ B.deleteFile = async (f) => {
   await B.sb.storage.from('project-files').remove([f.path]);
 };
 
+// Corbeille des documents (v0.8.82, migration 049) : « Supprimer » met à la corbeille 30 jours (restaurable).
+// Base pas encore à jour : on supprime comme avant.
+const noRpc = (error) => /trash_file|restore_file|purge_file|list_trash|PGRST202|does not exist/i.test(error?.message || error?.code || '');
+B.trashFile = async (f) => {
+  const { error } = await B.sb.rpc('trash_file', { p_file: f.id });
+  if (error && noRpc(error)) return B.deleteFile(f);
+  if (error) throw error;
+};
+B.restoreFile = async (id) => {
+  const { error } = await B.sb.rpc('restore_file', { p_file: id });
+  if (error) throw error;
+};
+/** Supprimer pour de bon : la ligne (purge_file) puis le fichier du stockage */
+B.purgeFile = async (id) => {
+  const { data: path, error } = await B.sb.rpc('purge_file', { p_file: id });
+  if (error) throw error;
+  if (path) await B.sb.storage.from('project-files').remove([path]).catch(() => {});
+};
+
 // ---------------------------------------------------------------------
 // Droits (migration 026) : « responsables » = Créateur et Administrateurs.
 // Supprimer : l'auteur ou un responsable ; une décision soumise au vote : le Créateur seul ;
@@ -570,6 +597,15 @@ B.startGlobalLive = () => {
       (p) => B.emit('ai_request', p.new))
     .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'ai_requests', filter: `target_id=eq.${B.me.id}` },
       () => B.emit('ai_request_update'))
+    .subscribe();
+  // Mon profil changé ailleurs (statut choisi sur un autre appareil, migration 049) ; profils des coéquipiers : statut à jour
+  B.sb.channel('me-profiles')
+    .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'profiles' }, (p) => {
+      const row = p.new;
+      if (!row?.id) return;
+      if (row.id === B.me.id) { B.me = { ...B.me, ...row }; B.profiles.set(row.id, B.me); B.syncStatusFromProfile?.(B.me); return; }
+      if (B.profiles.has(row.id)) { B.profiles.set(row.id, { ...B.profiles.get(row.id), ...row }); B.paintPresence?.(); }
+    })
     .subscribe();
   B.sb.channel('me-memberships')
     .on('postgres_changes', { event: '*', schema: 'public', table: 'project_members' },

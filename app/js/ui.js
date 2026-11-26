@@ -229,6 +229,9 @@ B.openInvite = async (projectId) => {
       </div>
       <p class="muted small" id="inv-mail-msg">${tr('La personne reçoit un e-mail à votre nom, avec un bouton pour rejoindre le projet.')}</p>
     </form>
+    <label for="inv-scope" class="invite-scope-label">${tr('Accès')}</label>
+    <select id="inv-scope"><option value="">${tr('Tout le projet (Membre)')}</option></select>
+    <p class="muted small invite-scope-hint hidden">${tr('Invité : la personne ne voit que ce salon (messages et fichiers), rien d’autre du projet. Pour un client ou un bénévole ponctuel.')}</p>
     <h3 class="invite-or">${tr('Ou envoyez un lien vous-même')}</h3>
     <p class="muted">${tr("Envoyez ce lien à la personne. Il est valable 15 jours et ne sert qu'à une seule personne : pour inviter quelqu'un d'autre, créez un autre lien.")}</p>
     <button class="invite-link" id="inv-link" title="${tr('Cliquer pour copier')}"><span class="loading">${tr('Chargement…')}</span></button>
@@ -247,6 +250,18 @@ B.openInvite = async (projectId) => {
     <div id="inv-pending"></div>
     <div class="actions"><span class="spacer"></span><button class="btn" data-close>${tr('Fermer')}</button></div>`);
   $('[data-close]', m).onclick = B.closeModal;
+  // Invité limité à un salon (migration 050) : le choix du salon ; l'e-mail automatique invite toujours en Membre
+  B.sb.from('channels').select('id, name, kind').eq('project_id', projectId).eq('kind', 'team').order('created_at').then(({ data }) => {
+    const sel = $('#inv-scope', m);
+    if (!sel || !data) return;
+    sel.insertAdjacentHTML('beforeend', data.map((c) => `<option value="${esc(c.id)}">${esc(tr('Invité, seulement dans #{name}', { name: c.name }))}</option>`).join(''));
+  });
+  $('#inv-scope', m).onchange = () => {
+    const guest = !!$('#inv-scope', m).value;
+    $('#inv-mail-form', m).classList.toggle('hidden', guest);
+    $('.invite-scope-hint', m).classList.toggle('hidden', !guest);
+    show(true);
+  };
 
   let current = null; // { code, expires_at }
   const link = () => B.inviteLink(current.code);
@@ -278,7 +293,8 @@ B.openInvite = async (projectId) => {
 
   const show = async (fresh) => {
     try {
-      current = await B.createInvite(projectId, fresh);
+      const scope = $('#inv-scope', m).value;
+      current = scope ? await B.createGuestInvite(projectId, scope) : await B.createInvite(projectId, fresh);
       $('#inv-link', m).innerHTML = `<span class="url" translate="no">${esc(link())}</span><span class="hint">${icon('copy', 14)}</span>`;
       $('#inv-meta', m).textContent = tr('Code : {code} · expire le {date}', { code: current.code, date: date(current.expires_at) });
       paintIcons(m);
@@ -388,7 +404,7 @@ B.pickProject = (title, filter) => new Promise((resolve) => {
 
 const SEARCH_TYPES = [
   ['all', 'Tout', 'search'], ['msg', 'Messages', 'chat'], ['dm', 'Messages privés', 'whisper'], ['task', 'Tâches', 'checksq'],
-  ['doc', 'Documents', 'file'], ['item', 'Décisions et idées', 'bulb'], ['event', 'Calendrier', 'calendar']
+  ['doc', 'Documents', 'file'], ['note', 'Notes', 'edit'], ['item', 'Décisions et idées', 'bulb'], ['event', 'Calendrier', 'calendar']
 ];
 const ITEM_KIND = { idea: 'Idée', decision: 'Décision', milestone: 'Étape', objective: 'Sommet' };
 const likeOf = (q) => `%${q.replace(/[%_,()\\]/g, ' ').trim()}%`;
@@ -416,7 +432,7 @@ B.searchAll = async (q, { type = 'all', project = '', person = '', since = 0, li
   const byWho = (query, col) => (person ? query.eq(col, person) : query);
   const after = (query) => (sinceIso ? query.gte('created_at', sinceIso) : query);
   const none = Promise.resolve({ data: [] });
-  const [msgs, dms, tasks, files, items, events] = await Promise.all([
+  const [msgs, dms, tasks, files, items, events, notes] = await Promise.all([
     want('msg') ? after(byWho(B.sb.from('messages').select('id, content, channel_id, author_id, is_ai, ai_provider, created_at, channels!inner(project_id, kind, name)')
       .ilike('content', like), 'author_id')).order('created_at', { ascending: false }).limit(limit)
       .then((r) => (project ? { data: (r.data || []).filter((m) => m.channels?.project_id === project) } : r)) : none,
@@ -425,7 +441,9 @@ B.searchAll = async (q, { type = 'all', project = '', person = '', since = 0, li
     want('task') ? after(byWho(scope(B.sb.from('tasks').select('*').or(`title.ilike.${like},description.ilike.${like}`)), 'created_by')).order('created_at', { ascending: false }).limit(limit) : none,
     want('doc') ? after(byWho(scope(B.sb.from('files').select('id, name, project_id, uploader_id, created_at, mime, size, path, folder_id').ilike('name', like)), 'uploader_id')).order('created_at', { ascending: false }).limit(limit) : none,
     want('item') ? after(byWho(scope(B.sb.from('items').select('id, title, body, type, project_id, author_id, created_at').or(`title.ilike.${like},body.ilike.${like}`)), 'author_id')).order('created_at', { ascending: false }).limit(limit) : none,
-    want('event') ? after(byWho(scope(B.sb.from('events').select('id, title, description, day, project_id, author_id, created_at').or(`title.ilike.${like},description.ilike.${like}`)), 'author_id')).order('day', { ascending: false }).limit(limit) : none
+    want('event') ? after(byWho(scope(B.sb.from('events').select('id, title, description, day, project_id, author_id, created_at').or(`title.ilike.${like},description.ilike.${like}`)), 'author_id')).order('day', { ascending: false }).limit(limit) : none,
+    // notes du projet (migration 049) : absentes si la base n'est pas à jour
+    want('note') ? after(byWho(scope(B.sb.from('project_notes').select('id, title, content, project_id, created_by, created_at').or(`title.ilike.${like},content.ilike.${like}`)), 'created_by')).order('updated_at', { ascending: false }).limit(limit).then((r) => (r.error ? { data: [] } : r)) : none
   ]);
   const pname = (id) => B.project(id)?.name || '';
   const rows = [];
@@ -446,6 +464,9 @@ B.searchAll = async (q, { type = 'all', project = '', person = '', since = 0, li
     title: searchSnippet(f.name, q, 120), sub: `${tr('Document')} · ${B.person(f.uploader_id).display_name} · ${pname(f.project_id)}` }));
   (items.data || []).forEach((i) => rows.push({ kind: 'item', icon: i.type === 'decision' ? 'decision' : i.type === 'idea' ? 'bulb' : 'route', when: i.created_at,
     href: `#/p/${i.project_id}/projet/tout`, title: searchSnippet(i.title, q, 120), sub: `${tr(ITEM_KIND[i.type] || 'Idée')} · ${pname(i.project_id)}` }));
+  (notes.data || []).forEach((n) => rows.push({ kind: 'note', icon: 'edit', when: n.created_at, href: `#/p/${n.project_id}/documents`, note: n,
+    title: n.title.toLowerCase().includes(q.toLowerCase()) ? searchSnippet(n.title, q, 120) : esc(n.title) + ' · ' + searchSnippet(n.content, q, 100),
+    sub: `${tr('Note')} · ${pname(n.project_id)}` }));
   (events.data || []).forEach((e) => rows.push({ kind: 'event', icon: 'calendar', when: e.created_at, href: `#/p/${e.project_id}/taches/calendrier`,
     title: searchSnippet(e.title, q, 120), sub: `${new Date(e.day + 'T12:00').toLocaleDateString(B.locale(), { day: 'numeric', month: 'short', year: 'numeric' })} · ${pname(e.project_id)}` }));
   return rows;
@@ -454,6 +475,7 @@ B.searchAll = async (q, { type = 'all', project = '', person = '', since = 0, li
 /** Ouvre un résultat : message = salon + message mis en évidence ; tâche = sa fenêtre ; le reste = la bonne page */
 B.openSearchResult = (r) => {
   if (r.task) return B.openTask(r.task, () => {});
+  if (r.note) { location.hash = r.href; return setTimeout(() => B.openNote(B.project(r.note.project_id), r.note.id), 400); }
   if (r.jump) B.pendingJump = r.jump;
   location.hash = r.href;
 };

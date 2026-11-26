@@ -470,6 +470,10 @@ B.chat = async (root, { project, channel, mode }) => {
     if (action === 'reply') return startReply(m);
     if (action === 'thread') return openThread(id);
     if (action === 'copy') return copyMessage(m);
+    if (action === 'second') return B.secondOpinion(project, m);
+    if (action === 'entrust') return B.entrust(project, { message: { ...m, channelName: channel.name } });
+    if (action === 'remind') return B.addReminder({ projectId: project.id, link: isAi ? `#/p/${project.id}/atelier` : `#/p/${project.id}/discussion/${channel.id}`,
+      text: `${whoWrote(m)} (${isAi ? tr('Atelier IA') : '#' + channel.name}) : ${firstLine(m.content)}` });
     if (action === 'react') return B.openMediaPicker({ emojisOnly: true, onEmoji: (emoji) => toggleReaction(id, emoji) });
     if (action === 'pin') return togglePin(m);
     if (action === 'edit') return startEdit(id);
@@ -513,6 +517,9 @@ B.chat = async (root, { project, channel, mode }) => {
       { act: 'reply', icon: 'reply', label: tr('Répondre') },
       { act: 'thread', icon: 'thread', label: m.reply_to || repliesOf(m.id).length ? tr('Voir le fil') : tr('Répondre dans un fil') },
       { act: 'copy', icon: 'copy', label: tr('Copier le message') },
+      { act: 'remind', icon: 'clock', label: tr('Me le rappeler') },
+      ...(isAi && m.is_ai ? [{ act: 'second', icon: 'spark', label: tr('Demander un 2e avis') }] : []),
+      ...(!isAi && !m.is_ai ? [{ act: 'entrust', icon: 'spark', label: tr('Confier à une IA') }] : []),
       ...(st.pinsReady ? [{ act: 'pin', icon: 'pin', label: m.pinned_at ? tr('Désépingler') : tr('Épingler') }] : []),
       ...(mine && !m.is_ai ? [{ act: 'edit', icon: 'edit', label: tr('Modifier') }] : []),
       ...(mine || B.isManager(project.id) ? [{ act: 'del', icon: 'trash', label: mine ? tr('Supprimer') : tr('Supprimer (modération)'), danger: true }] : []),
@@ -817,6 +824,8 @@ B.chat = async (root, { project, channel, mode }) => {
     renderChips();
   });
   const previewPending = B.bindMediaComposer($('.composer', root), ta, addMediaFiles);
+  // Programmer l'envoi (salons d'équipe seulement : pas dans l'Atelier IA), migration 049
+  if (!isAi) B.bindScheduler($('.composer', root), ta, { channelId: channel.id, hasFiles: () => st.pendingFiles.length > 0, replyTo: () => st.replyTo?.id || null });
   function addMediaFiles(files) {
     const accepted = B.acceptFiles(files);
     if (!accepted.length) return false;

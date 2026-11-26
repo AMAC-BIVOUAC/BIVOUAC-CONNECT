@@ -152,8 +152,15 @@ B.pages.home = async (view) => {
         ${B.projects.length > 6 ? `<a href="#/projects" class="more-link">${tr('Voir tout')}${icon('chevron', 16)}</a>` : ''}
       </section>`;
 
-    body.innerHTML = `<div class="today-grid"><div class="today-main">${waitHtml}${todoHtml}</div><div class="today-side">${projHtml}</div></div>`;
+    // La veillée (vendredi 15 h → dimanche) et « Autour du feu » (qui est en vocal) : v0.8.83, ensemble.js
+    const veilleeHtml = B.isVeillee?.() && B.projects.length ? `<section class="card veillee-card" id="today-veillee">
+        <div class="card-label">${icon('flame', 14)} ${tr('La veillée')}</div>
+        <p>${tr('C’est la fin de la semaine : venez voir ce que vos équipes ont accompli, autour du feu.')}</p>
+        <div class="veillee-links">${B.projects.slice(0, 4).map((p) => `<a class="btn small" href="#/p/${p.id}/projet/veillee" translate="no">${projectIcon(p, 14)} ${esc(p.name)}</a>`).join('')}</div>
+      </section>` : '';
+    body.innerHTML = `<div class="today-grid"><div class="today-main">${waitHtml}${todoHtml}</div><div class="today-side">${veilleeHtml}<section class="card campfire" id="today-fire" hidden></section>${projHtml}</div></div>`;
     B.paintUnread(body);
+    B.renderCampfire?.($('#today-fire', body));
   };
 
   // Clics : cocher, ouvrir, reporter, répondre, voir tout
@@ -186,4 +193,5 @@ B.pages.home = async (view) => {
   B.onLeave(B.on('notification', soon));
   B.onLeave(B.on('notification-read', soon));
   B.onLeave(B.on('requests', render)); // demandes d'IA : relues par B.refreshRequests (ui.js)
+  B.onLeave(B.on('online', debounce(() => B.renderCampfire?.($('#today-fire', view)), 600))); // quelqu'un entre ou sort d'un vocal
 };

@@ -447,6 +447,8 @@ B.pages.messages = async (view, [otherId]) => {
     pending.push(...accepted); paintPending(); return true;
   };
   const previewPending = B.bindMediaComposer(form, ta, addMediaFiles);
+  // Programmer l'envoi ; la nuit chez l'autre : « À son réveil (8 h chez lui) » (migration 049)
+  B.bindScheduler(form, ta, { recipientId: other.id, person: other, hasFiles: () => pending.length > 0 });
   const paintPending = () => {
     $('.dm-pending', form).innerHTML = pending.map((f, i) => `<span class="attach-chip"><span translate="no">${esc(f.name)}</span> (${fmtSize(f.size)})
       <button type="button" data-remove-file="${i}" title="${tr('Retirer')}">×</button></span>`).join('');
@@ -527,6 +529,7 @@ B.pages.messages = async (view, [otherId]) => {
     const items = [
       { act: 'reply', icon: 'reply', label: tr('Répondre') },
       { act: 'copy', icon: 'copy', label: tr('Copier le message') },
+      { act: 'remind', icon: 'clock', label: tr('Me le rappeler') },
       ...(pinsReady ? [{ act: 'pin', icon: 'pin', label: d.pinned_at ? tr('Désépingler') : tr('Épingler') }] : []),
       ...(mine ? [{ act: 'edit', icon: 'edit', label: tr('Modifier') }, { act: 'del', icon: 'trash', label: tr('Supprimer'), danger: true }]
         : [{ act: 'report', icon: 'flag', label: tr('Signaler') }])
@@ -543,6 +546,8 @@ B.pages.messages = async (view, [otherId]) => {
     if (!d || d.deleted_at) return;
     if (action === 'reply') return startReply(d);
     if (action === 'copy') return copyDm(d);
+    if (action === 'remind') return B.addReminder({ link: `#/messages/${other.id}`,
+      text: `${d.sender_id === B.me.id ? tr('Vous') : B.person(d.sender_id).display_name} (${tr('message privé')}) : ${B.msgFirstLine(d.content) || B.attachmentsText(d.attachments)}` });
     if (action === 'react') return B.openMediaPicker({ emojisOnly: true, onEmoji: (emoji) => toggleDmReaction(d, emoji) });
     if (action === 'pin') return toggleDmPin(d);
     if (action === 'report' && d.sender_id !== B.me.id) return B.reportContent({ type: 'dm', targetId: d.id, targetUser: d.sender_id, excerpt: d.content });

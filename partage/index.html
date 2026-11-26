@@ -1,0 +1,108 @@
+<!doctype html>
+<!--
+  Page publique « Document partagé » — https://www.bivouac-tech.com/partage/#<jeton>
+  Source : dépôt BIVOUAC-TECH, dossier pages-publiques/ (v0.8.82, migration 049). AUCUN secret ici.
+  Un membre d'un projet a créé un lien de partage (Documents → icône lien). Le jeton suit le # : il n'est jamais
+  envoyé au site, seulement à la fonction serveur « partage », qui renvoie le nom du document et une adresse de
+  téléchargement valable 5 minutes (si le lien n'est ni coupé ni expiré). Aucun compte n'est demandé.
+-->
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="robots" content="noindex" />
+  <meta name="referrer" content="no-referrer" />
+  <meta http-equiv="Content-Security-Policy"
+        content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; connect-src https://cdcnwomszyovsebfdwmm.supabase.co; img-src data:" />
+  <title>Document partagé · BIVOUAC-TECH</title>
+  <style>
+    :root { --night: #0E2A3B; --teal: #12809A; --mint: #5ECDB5; --orange: #F28C28; --muted: #5B6B78; }
+    * { box-sizing: border-box; }
+    body { margin: 0; min-height: 100vh; font-family: Montserrat, "Segoe UI", system-ui, -apple-system, Arial, sans-serif;
+           background: linear-gradient(180deg, var(--night) 0%, #1E4A63 55%, #2D6A7A 100%); color: var(--night);
+           display: flex; align-items: center; justify-content: center; padding: 24px 16px; }
+    .card { width: 100%; max-width: 460px; background: #fff; border-radius: 18px; padding: 32px 28px; box-shadow: 0 20px 60px rgba(0,0,0,.25); }
+    .brand { display: flex; align-items: center; gap: 12px; margin-bottom: 22px; }
+    .brand svg { width: 46px; height: 46px; background: var(--night); border-radius: 12px; padding: 6px; }
+    .word { font-weight: 800; letter-spacing: 1px; font-size: 20px; }
+    .word small { display: block; color: var(--orange); font-size: 11px; letter-spacing: 4px; font-weight: 600; }
+    h1 { font-size: 22px; margin: 0 0 8px; }
+    p { line-height: 1.55; margin: 0 0 12px; color: #33475A; }
+    label { display: block; font-weight: 700; font-size: 13px; margin: 14px 0 6px; }
+    input { width: 100%; font: inherit; font-size: 15px; padding: 12px 14px; border: 1.5px solid #D5DEE6; border-radius: 10px; }
+    input:focus { outline: none; border-color: var(--teal); }
+    .btn { display: flex; align-items: center; justify-content: center; width: 100%; padding: 14px 18px; border-radius: 12px; margin-top: 18px;
+           font: inherit; font-weight: 700; font-size: 15px; cursor: pointer; border: 0; background: var(--orange); color: #fff; text-decoration: none; }
+    .btn:disabled { opacity: .6; cursor: default; }
+    .msg { margin-top: 12px; font-weight: 600; font-size: 14px; color: #A33733; min-height: 1em; }
+    .ok { background: #E3F6F1; color: #1F6B58; border-radius: 10px; padding: 12px 14px; font-weight: 600; }
+    .err { background: #FDEBD8; color: #8A4A10; border-radius: 10px; padding: 12px 14px; font-weight: 600; }
+    .btn.alt { background: #fff; color: var(--night); border: 1.5px solid #D5DEE6; margin-top: 10px; }
+    .hidden { display: none !important; }
+  </style>
+</head>
+<body>
+  <main class="card">
+    <div class="brand">
+      <svg viewBox="0 0 120 120" aria-hidden="true">
+        <path d="M27 56 A33 33 0 0 1 93 56" fill="none" stroke="#F28C28" stroke-width="9" stroke-linecap="round"/>
+        <path d="M12 94 L45 54 L60 70 L77 47 L108 94" fill="none" stroke="#FFFFFF" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      <div class="word">BIVOUAC<small>— TECH —</small></div>
+    </div>
+
+    <section id="wait">
+      <h1 data-t="waitTitle">Document partagé</h1>
+      <p data-t="wait">Recherche du document…</p>
+    </section>
+
+    <section id="ok" class="hidden">
+      <h1 data-t="okTitle">Document partagé avec vous</h1>
+      <p class="ok"><span id="name"></span><br /><small id="meta"></small></p>
+      <a class="btn" id="dl" href="#" rel="noopener" data-t="download">Télécharger</a>
+      <p style="margin-top:14px"><small data-t="note">Ce document vient d'un projet BIVOUAC-TECH. Ne l'ouvrez que si vous connaissez la personne qui vous a envoyé le lien.</small></p>
+    </section>
+
+    <section id="bad" class="hidden">
+      <h1 data-t="badTitle">Lien expiré ou coupé</h1>
+      <p class="err" data-t="bad">Ce lien de partage n'est plus valable. Demandez un nouveau lien à la personne qui vous l'a envoyé.</p>
+      <a class="btn alt" href="../" data-t="home">Découvrir BIVOUAC-TECH</a>
+    </section>
+  </main>
+
+  <script>
+    (function () {
+      var FN = 'https://cdcnwomszyovsebfdwmm.supabase.co/functions/v1/partage';
+      var en = !/^fr/i.test(navigator.language || 'fr');
+      var EN = {
+        waitTitle: 'Shared document', wait: 'Looking for the document…', okTitle: 'A document was shared with you',
+        download: 'Download', note: 'This document comes from a BIVOUAC-TECH project. Only open it if you know who sent you the link.',
+        badTitle: 'Link expired or turned off', bad: 'This sharing link is no longer valid. Ask the person who sent it for a new link.',
+        home: 'Discover BIVOUAC-TECH'
+      };
+      if (en) {
+        document.documentElement.lang = 'en';
+        document.querySelectorAll('[data-t]').forEach(function (el) { if (EN[el.dataset.t]) el.textContent = EN[el.dataset.t]; });
+        document.title = 'Shared document · BIVOUAC-TECH';
+      }
+      var token = (location.hash || '').replace(/^#/, '');
+      function show(id) { ['wait', 'ok', 'bad'].forEach(function (s) { document.getElementById(s).classList.toggle('hidden', s !== id); }); }
+      function size(n) { return n > 1048576 ? (n / 1048576).toFixed(1) + ' Mo' : Math.max(1, Math.round(n / 1024)) + ' Ko'; }
+      if (!/^[A-Za-z0-9_=-]{16,64}$/.test(token)) return show('bad');
+      fetch(FN, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ token: token }) })
+        .then(function (r) { return r.ok ? r.json() : null; })
+        .then(function (d) {
+          if (!d || !d.url) return show('bad');
+          document.getElementById('name').textContent = d.name;
+          var until = new Date(d.expires_at).toLocaleDateString(en ? 'en-GB' : 'fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
+          document.getElementById('meta').textContent = size(d.size || 0) + ' · ' + (en ? 'link valid until ' : 'lien valable jusqu\'au ') + until;
+          var a = document.getElementById('dl');
+          a.href = d.url;
+          a.setAttribute('download', d.name);
+          show('ok');
+        })
+        .catch(function () { show('bad'); });
+    })();
+  </script>
+</body>
+</html>

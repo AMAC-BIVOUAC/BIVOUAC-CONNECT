@@ -143,11 +143,11 @@ function aiName(provider, owner, { nick = true } = {}) {
 }
 // Numéro de la liste d'outils du connecteur : même valeur que TOOLS_VERSION (supabase/functions/bivouac-mcp/tools.js).
 // Une IA qui a chargé une liste plus ancienne (profiles.connector_tools, migration 023) doit actualiser le connecteur.
-const CONNECTOR_TOOLS_VERSION = 7;
+const CONNECTOR_TOOLS_VERSION = 8;
 const CONNECTOR_URL = () => `${(window.BIVOUAC_CONFIG || {}).SUPABASE_URL}/functions/v1/bivouac-mcp`;
 
 /** Statuts dans l'équipe d'un projet */
-const ROLE_LABEL = () => ({ owner: tr('Créateur'), admin: tr('Administrateur'), member: tr('Membre') });
+const ROLE_LABEL = () => ({ owner: tr('Créateur'), admin: tr('Administrateur'), member: tr('Membre'), guest: tr('Invité') });
 
 /** Adresse de la page « Rejoindre » (site public www.bivouac-tech.com = GitHub Pages du dépôt BIVOUAC-CONNECT) : le code suit le # */
 const INVITE_PAGE = 'https://www.bivouac-tech.com/rejoindre/';
@@ -155,6 +155,8 @@ const INVITE_PAGE = 'https://www.bivouac-tech.com/rejoindre/';
 const RESET_PAGE = 'https://www.bivouac-tech.com/mot-de-passe/';
 /** Page publique « Adresse confirmée » (lien de l'e-mail de confirmation, quand « Confirm email » est activé) */
 const CONFIRM_PAGE = 'https://www.bivouac-tech.com/confirmation/';
+/** Page publique « Partage » (v0.8.82) : télécharge un document partagé par lien ; le jeton suit le # (jamais envoyé au site) */
+const SHARE_PAGE = 'https://www.bivouac-tech.com/partage/';
 
 /** Retrouve un code d'invitation (K7QM-4TPX) dans un code tapé à la main ou un lien collé */
 function inviteCodeFrom(text) {
