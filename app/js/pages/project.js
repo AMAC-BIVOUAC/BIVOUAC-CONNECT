@@ -182,7 +182,7 @@ async function renderDiscussion(el, p, channelId, { atelier = false } = {}) {
         ? `<span class="my-ais-line">${tr('Vos IA')} : ${mine.map((id) => `<span class="my-ai">${aiAvatar(id, 20, B.me)}<span>${esc(PROVIDERS[id].label)}</span></span>`).join('')}</span>`
         : `${tr('Aucune IA branchée.')} <a href="#/settings">${tr('Ajouter une IA')}</a>`}</p>
       ${subs.length ? `<p>${tr("Avec l'abonnement, parlez à votre IA depuis son application : « Dans Bivouac, projet {project}, … ».", { project: esc(p.name) })}</p>` : ''}
-      <span class="channel-tools"><span class="pins-slot"></span></span>
+      <span class="channel-tools"><button class="icon-btn ch-files-btn" data-ch-files title="${tr('Fichiers partagés dans ce salon')}" aria-label="${tr('Fichiers partagés dans ce salon')}">${icon('clip', 15)}</button><span class="pins-slot"></span></span>
     </header>`;
   };
 
@@ -203,7 +203,7 @@ async function renderDiscussion(el, p, channelId, { atelier = false } = {}) {
           <a class="icon-btn conv-back" href="#/p/${p.id}/discussion" aria-label="${tr('Retour aux salons')}">${icon('back', 20)}</a>
           <h2><span class="conv-name"># ${esc(current.name)}${aiAccessMark(current)}<small class="conv-sub" translate="no">${esc(p.name)}</small></span></h2><p>${esc(current.description || '')}${aiAccessOf(current) !== 'read' ? ` <span class="ai-chip ai-chip-${aiAccessOf(current)}">${icon(AI_ACCESS.find((x) => x[0] === aiAccessOf(current))[1], 13)} ${tr(aiAccessOf(current) === 'write' ? 'Les IA peuvent écrire ici' : 'Fermé aux IA')}</span>` : ''}</p>
           <button class="btn small voice-toggle" id="voice-toggle" aria-expanded="false">${icon('headphones', 16)} ${tr('Vocal')}</button>
-          <span class="channel-tools"><span class="pins-slot"></span>${B.isManager(p.id) ? `
+          <span class="channel-tools"><button class="icon-btn ch-files-btn" data-ch-files title="${tr('Fichiers partagés dans ce salon')}" aria-label="${tr('Fichiers partagés dans ce salon')}">${icon('clip', 15)}</button><span class="pins-slot"></span>${B.isManager(p.id) ? `
             <button class="icon-btn" id="ch-rename" title="${tr('Modifier le salon')}" aria-label="${tr('Modifier le salon')}">${icon('edit', 15)}</button>
             ${current.id !== channels[0].id ? `<button class="icon-btn" id="ch-delete" title="${tr('Supprimer le salon')}">${icon('trash', 15)}</button>` : ''}` : ''}
           </span></header>
@@ -213,6 +213,9 @@ async function renderDiscussion(el, p, channelId, { atelier = false } = {}) {
     </div>`;
 
   $('.add-channel', el).onclick = () => newChannel(p);
+
+  // Médias et documents partagés dans ce salon (ils ne vont plus dans Documents depuis la 0.8.87, migration 052)
+  $('[data-ch-files]', el)?.addEventListener('click', () => B.openChannelFiles(p, atelier ? ai : current).catch(B.error));
 
   // Responsables (Créateur, Administrateurs) : renommer / supprimer un salon (#général ne se supprime pas)
   $('#ch-rename', el)?.addEventListener('click', () => {
@@ -233,10 +236,30 @@ async function renderDiscussion(el, p, channelId, { atelier = false } = {}) {
       B.route();
     };
   });
+  // Supprimer un salon (v0.8.87, Apo) : on prévient de sauvegarder ses fichiers ; s'il en a, la case « Fichiers du salon
+  // sauvegardés » doit être cochée. Ceux qui restent dans le salon partent à la corbeille du projet (migration 052).
   $('#ch-delete', el)?.addEventListener('click', async () => {
-    if (!(await B.confirm(tr('Supprimer le salon #{name} et tous ses messages ? C\'est définitif.', { name: current.name }), tr('Supprimer')))) return;
-    try { await B.deleteRow('channels', current.id); } catch (err) { return B.error(err); }
-    location.hash = `#/p/${p.id}/discussion`;
+    const { count } = await B.sb.from('files').select('id', { count: 'exact', head: true }).eq('channel_id', current.id);
+    const n = count || 0;
+    const m = B.modal(`<h2>${tr('Supprimer le salon #{name} ?', { name: esc(current.name) })}</h2>
+      <p>${tr('Tous ses messages seront supprimés. C\'est définitif.')}</p>
+      ${n ? `<div class="ch-del-files">
+        <p>${icon('clip', 16)} <strong>${tr(n > 1 ? '{n} fichiers ont été partagés dans ce salon.' : '{n} fichier a été partagé dans ce salon.', { n })}</strong>
+          ${tr('Sauvegardez ceux que vous voulez garder avant de supprimer le salon : « Ranger dans Documents » ou téléchargez-les. Les autres iront à la corbeille du projet (30 jours).')}</p>
+        <button class="btn small" id="ch-del-see">${icon('clip', 15)} ${tr('Voir les fichiers du salon')}</button>
+        <label class="check-line"><input type="checkbox" id="ch-del-ok" /> ${tr('Fichiers du salon sauvegardés')}</label>
+      </div>` : ''}
+      <div class="actions"><span class="spacer"></span><button class="btn" data-close>${tr('Annuler')}</button>
+        <button class="btn danger" id="ch-del-go" ${n ? 'disabled' : ''}>${tr('Supprimer le salon')}</button></div>`);
+    $('[data-close]', m).onclick = B.closeModal;
+    $('#ch-del-see', m)?.addEventListener('click', () => B.openChannelFiles(p, current).catch(B.error));
+    $('#ch-del-ok', m)?.addEventListener('change', (e) => { $('#ch-del-go', m).disabled = !e.target.checked; });
+    $('#ch-del-go', m).onclick = async () => {
+      if (n && !$('#ch-del-ok', m).checked) return;
+      B.closeModal();
+      try { await B.deleteRow('channels', current.id); } catch (err) { return B.error(err); }
+      location.hash = `#/p/${p.id}/discussion`;
+    };
   });
 
   // Qui est en vocal dans chaque salon, façon Discord (présence du projet, sounds.js) ; clic = ouvrir le salon
@@ -309,6 +332,9 @@ async function renderChannelList(el, p, channels, ai) {
   </div>`;
   B.paintUnread(el);
   $('.add-channel', el).onclick = () => newChannel(p);
+
+  // Médias et documents partagés dans ce salon (ils ne vont plus dans Documents depuis la 0.8.87, migration 052)
+  $('[data-ch-files]', el)?.addEventListener('click', () => B.openChannelFiles(p, atelier ? ai : current).catch(B.error));
   B.live('chans', 'channels', `project_id=eq.${p.id}`, debounce(() => { if (location.hash === `#/p/${p.id}/discussion`) B.route(); }, 300), 'INSERT');
   B.live('chan-list-msgs', 'messages', null, debounce(() => { if (location.hash === `#/p/${p.id}/discussion`) B.route(); }, 800), 'INSERT');
 }

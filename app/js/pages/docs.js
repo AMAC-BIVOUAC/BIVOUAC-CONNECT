@@ -11,11 +11,24 @@
 // (un .zip de tout son contenu, sous-dossiers compris, fabriqué dans l'appareil par B.makeZip ; 500 Mo au plus).
 // 25/11 (Apo, v0.8.80, migration 047) : « Journal » (Créateur et Administrateurs seulement) = qui a ajouté, modifié,
 // renommé, déplacé ou supprimé quel document ou dossier, où et quand. Écrit par la base seule (doc_journal) : B.openDocJournal.
+// 26/11 (Apo, v0.8.87, migration 052) : les fichiers partagés dans un salon (files.channel_id, posé par la base) ne sont
+// plus dans Documents. Ils s'ouvrent depuis l'icône de l'en-tête du salon (B.openChannelFiles), avec la MÊME vue :
+// B.pages.docs(el, p, { channel }) = recherche, type, tri, liste / icônes, aperçu des images, sans dossiers ni dépôt.
+// Tri (« Plus récents », « Plus anciens », « Nom », « Taille ») : le même dans les deux, retenu sur l'appareil.
+// « Ranger dans Documents » (file_to_documents) : le fichier va dans le dossier du salon (« Salon <nom> »), créé au 1er rangement.
 // =====================================================================
 
 /** Types de documents pour le filtre : [clé, libellé] */
 const DOC_KINDS = [['all', 'Tous les types'], ['image', 'Images'], ['pdf', 'PDF'], ['text', 'Textes et Word'],
   ['sheet', 'Tableurs'], ['slides', 'Présentations'], ['media', 'Vidéos et sons'], ['archive', 'Archives'], ['other', 'Autres']];
+/** Tris de la liste (Documents et fichiers d'un salon) : [clé, libellé, comparaison] */
+const docStamp = (f) => f.updated_at || f.created_at || '';
+const DOC_SORTS = [
+  ['new', 'Plus récents', (a, b) => docStamp(b).localeCompare(docStamp(a))],
+  ['old', 'Plus anciens', (a, b) => docStamp(a).localeCompare(docStamp(b))],
+  ['name', 'Nom (A → Z)', (a, b) => String(a.name).localeCompare(String(b.name), B.locale(), { numeric: true, sensitivity: 'base' })],
+  ['size', 'Taille (plus gros d’abord)', (a, b) => (b.size || 0) - (a.size || 0)]
+];
 const docExt = (f) => { const m = String(f.name || '').match(/\.([a-z0-9]{1,5})$/i); return m ? m[1].toUpperCase() : ''; };
 /** Pour chercher sans tenir compte des majuscules ni des accents */
 const fold = (x) => String(x || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
@@ -78,10 +91,12 @@ B.makeZip = (entries) => {
   return new Blob([...parts, ...central, end], { type: 'application/zip' });
 };
 
-B.pages.docs = async (el, p) => {
+B.pages.docs = async (el, p, { channel = null } = {}) => {
+  const inChan = Boolean(channel); // fichiers partagés dans un salon : même vue, sans dossiers ni dépôt
+  const sortKey = inChan ? 'chan-files-sort' : 'docs-sort';
   el.innerHTML = `
-    <div class="docs">
-      <div class="drop-zone">
+    <div class="docs${inChan ? ' chan-files' : ''}">
+      ${inChan ? '' : `<div class="drop-zone">
         ${icon('download', 26).replace('<svg', '<svg style="transform:rotate(180deg)"')}
         <p><strong>${tr('Déposez des fichiers ici')}</strong> ${tr('ou')} <button class="link" id="pick">${tr('parcourez')}</button></p>
         <p class="muted small">${tr('{max} Mo maximum par fichier.', { max: B.MAX_FILE_MB })}</p>
@@ -92,25 +107,27 @@ B.pages.docs = async (el, p) => {
         // version web et téléphone : pas de modification sur place (web.js), le document s'ouvre ou se télécharge
         ? tr('Touchez un document pour l’ouvrir ou le télécharger ; les anciennes versions restent dans « Versions ».')
         : tr('Cliquez sur un document pour l\'ouvrir dans le logiciel de votre PC (Word, Excel…). Quand vous l\'enregistrez, la nouvelle version est envoyée toute seule au projet ; les précédentes restent dans « Versions ».')} ${tr('Les images s\'ouvrent d\'abord en aperçu.')}</p>
-      <section class="notes-strip" aria-label="${tr('Notes du projet')}"></section>
+      <section class="notes-strip" aria-label="${tr('Notes du projet')}"></section>`}
       <div class="docs-tools">
         <label class="docs-search">${icon('search', 16)}<span class="sr-only">${tr('Rechercher un document')}</span>
           <input type="search" id="doc-q" placeholder="${tr('Rechercher un document…')}" autocomplete="off" /></label>
         <label class="sr-only" for="doc-type">${tr('Type de document')}</label>
         <select id="doc-type" class="pill-select">${DOC_KINDS.map(([k, label]) => `<option value="${k}">${tr(label)}</option>`).join('')}</select>
+        <label class="sr-only" for="doc-sort">${tr('Trier par')}</label>
+        <select id="doc-sort" class="pill-select" title="${tr('Trier par')}">${DOC_SORTS.map(([k, label]) => `<option value="${k}">${tr(label)}</option>`).join('')}</select>
         <div class="seg doc-views" role="group" aria-label="${tr('Affichage')}">
           <button data-view="list" title="${tr('Liste')}" aria-label="${tr('Liste')}">${icon('list', 16)}</button>
           <button data-view="grid" title="${tr('Icônes')}" aria-label="${tr('Icônes')}">${icon('kanban', 16)}</button>
         </div>
       </div>
-      <div class="docs-bar">
+      ${inChan ? '' : `<div class="docs-bar">
         <nav class="crumbs" aria-label="${tr('Dossiers')}"></nav>
         <span class="docs-bar-actions">
           <button class="link small docs-trash-btn" id="doc-trash" title="${tr('Documents supprimés depuis moins de 30 jours : on peut les récupérer')}">${icon('trash', 15)} ${tr('Corbeille')}</button>
           ${B.isManager(p.id) ? `<button class="link small docs-journal-btn" id="doc-journal" title="${tr('Qui a ajouté, modifié, déplacé ou supprimé quoi, et quand (visible du Créateur et des Administrateurs)')}">${icon('clock', 15)} ${tr('Journal')}</button>` : ''}
           <button class="btn small" id="new-folder">${icon('folder', 16)} ${tr('Nouveau dossier')}</button>
         </span>
-      </div>
+      </div>`}
       <div class="card doc-view"></div>
     </div>`;
 
@@ -118,8 +135,9 @@ B.pages.docs = async (el, p) => {
   let folders = [];
   let query = '';
   let kind = 'all';
+  let sort = DOC_SORTS.some(([k]) => k === store.get(sortKey, 'new')) ? store.get(sortKey, 'new') : 'new';
   let view = store.get('docs-view', 'list') === 'grid' ? 'grid' : 'list';
-  let cur = store.get('docs-folder:' + p.id, null); // dossier ouvert (null = racine)
+  let cur = inChan ? null : store.get('docs-folder:' + p.id, null); // dossier ouvert (null = racine)
   let here = []; // documents affichés (ordre de l'écran : la visionneuse passe de l'un à l'autre)
   let left = false;
   B.onLeave(() => { left = true; });
@@ -132,16 +150,22 @@ B.pages.docs = async (el, p) => {
   const count = (id) => files.filter((f) => f.folder_id === id).length + kids(id).reduce((n, d) => n + count(d.id), 0);
   const setCur = (id) => { cur = id; store.set('docs-folder:' + p.id, id); paint(); };
 
-  B.renderNotesStrip($('.notes-strip', el), p);
+  if (!inChan) B.renderNotesStrip($('.notes-strip', el), p);
+  /** Documents = fichiers sans salon (migration 052) ; un salon = ses fichiers */
+  const fileQuery = (withChannel = true) => {
+    const q = B.sb.from('files').select('*').eq('project_id', p.id);
+    if (!withChannel) return q.order('created_at', { ascending: false });
+    return (inChan ? q.eq('channel_id', channel.id) : q.is('channel_id', null)).order('created_at', { ascending: false });
+  };
   const load = async () => {
-    const [fi, fo] = await Promise.all([
-      B.sb.from('files').select('*').eq('project_id', p.id).order('created_at', { ascending: false }),
-      B.sb.from('folders').select('*').eq('project_id', p.id)
-    ]);
+    const [fi0, fo] = await Promise.all([fileQuery(), inChan ? { data: [] } : B.sb.from('folders').select('*').eq('project_id', p.id)]);
+    let fi = fi0;
+    // Migration 052 pas encore passée (quelques instants pendant la mise en ligne) : l'ancienne liste
+    if (fi.error && /channel_id/.test(fi.error.message || '')) fi = inChan ? { data: [] } : await fileQuery(false);
     if (fi.error) return B.error(fi.error);
-    files = fi.data.sort((a, b) => (b.updated_at || b.created_at).localeCompare(a.updated_at || a.created_at));
+    files = fi.data;
     folders = fo.error ? [] : fo.data; // dossiers absents (migration 022 pas encore passée) : tout à la racine
-    $('#new-folder', el).hidden = !!fo.error;
+    if (!inChan) $('#new-folder', el).hidden = !!fo.error;
     paint();
   };
 
@@ -149,7 +173,10 @@ B.pages.docs = async (el, p) => {
   const fileIcon = (f) => icon(docKind(f) === 'image' ? 'image' : 'file', view === 'grid' ? 34 : 18);
   /** Miniature si on l'a, sinon l'icône du type */
   const fileFace = (f) => { const t = fresh(f); return t ? `<img class="doc-thumb" src="${esc(t)}" alt="" />` : fileIcon(f); };
-  const fileActions = (f) => `
+  const fileActions = (f) => inChan ? `
+    <button class="icon-btn" data-dl title="${tr('Télécharger')}" aria-label="${tr('Télécharger')}">${icon('download', 16)}</button>
+    ${f.message_id ? `<button class="icon-btn" data-jump title="${tr('Voir le message')}" aria-label="${tr('Voir le message')}">${icon('chat', 16)}</button>` : ''}
+    ${B.isGuest?.(p.id) ? '' : `<button class="icon-btn" data-to-docs title="${tr('Ranger dans Documents')}" aria-label="${tr('Ranger dans Documents')}">${icon('folder', 16)}</button>`}` : `
     <button class="icon-btn" data-dl title="${tr('Télécharger')}" aria-label="${tr('Télécharger')}">${icon('download', 16)}</button>
     ${(f.version || 1) > 1 ? `<button class="link small" data-versions>${tr('Versions')}</button>` : ''}
     ${folders.length ? `<button class="icon-btn" data-move title="${tr('Ranger dans un dossier')}" aria-label="${tr('Ranger dans un dossier')}">${icon('arrow', 16)}</button>` : ''}
@@ -216,18 +243,20 @@ B.pages.docs = async (el, p) => {
     $$('.doc-views [data-view]', el).forEach((b) => { b.classList.toggle('on', b.dataset.view === view); b.setAttribute('aria-pressed', b.dataset.view === view); });
     const searching = Boolean(query) || kind !== 'all';
     const path = chain(cur);
-    $('.crumbs', el).innerHTML = [`<button class="crumb" data-go="" data-drop="">${icon('folder', 15)} ${tr('Documents')}</button>`]
+    if (!inChan) $('.crumbs', el).innerHTML = [`<button class="crumb" data-go="" data-drop="">${icon('folder', 15)} ${tr('Documents')}</button>`]
       .concat(path.map((d) => `<span class="crumb-sep">›</span><button class="crumb" data-go="${d.id}" data-drop="${d.id}" translate="no">${esc(d.name)}</button>`))
       .join('');
     // Recherche ou filtre : tous les dossiers, sans les dossiers eux-mêmes ; sinon le dossier ouvert
     const q = fold(query);
     const match = (f) => (kind === 'all' || docKind(f) === kind) && (!q || fold(f.name).includes(q));
     const dirs = searching ? [] : kids(cur);
-    here = searching ? files.filter(match) : files.filter((f) => (f.folder_id || null) === cur);
+    here = (searching || inChan ? files.filter(match) : files.filter((f) => (f.folder_id || null) === cur))
+      .sort(DOC_SORTS.find(([k]) => k === sort)[2]);
     loadThumbs(here);
     const hid = (f) => (f.hidden_at ? ` <span class="hidden-note">${icon('eyeoff', 12)} ${tr('Masqué par l’équipe Bivouac : vous seul le voyez.')}</span>` : '');
     const where = (f) => (searching && f.folder_id ? `<span class="doc-where" translate="no">${icon('folder', 12)} ${esc(folderPath(f.folder_id))}</span>` : '');
     const empty = searching ? tr('Aucun document ne correspond.')
+      : inChan ? tr('Aucun fichier partagé dans ce salon pour l’instant.')
       : cur ? tr('Ce dossier est vide. Déposez des fichiers ici ou rangez-y des documents.') : tr("Aucun document pour l'instant.");
     const found = searching ? `<p class="muted small doc-found">${tr(here.length > 1 ? '{n} documents trouvés' : '{n} document trouvé', { n: here.length })}
       <button class="link small" data-clear>${tr('Tout afficher')}</button></p>` : '';
@@ -269,12 +298,14 @@ B.pages.docs = async (el, p) => {
         <td class="doc-actions">${fileActions(f)}</td>
       </tr>`;
     }).join('');
-    box.innerHTML = `${found}<table class="doc-table"><thead><tr><th>${tr('Nom')}</th><th>${tr('Taille')}</th><th>${tr('Modifié par')}</th><th>${tr('Date')}</th><th></th></tr></thead>
+    box.innerHTML = `${found}<table class="doc-table"><thead><tr><th>${tr('Nom')}</th><th>${tr('Taille')}</th><th>${tr(inChan ? 'Partagé par' : 'Modifié par')}</th><th>${tr('Date')}</th><th></th></tr></thead>
       <tbody>${dirRows + fileRows || `<tr><td colspan="5" class="muted">${empty}</td></tr>`}</tbody></table>`;
   }
 
   $('#doc-q', el).addEventListener('input', debounce((e) => { query = e.target.value.trim(); paint(); }, 150));
   $('#doc-type', el).onchange = (e) => { kind = e.target.value; paint(); };
+  $('#doc-sort', el).value = sort;
+  $('#doc-sort', el).onchange = (e) => { sort = e.target.value; store.set(sortKey, sort); paint(); };
   $('.doc-views', el).addEventListener('click', (e) => {
     const b = e.target.closest('[data-view]');
     if (!b) return;
@@ -341,15 +372,15 @@ B.pages.docs = async (el, p) => {
   };
 
   if ($('#doc-journal', el)) $('#doc-journal', el).onclick = () => B.openDocJournal(p).catch(B.error);
-  $('#doc-trash', el).onclick = () => B.openTrash(p, load).catch(B.error);
-  $('#new-folder', el).onclick = async () => {
+  if (!inChan) $('#doc-trash', el).onclick = () => B.openTrash(p, load).catch(B.error);
+  if (!inChan) $('#new-folder', el).onclick = async () => {
     const name = await askName(tr('Nouveau dossier'));
     if (!name) return;
     const { error } = await B.sb.rpc('create_folder', { p_project: p.id, p_parent: cur, p_name: name });
     if (error) return B.error(error);
     load();
   };
-  $('.crumbs', el).addEventListener('click', (e) => {
+  if (!inChan) $('.crumbs', el).addEventListener('click', (e) => {
     const b = e.target.closest('[data-go]');
     if (b) setCur(b.dataset.go || null);
   });
@@ -384,13 +415,15 @@ B.pages.docs = async (el, p) => {
   };
 
   const input = $('#doc-input', el);
-  $('#pick', el).onclick = () => input.click();
-  $('#pick-phone', el).onclick = () => input.click(); // téléphone : un vrai bouton (pas de glisser-déposer au doigt)
-  input.onchange = () => { upload([...input.files]); input.value = ''; };
-  const zone = $('.drop-zone', el);
-  zone.addEventListener('dragover', (e) => { e.preventDefault(); zone.classList.add('over'); });
-  zone.addEventListener('dragleave', () => zone.classList.remove('over'));
-  zone.addEventListener('drop', (e) => { e.preventDefault(); e.stopPropagation(); zone.classList.remove('over'); upload([...e.dataTransfer.files]); });
+  if (input) {
+    $('#pick', el).onclick = () => input.click();
+    $('#pick-phone', el).onclick = () => input.click(); // téléphone : un vrai bouton (pas de glisser-déposer au doigt)
+    input.onchange = () => { upload([...input.files]); input.value = ''; };
+    const zone = $('.drop-zone', el);
+    zone.addEventListener('dragover', (e) => { e.preventDefault(); zone.classList.add('over'); });
+    zone.addEventListener('dragleave', () => zone.classList.remove('over'));
+    zone.addEventListener('drop', (e) => { e.preventDefault(); e.stopPropagation(); zone.classList.remove('over'); upload([...e.dataTransfer.files]); });
+  }
 
   $('.doc-view', el).addEventListener('click', async (e) => {
     if (e.target.closest('[data-clear]')) {
@@ -429,6 +462,22 @@ B.pages.docs = async (el, p) => {
       return openViewer(imgs, Math.max(0, imgs.indexOf(f)), e.target.closest('.file-link'));
     }
     if (e.target.closest('[data-dl]')) return B.downloadFile(f).catch(B.error);
+    if (e.target.closest('[data-to-docs]')) { // le fichier quitte le salon pour le dossier de ce salon dans Documents
+      const { data, error } = await B.sb.rpc('file_to_documents', { p_file: f.id });
+      if (error) return B.error(error);
+      files = files.filter((x) => x.id !== f.id);
+      paint();
+      B.toast(tr('« {name} » est rangé dans Documents › {folder}.', { name: esc(f.name), folder: esc(data?.name || '') }), { type: 'success', timeout: 6000,
+        actions: [[tr('Ouvrir Documents'), '', () => { B.closeModal(); if (data?.folder) store.set('docs-folder:' + p.id, data.folder); location.hash = `#/p/${p.id}/documents`; }]] });
+      return;
+    }
+    if (e.target.closest('[data-jump]')) { // aller au message où le fichier a été partagé
+      B.closeModal();
+      B.pendingJump = f.message_id;
+      const to = channel.kind === 'ai' ? `#/p/${p.id}/atelier` : `#/p/${p.id}/discussion/${channel.id}`;
+      if (location.hash === to) B.route(); else location.hash = to;
+      return;
+    }
     if (e.target.closest('[data-versions]')) return showVersions(f).catch(B.error);
     if (e.target.closest('[data-move]')) {
       const to = await pickFolder(tr('Ranger « {name} » dans…', { name: esc(f.name) }));
@@ -611,8 +660,8 @@ B.pages.docs = async (el, p) => {
   }
 
   await load();
-  B.live('docs', 'files', `project_id=eq.${p.id}`, debounce(load, 300));
-  B.live('docs-folders', 'folders', `project_id=eq.${p.id}`, debounce(load, 300));
+  B.live(inChan ? 'chan-files' : 'docs', 'files', `project_id=eq.${p.id}`, debounce(() => { if (el.isConnected) load(); }, 300));
+  if (!inChan) B.live('docs-folders', 'folders', `project_id=eq.${p.id}`, debounce(load, 300));
   B.onLeave(B.on('files', load));
 };
 
@@ -967,4 +1016,19 @@ B.openNote = async (p, id, after = () => {}) => {
     after();
   });
   if (editing) startEdit(); else paint();
+};
+
+/**
+ * « Fichiers du salon » (v0.8.87, Apo) : médias et documents partagés dans un salon (ou l'Atelier), ouverts par l'icône
+ * de l'en-tête. Même vue que Documents (recherche, type, tri, liste / icônes, aperçu des images).
+ */
+B.openChannelFiles = (p, channel) => {
+  const name = channel.kind === 'ai' ? tr('Atelier IA') : '#' + channel.name;
+  const m = B.modal(`
+    <div class="chan-files-head"><h2>${icon('clip', 18)} ${tr('Fichiers partagés')} <small translate="no">${esc(name)}</small></h2>
+      <button class="icon-btn" data-close title="${tr('Fermer')}" aria-label="${tr('Fermer')}">${icon('x', 18)}</button></div>
+    <div class="chan-files-body"></div>`, { wide: true });
+  m.classList.add('chan-files-modal');
+  $('[data-close]', m).onclick = B.closeModal;
+  return B.pages.docs($('.chan-files-body', m), p, { channel });
 };

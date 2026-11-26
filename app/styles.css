@@ -2448,7 +2448,7 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--teal); }
   background: var(--card); border: 1px solid var(--line-strong); border-radius: var(--r-md); color: var(--muted); }
 .docs-search:focus-within { outline: 2px solid var(--focus); outline-offset: 1px; }
 .docs-search input { border: 0; background: none; flex: 1; min-width: 0; padding: 9px 0; outline: none; box-shadow: none; }
-#doc-type { flex: none; }
+#doc-type, #doc-sort { flex: none; }
 .seg.doc-views .ico { display: block; }
 .doc-view { overflow-x: auto; }
 .doc-found { display: flex; align-items: center; gap: var(--s-3); margin: 0 0 var(--s-2); }
@@ -3050,3 +3050,25 @@ body.guest-project #project-nav, .project.guest-view .atelier-link, .project.gue
   .vrec-wave { width: min(140px, 32vw); }
   .vnote-play { width: 44px; height: 44px; }
 }
+
+/* ---------- Fichiers partagés dans un salon (v0.8.87, Apo, migration 052) ----------
+   Icône trombone de l'en-tête du salon, à gauche des épingles ; fenêtre large = la vue de Documents (docs.js) sans dossiers. */
+#modal.chan-files-modal { width: 920px; }
+.chan-files-head { display: flex; align-items: center; gap: var(--s-2); margin-bottom: var(--s-3); }
+.chan-files-head h2 { flex: 1; min-width: 0; margin: 0; display: flex; align-items: center; gap: var(--s-2); }
+.chan-files-head h2 small { color: var(--muted); font-weight: var(--fw-text); font-size: var(--fs-small); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.chan-files .doc-view { box-shadow: none; }
+@media (max-width: 760px) {
+  #modal.chan-files-modal { max-height: 92vh; }
+  /* téléphone : recherche + liste / icônes sur une ligne, type et tri dessous, côte à côte */
+  .docs-tools .docs-search { flex: 1 1 calc(100% - 110px); order: 0; }
+  .docs-tools .doc-views { order: 1; }
+  .docs-tools #doc-type, .docs-tools #doc-sort { flex: 1 1 40%; min-width: 0; order: 2; }
+}
+.doc-table .file-link { text-align: left; }
+/* Supprimer un salon qui a des fichiers : prévenir, puis case « Fichiers du salon sauvegardés » obligatoire */
+.ch-del-files { margin: var(--s-3) 0; padding: var(--s-3); border: 1px solid var(--line-strong); border-radius: var(--r-md); background: var(--bg); }
+.ch-del-files p { margin: 0 0 var(--s-2); }
+.ch-del-files .check-line { display: flex; align-items: center; gap: var(--s-2); margin: var(--s-3) 0 0; font-weight: var(--fw-strong); cursor: pointer; }
+.ch-del-files .check-line input { width: auto; margin: 0; }
+#ch-del-go:disabled { cursor: not-allowed; }
