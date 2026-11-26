@@ -54,7 +54,9 @@ B.missedData = async (pid, since, { countOnly = false } = {}) => {
     B.sb.from('activity').select('*').eq('project_id', pid).gt('created_at', since).order('created_at').limit(100)
   ]);
   const messages = (msgs.data || []).filter((m) => m.author_id !== B.me.id || m.is_ai);
-  const activity = acts.data || [];
+  // Pièces jointes des salons (messages vocaux…) : déjà comptées comme messages, pas des avancées du projet.
+  // Depuis la migration 053 la base ne les note plus ; on masque les anciennes lignes des messages vocaux.
+  const activity = (acts.data || []).filter((a) => !(a.icon === 'file' && /message-vocal-/.test(a.text || '')));
   const count = messages.length + activity.length;
   if (countOnly) return { count };
 
