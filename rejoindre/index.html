@@ -141,6 +141,27 @@
       var m = decodeURIComponent(location.hash || '').toUpperCase().match(/([A-HJ-NP-Z2-9]{4})-?([A-HJ-NP-Z2-9]{4})/);
       if (!m) { document.getElementById('bad').classList.remove('hidden'); return; }
       var code = m[1] + '-' + m[2];
+      // « Faire découvrir Bivouac » (lien …#CODE/decouvrir, v0.8.86) : invitation SANS projet, autre texte, même chemin
+      if (/decouvrir/i.test(location.hash)) {
+        var D = en ? {
+          title: 'Someone wants you to discover BIVOUAC-TECH',
+          intro: 'BIVOUAC-TECH is the base camp where a team and its AIs move a project forward together. Free, with no AI credits to buy.',
+          join: 'Discover BIVOUAC-TECH',
+          s1: 'Click “Discover BIVOUAC-TECH”.',
+          s3: 'A short guided tour shows you everything, then you create your first project.'
+        } : {
+          title: 'On vous fait découvrir BIVOUAC-TECH',
+          intro: 'BIVOUAC-TECH, c’est le camp de base où une équipe et ses IA avancent ensemble sur un projet. Gratuit, sans crédit d’IA à acheter.',
+          join: 'Découvrir BIVOUAC-TECH',
+          s1: 'Cliquez sur « Découvrir BIVOUAC-TECH ».',
+          s3: 'Une courte visite guidée vous montre tout, puis vous créez votre premier projet.'
+        };
+        Object.keys(D).forEach(function (k) {
+          var el = document.querySelector('#ok [data-t="' + k + '"]');
+          if (el) el.textContent = D[k];
+        });
+        document.title = en ? 'Discover · BIVOUAC-TECH' : 'Découvrir · BIVOUAC-TECH';
+      }
       document.getElementById('ok').classList.remove('hidden');
       document.getElementById('code').textContent = code;
 

@@ -189,7 +189,9 @@ async function useInvite() {
   if (!code || !B.me) return null;
   keepInvite(null);
   try {
-    const id = await B.joinProject(code);
+    const r = await B.useInviteCode(code);
+    if (r.discover) { B.discoverArrived = r.discover; return null; } // « Faire découvrir Bivouac » : pas de projet à rejoindre
+    const id = r.project;
     const p = B.project(id);
     B.toast(tr('Bienvenue dans « {name} » !', { name: esc(p?.name || '') }), { type: 'success' });
     return id;
@@ -256,17 +258,22 @@ async function onSession(session) {
     B.startGlobalLive();
     B.startDmLive();
     B.refreshBadge();
+    B.refreshNotesBadge?.(); // rappels de Mes notes arrivés (migration 051)
     // Premier lancement : présentation, « Présentez-vous », niveau, puis la visite, d'un seul tenant (onboarding.js),
     // sur « Aujourd'hui » (toutes ses zones y sont visibles, téléphone compris) ; un invité finit dans son projet.
     if (!B.me.onboarded) {
       location.hash = '#/home';
       await B.route();
-      setTimeout(() => B.runOnboarding({ pid: joined, then: () => { if (joined) location.hash = `#/p/${joined}`; } }), 400);
+      setTimeout(() => B.runOnboarding({ pid: joined, then: () => {
+        if (joined) location.hash = `#/p/${joined}`;
+        else if (B.discoverArrived) B.welcomeDiscover(B.discoverArrived); // invité à découvrir : son premier projet
+      } }), 400);
       B.refreshRequests().catch(console.error);
       return;
     }
     if (joined) location.hash = `#/p/${joined}`;
     await B.route();
+    if (B.discoverArrived) B.welcomeDiscover(B.discoverArrived); // compte existant arrivé par un lien « découvrir »
 
     // Mes tâches du jour : une fois par jour, seulement s'il y a quelque chose d'urgent
     // (pas sur « Aujourd'hui » : la page montre déjà ces tâches)

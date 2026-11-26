@@ -178,6 +178,7 @@ function errText(err) {
   const team = {
     'invite:invalide': "Ce code d'invitation n'existe pas. Vérifiez-le, ou demandez une nouvelle invitation.",
     'invite:utilise': 'Cette invitation a déjà servi : elle ne vaut que pour une personne. Demandez-en une nouvelle.',
+    'invite:soi': 'C’est votre propre lien : envoyez-le à la personne que vous voulez inviter.',
     'invite:expire': 'Cette invitation a expiré (15 jours). Demandez-en une nouvelle.',
     'invite:annule': 'Cette invitation a été annulée. Demandez-en une nouvelle.',
     'invite:interdit': 'Seuls le créateur et les administrateurs du projet peuvent inviter.',

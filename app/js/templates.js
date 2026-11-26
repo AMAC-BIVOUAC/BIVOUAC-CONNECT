@@ -110,10 +110,31 @@ B.applyTemplate = async (projectId, t, keyDay) => {
 // La fenêtre « Nouvel espace » : 1) choisir un modèle  2) nom (+ date)  3) c'est prêt
 // ---------------------------------------------------------------------
 
+/**
+ * Arrivée par « Faire découvrir Bivouac » (migration 051) : un mot de bienvenue, puis la création du premier projet.
+ * Si la case « m'ajouter » était cochée, la base ajoute la personne qui a invité à ce premier projet (Membre).
+ */
+B.welcomeDiscover = (d) => {
+  if (!d) return;
+  B.discoverArrived = null;
+  const v = { who: d.inviter || tr('Un ami') };
+  const m = B.modal(`
+    <h2>${tr('Bienvenue au camp de base ! 🏕️')}</h2>
+    <p>${esc(tr('{who} vous fait découvrir Bivouac.', v))}</p>
+    <p class="muted">${d.addInviter ? esc(tr('Créez votre premier projet : vous en serez la Créatrice ou le Créateur, et {who} vous y rejoindra automatiquement.', v))
+      : tr('Créez votre premier projet : vide, ou à partir d’un modèle prêt à remplir. Vous en serez la Créatrice ou le Créateur.')}</p>
+    <div class="actions"><button class="btn" data-close>${tr('Plus tard')}</button><span class="spacer"></span>
+      <button class="btn primary" id="dw-go">${icon('folder', 15)} ${tr('Créer mon premier projet')}</button></div>`);
+  $('[data-close]', m).onclick = B.closeModal;
+  $('#dw-go', m).onclick = () => B.openNewProject();
+};
+
 B.openNewProject = () => {
+  const from = B.discoverFrom?.();
   const m = B.modal(`
     <h2>${tr('Nouvel espace projet')}</h2>
     <p class="muted">${tr('Choisissez un point de départ. Tout se modifie ensuite.')}</p>
+    ${from?.addInviter ? `<p class="np-discover">${icon('userplus', 15)} ${esc(tr('{who} sera ajouté à ce projet comme Membre.', { who: from.inviter }))}</p>` : ''}
     <div class="tpl-grid">
       ${B.TEMPLATES.map((t) => `<button class="tpl-card" data-tpl="${t.id}">
         <span class="tpl-emoji">${t.emoji}</span><strong>${tr(t.name)}</strong><span>${tr(t.line)}</span></button>`).join('')}
@@ -131,9 +152,10 @@ B.openNewProject = () => {
     const code = $('#np-code', m).value.trim();
     if (!code) return;
     try {
-      const id = await B.joinProject(code);
+      const r = await B.useInviteCode(code);
       B.closeModal();
-      location.hash = `#/p/${id}`;
+      if (r.discover) return B.welcomeDiscover(r.discover);
+      location.hash = `#/p/${r.project}`;
     } catch (err) { $('#np-msg', m).textContent = errText(err); }
   };
 };
@@ -185,6 +207,7 @@ function npDetails(t) {
     e.target.textContent = tr('Création…');
     try {
       const id = await B.createProject(name, t ? '' : $('#np-desc', m).value.trim(), color);
+      store.set('discover-from', null); // la base a ajouté (ou non) la personne qui a invité : c'est fait
       // Le sommet (22/11) : l'objectif final du projet, au bout du chemin
       const summit = $('#np-summit', m).value.trim();
       if (summit) {

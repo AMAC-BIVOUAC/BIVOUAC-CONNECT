@@ -25,19 +25,21 @@ B.pages.home = async (view) => {
     </div>`;
   B.mountAmbiance?.(view); // fond animé (montagnes, chamois, feu de camp, marmotte) et son d'ambiance — ambiance.js
 
-  let tasks = [], items = [], votes = [], mentions = [], wins = [];
+  let tasks = [], items = [], votes = [], mentions = [], wins = [], dueNotes = [];
 
   const load = async () => {
     if (!$('#today-body', view)) return;
     const ids = B.projects.map((p) => p.id);
     if (!ids.length) return render();
     try {
-      const [t, it, nt, w] = await Promise.all([
+      const [t, it, nt, w, dn] = await Promise.all([
         B.loadMyTasks(),
         B.sb.from('items').select('*').in('project_id', ids),
         B.sb.from('notifications').select('*').eq('user_id', B.me.id).eq('type', 'mention').is('read_at', null).order('created_at', { ascending: false }).limit(10),
-        B.loadWins(ids, { days: 7 }).catch(() => [])
+        B.loadWins(ids, { days: 7 }).catch(() => []),
+        B.dueNotes?.().catch(() => []) || []
       ]);
+      dueNotes = dn || [];
       if (it.error) throw it.error;
       tasks = B.orderMyTasks(t);
       items = (it.data || []).filter((i) => ids.includes(i.project_id));
@@ -67,7 +69,7 @@ B.pages.home = async (view) => {
     }
     const wv = waitingVotes();
     const reqs = (B.pendingReqs || []).filter((r) => B.project(r.project_id));
-    const waiting = reqs.length + wv.length + mentions.length;
+    const waiting = reqs.length + wv.length + mentions.length + dueNotes.length;
     const people = new Set([...reqs.map((r) => r.requester_id), ...wv.map((i) => i.author_id), ...mentions.map((n) => n.actor_id)]).size;
 
     // Bandeau : une phrase, et les tâches terminées par l'équipe cette semaine
@@ -111,6 +113,12 @@ B.pages.home = async (view) => {
             <div class="wait-text"><b translate="no">${esc(n.text)}</b>
               <span class="meta">${n.project_id ? `${projDot(B.project(n.project_id))} · ` : ''}${timeAgo(n.created_at)}</span></div>
             <button class="btn" data-answer="${n.id}">${tr('Répondre')}</button>
+          </div>`).join('')}
+        ${dueNotes.map((n) => `<div class="wait-row">
+            <span class="wait-ico">${icon('edit', 18)}</span>
+            <div class="wait-text"><b translate="no">${esc((n.content || '').trim().split('\n')[0].slice(0, 140) || tr('Note vocale'))}</b>
+              <span class="meta">${tr('Rappel de Mes notes')} · ${timeAgo(n.remind_at)}</span></div>
+            <a class="btn" href="#/notes/${n.id}">${tr('Voir')}</a>
           </div>`).join('')}
       </section>` : '';
 

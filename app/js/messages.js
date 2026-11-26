@@ -249,6 +249,7 @@ B.pages.messages = async (view, [otherId]) => {
   B.onLeave(B.on('dm-presence', status));
 
   B.watchMessageImages(conv);
+  B.bindVoicePlayers();
   const box = $('.dm-msgs', conv);
   const shown = new Map();
   const parents = new Map(); // messages cités par une réponse, absents des 200 derniers
@@ -308,8 +309,8 @@ B.pages.messages = async (view, [otherId]) => {
     ${d.deleted_at ? '' : replyQuote(d)}
     ${d.deleted_at ? `<em class="muted">${tr('Message supprimé')}</em>` : editing?.id === d.id ? `<div class="msg-edit"><textarea rows="2" maxlength="4000">${esc(editing.draft)}</textarea>
       <div class="msg-edit-actions"><button type="button" class="btn small" data-dm-cancel>${tr('Annuler')}</button><button type="button" class="btn small primary" data-dm-save>${tr('Enregistrer')}</button></div></div>`
-      : d.content ? `<div class="dm-bubble" translate="no">${md(d.content)}</div>` : ''}
-    ${(d.attachments || []).map((f, i) => `${B.messageMedia(f, 'dm-files') ? `<div class="file-media">${B.messageMedia(f, 'dm-files')}</div>` : ''}<button type="button" class="file-card dm-file" data-dm-file="${i}" title="${tr('Ouvrir')}">
+      : d.content && !B.isVoiceOnlyText(d.content, d.attachments) ? `<div class="dm-bubble" translate="no">${md(d.content)}</div>` : ''}
+    ${(d.attachments || []).map((f, i) => B.isVoiceNote(f) ? `<div class="dm-voice">${B.voicePlayerHtml({ path: f.path || f.storage_path, bucket: 'dm-files' }, { person: B.person(d.sender_id) })}</div>` : `${B.messageMedia(f, 'dm-files') ? `<div class="file-media">${B.messageMedia(f, 'dm-files')}</div>` : ''}<button type="button" class="file-card dm-file" data-dm-file="${i}" title="${tr('Ouvrir')}">
       ${B.messageImage(f, 'dm-files')}${icon('file', 20)}<span><strong translate="no">${esc(f.name)}</strong><small>${fmtSize(f.size)}</small></span></button>`).join('')}
     ${d.deleted_at ? '' : B.reactionsHtml(dmReactions(d))}
     ${d.hidden_at && !d.deleted_at ? `<small class="hidden-note">${icon('eyeoff', 12)} ${tr('Masqué par l’équipe Bivouac : vous seul le voyez.')}</small>` : ''}

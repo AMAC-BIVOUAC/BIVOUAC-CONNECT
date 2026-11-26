@@ -135,6 +135,29 @@ B.joinProject = async (codeOrLink) => {
   return data;
 };
 
+/**
+ * Utilise un code d'invitation, de projet OU « découvrir » (migration 051) : { project } ou { discover: { inviter, addInviter } }.
+ * Un code inconnu des projets est essayé comme invitation « découvrir » ; sinon l'erreur du projet est gardée.
+ */
+B.useInviteCode = async (codeOrLink) => {
+  try {
+    return { project: await B.joinProject(codeOrLink) };
+  } catch (err) {
+    if (!/invite:invalide/.test(err?.message || '')) throw err;
+    const { data, error } = await B.sb.rpc('take_discover_invite', { p_code: inviteCodeFrom(codeOrLink) });
+    if (error) throw (/invite:invalide/.test(error.message) ? err : error);
+    const row = Array.isArray(data) ? data[0] : data;
+    const discover = { inviter: row?.inviter_name || '', addInviter: !!row?.add_inviter };
+    store.set('discover-from', { ...discover, until: Date.now() + 30 * 864e5 });
+    return { discover };
+  }
+};
+/** Invitation « découvrir » reçue sur ce poste, pas encore suivie d'un premier projet (sinon null) */
+B.discoverFrom = () => {
+  const v = store.get('discover-from');
+  return v && v.until > Date.now() ? v : null;
+};
+
 // ---------------------------------------------------------------------
 // Statuts et invitations (Créateur / Administrateur / Membre)
 // ---------------------------------------------------------------------
@@ -156,7 +179,29 @@ B.canRemove = (projectId, member) => {
   return me === 'owner' || (me === 'admin' && ['member', 'guest'].includes(member.role));
 };
 
-B.inviteLink = (code) => INVITE_PAGE + '#' + code;
+/** Lien de la page « Rejoindre » ; « /decouvrir » = invitation sans projet (la page publique adapte son texte) */
+B.inviteLink = (code, discover = false) => INVITE_PAGE + '#' + code + (discover ? '/decouvrir' : '');
+
+// ---------- « Faire découvrir Bivouac » : invitation sans projet (migration 051) ----------
+/** Mon lien « découvrir » en attente (ou un nouveau si fresh) ; addMe = « M'ajouter à son premier projet » */
+B.createDiscoverInvite = async (addMe = true, fresh = false) => {
+  const { data, error } = await B.sb.rpc('create_discover_invite', { p_add_me: addMe, p_new: fresh });
+  if (error) throw error;
+  return Array.isArray(data) ? data[0] : data;
+};
+B.cancelDiscoverInvite = async (code) => {
+  const { error } = await B.sb.rpc('cancel_discover_invite', { p_code: code });
+  if (error) throw error;
+};
+B.pendingDiscoverInvites = async () => {
+  const { data, error } = await B.sb.from('app_invites').select('code, expires_at, add_inviter')
+    .eq('created_by', B.me.id).is('used_at', null).is('revoked_at', null)
+    .gt('expires_at', new Date().toISOString()).order('created_at', { ascending: false });
+  if (error) throw error;
+  return data || [];
+};
+/** E-mail « découvrir » (fonction invite-email, mode discover). Code créé, ou null si l'envoi automatique n'est pas là */
+B.sendDiscoverEmail = (email, { note = '', addMe = true } = {}) => inviteMail({ discover: true, addMe, email, note });
 
 /** Mon invitation en attente pour ce projet (ou une nouvelle si fresh) : { code, expires_at } */
 B.createInvite = async (projectId, fresh = false) => {
@@ -169,16 +214,17 @@ B.createInvite = async (projectId, fresh = false) => {
  * Envoie l'e-mail d'invitation (fonction « invite-email », migration 036). Renvoie le code créé,
  * ou null si l'envoi automatique n'est pas disponible (fonction absente ou secret Brevo pas encore posé).
  */
-B.sendInviteEmail = async (projectId, email) => {
+B.sendInviteEmail = (projectId, email, { note = '' } = {}) => inviteMail({ project: projectId, email, note });
+async function inviteMail(body) {
   if (!B.sb.functions?.invoke) return null;
-  const { data, error } = await B.sb.functions.invoke('invite-email', { body: { project: projectId, email, lang: B.lang } });
+  const { data, error } = await B.sb.functions.invoke('invite-email', { body: { ...body, lang: B.lang } });
   if (!error) return data?.code || null;
   const status = error.context?.status;
-  const body = await error.context?.json?.().catch(() => null);
-  const code = body?.error || '';
+  const res = await error.context?.json?.().catch(() => null);
+  const code = res?.error || '';
   if (code === 'email:non_configure' || status === 404 || !status) return null;
   throw new Error(code || error.message);
-};
+}
 
 /** Invitations en attente du projet (visibles par le Créateur et les Administrateurs) */
 B.pendingInvites = async (projectId) => {

@@ -156,33 +156,32 @@ B.setAnimations = (on) => {
 document.documentElement.classList.toggle('no-anim', !B.animationsOn());
 
 // ---------------------------------------------------------------------
-// Bouton « Créer » (barre du haut ; « + » de la barre du bas sur téléphone) : tâche, projet, invitation, IA
+// Bouton « + » (barre du haut, ordinateur ET téléphone ; v0.8.86, Apo) : le bouton du coin, avant d'entrer dans les menus.
+// Note rapide, Nouveau projet, Inviter quelqu'un (un projet ou « Faire découvrir Bivouac »), Ajouter une IA.
+// Une tâche se crée là où elle vit (Tâches, Camp de base) ou à partir d'une note.
 // ---------------------------------------------------------------------
 const openCreate = (e) => {
   const r = e.currentTarget.getBoundingClientRect();
-  const below = r.bottom + 220 < innerHeight; // la barre du bas ouvre le menu au-dessus d'elle
-  const m = B.popMenu(below ? r.right - 240 : r.left + r.width / 2 - 120, below ? r.bottom + 6 : r.top - 190, `
-    <button class="pop-item" data-c="task">${icon('checksq', 16)}<span>${tr('Créer une tâche')}</span></button>
+  const below = r.bottom + 220 < innerHeight;
+  const m = B.popMenu(below ? r.right - 250 : r.left + r.width / 2 - 125, below ? r.bottom + 6 : r.top - 200, `
+    <button class="pop-item" data-c="note">${icon('edit', 16)}<span>${tr('Note rapide')}</span></button>
     <button class="pop-item" data-c="project">${icon('folder', 16)}<span>${tr('Nouveau projet')}</span></button>
-    <button class="pop-item" data-c="invite">${icon('userplus', 16)}<span>${tr('Inviter un membre')}</span></button>
+    <button class="pop-item" data-c="invite">${icon('userplus', 16)}<span>${tr('Inviter quelqu’un')}</span></button>
     <button class="pop-item" data-c="ai">${icon('bot', 16)}<span>${tr('Ajouter une IA')}</span></button>`);
-  $$('[data-c]', m).forEach((b) => (b.onclick = async () => {
+  m.classList.add('create-menu');
+  $$('[data-c]', m).forEach((b) => (b.onclick = () => {
     const c = b.dataset.c;
     B.closePopMenu();
+    if (c === 'note') return B.quickNote();
     if (c === 'project') return B.openNewProject();
     if (c === 'ai') return B.connectWizard();
-    const here = B.lastProjectId && B.project(B.lastProjectId) ? B.lastProjectId : null; // dans un projet : c'est celui-là
-    const pid = c === 'invite'
-      ? (here && B.canInvite(here) ? here : await B.pickProject(tr('Inviter dans quel projet ?'), (p) => B.canInvite(p.id)))
-      : (here || await B.pickProject(tr('Tâche pour quel projet ?')));
-    if (!pid) return;
-    if (c === 'invite') B.openInvite(pid);
-    if (c === 'task') B.openTask({ project_id: pid, status: 'todo' }, () => (location.hash = `#/p/${pid}/taches`));
+    const here = B.lastProjectId && B.project(B.lastProjectId) && /^#\/p\//.test(location.hash) ? B.lastProjectId : null;
+    return B.openInvite(null, { preselect: here });
   }));
   $('.pop-item', m)?.focus();
 };
+B.openCreate = openCreate;
 $('#create-btn')?.addEventListener('click', openCreate);
-$('#bottom-create')?.addEventListener('click', openCreate);
 
 // ---------------------------------------------------------------------
 // Paysage de fond (22/11, Amaury) : la montée vers le sommet, dans les couleurs du Camp de base (jetons --land-*).

@@ -147,43 +147,7 @@
 
   /** Résumé d'une liste de pièces jointes déjà envoyées (aperçu d'une conversation, citation) */
   B.attachmentsText = (list) => !list?.length ? '' : list.some((f) => /^message-vocal-/.test(f.name || '')) ? `🎤 ${tr('Message vocal')}` : tr('Pièce jointe');
-  /** Bandeau d'enregistrement posé au-dessus de la zone d'écriture ; onDone(File) à la fin */
-  B.recordVoiceNote = async (form, onDone) => {
-    if ($('.voice-rec', form)) return;
-    const stream = await (B.openMic?.() || navigator.mediaDevices.getUserMedia({ audio: true }).catch(() => null));
-    if (!stream) return B.toast(tr('Micro introuvable ou refusé. Autorisez le micro pour enregistrer un message vocal.'), { type: 'error', timeout: 8000 });
-    const type = B.audioRecordType();
-    let rec;
-    try { rec = new MediaRecorder(stream, type.mime ? { mimeType: type.mime, audioBitsPerSecond: 32000 } : {}); }
-    catch { stream.getTracks().forEach((t) => t.stop()); return B.toast(tr('Cet appareil ne sait pas enregistrer le son.'), { type: 'error' }); }
-    const chunks = [], start = Date.now();
-    let keep = true;
-    const bar = h(`<div class="voice-rec" role="status"><span class="rec-dot" aria-hidden="true"></span>
-      <span class="rec-label">${tr('Enregistrement…')}</span><span class="rec-time">0:00</span><span class="spacer"></span>
-      <button type="button" class="btn small" data-rec-cancel>${tr('Annuler')}</button>
-      <button type="button" class="btn small primary" data-rec-stop>${icon('check', 14)} ${tr('Terminer')}</button></div>`);
-    form.prepend(bar);
-    const timer = setInterval(() => {
-      const s = (Date.now() - start) / 1000;
-      $('.rec-time', bar).textContent = `${B.fmtDuration(s)} / ${B.fmtDuration(B.VOICE_NOTE_MAX_S)}`;
-      if (s >= B.VOICE_NOTE_MAX_S) stop(true);
-    }, 250);
-    const stop = (save) => { keep = save; if (rec.state !== 'inactive') rec.stop(); };
-    rec.ondataavailable = (e) => { if (e.data.size) chunks.push(e.data); };
-    rec.onstop = () => {
-      clearInterval(timer); bar.remove(); stream.getTracks().forEach((t) => t.stop());
-      const seconds = Math.round((Date.now() - start) / 1000);
-      if (!keep || !chunks.length || seconds < 1) return;
-      const d = new Date(), z = (n) => String(n).padStart(2, '0');
-      const file = new File(chunks, `message-vocal-${d.getFullYear()}-${z(d.getMonth() + 1)}-${z(d.getDate())}-${z(d.getHours())}h${z(d.getMinutes())}.${type.ext}`, { type: type.base });
-      file.voiceSeconds = seconds;
-      onDone(file);
-    };
-    $('[data-rec-cancel]', bar).onclick = () => stop(false);
-    $('[data-rec-stop]', bar).onclick = () => stop(true);
-    B.onLeave(() => stop(false));
-    rec.start(1000);
-  };
+  // Enregistrement et lecteur façon WhatsApp : vocaux.js (B.recordVoiceNote, B.voicePlayerHtml, B.bindVoicePlayers).
 
   B.bindMediaComposer = (form, ta, onFiles) => {
     const btn = h(`<button type="button" class="icon-btn media-compose" title="${tr('Smileys, GIF et mèmes')}" aria-label="${tr('Smileys, GIF et mèmes')}">${icon('smile', 20)}</button>`);
@@ -191,7 +155,8 @@
     if (B.canRecordAudio()) {
       const mic = h(`<button type="button" class="icon-btn voice-note-btn" title="${tr('Enregistrer un message vocal')}" aria-label="${tr('Enregistrer un message vocal')}">${icon('mic', 20)}</button>`);
       ta.after(mic);
-      mic.onclick = () => B.recordVoiceNote(form, (file) => onFiles([file]));
+      // Comme WhatsApp : « Envoyer » dans la barre d'enregistrement envoie tout de suite le vocal
+      mic.onclick = () => B.recordVoiceNote(form, (file) => { if (onFiles([file]) !== false) form.requestSubmit(); });
     }
     // Coller (Ctrl+V) une capture d'écran, une image copiée ou un fichier copié : il rejoint les pièces jointes, comme avec +.
     // Si le presse-papiers contient aussi du texte (copie depuis Word, Excel…), c'est le texte qui est collé, comme avant.
@@ -209,10 +174,9 @@
       for (const [file, url] of urls) if (!files.includes(file)) { URL.revokeObjectURL(url); urls.delete(file); }
       [...container.children].forEach((chip, i) => {
         const f = files[i]; if (!f) return;
-        if (f.voiceSeconds != null) { // message vocal : on peut le réécouter avant de l'envoyer
+        if (f.voiceSeconds != null) { // message vocal pas encore parti (envoi échoué) : on peut le réécouter
           if (!urls.has(f)) urls.set(f, URL.createObjectURL(f));
-          const a = document.createElement('audio'); a.controls = true; a.preload = 'metadata'; a.src = urls.get(f); a.className = 'pending-audio';
-          a.setAttribute('aria-label', tr('Message vocal ({d})', { d: B.fmtDuration(f.voiceSeconds) })); chip.prepend(a); return;
+          B.bindVoicePlayers(); chip.prepend(h(B.voicePlayerHtml({ url: urls.get(f) }, { seconds: f.voiceSeconds, peaks: f.voicePeaks }))); return;
         }
         if (!/^image\/(gif|png|jpeg|webp)$/.test(f.type)) return;
         if (!urls.has(f)) urls.set(f, URL.createObjectURL(f));

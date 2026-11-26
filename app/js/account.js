@@ -238,6 +238,9 @@ B.deleteMyAccount = async (confirmWord, onStep = () => {}) => {
   const { data: plan, error } = await B.sb.rpc('begin_account_deletion');
   if (error) throw new Error(errText(error));
   onStep(tr('Effacement des fichiers…'));
+  // Mes notes vocales (migration 051) : mon dossier du bucket note-files
+  const mine = (await B.sb.storage.from('note-files').list(B.me.id, { limit: 1000 }).catch(() => ({})))?.data || [];
+  if (mine.length) await B.sb.storage.from('note-files').remove(mine.map((f) => `${B.me.id}/${f.name}`)).catch(() => {});
   for (const [bucket, list] of [['project-files', plan?.fichiers_projets || []], ['dm-files', plan?.fichiers_prives || []]]) {
     for (let i = 0; i < list.length; i += 100) {
       await B.sb.storage.from(bucket).remove(list.slice(i, i + 100)).catch(() => {}); // au mieux : on continue

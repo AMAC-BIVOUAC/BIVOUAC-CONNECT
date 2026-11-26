@@ -59,6 +59,7 @@ B.chat = async (root, { project, channel, mode }) => {
   B.onLeave(() => { if (B.openChannel === channel.id) B.openChannel = null; });
 
   B.watchMessageImages(root);
+  B.bindVoicePlayers();
   const list = $('.messages', root);
   const ta = $('textarea', root);
   const acBox = $('.ac', root);
@@ -286,10 +287,10 @@ B.chat = async (root, { project, channel, mode }) => {
       <div class="msg-body">
         ${headHtml}
         ${replyQuoteHtml(m)}
-        ${editing ? editorHtml() : isLong(m) ? `<div class="msg-text ${st.unfolded.has(m.id) ? '' : 'folded'}" id="mt-${m.id}" translate="no">${md(m.content)}</div>
+        ${editing ? editorHtml() : B.isVoiceOnlyText(m.content, files) ? '' : isLong(m) ? `<div class="msg-text ${st.unfolded.has(m.id) ? '' : 'folded'}" id="mt-${m.id}" translate="no">${md(m.content)}</div>
           <button type="button" class="msg-more" data-more aria-controls="mt-${m.id}" aria-expanded="${st.unfolded.has(m.id)}">${st.unfolded.has(m.id) ? tr('Réduire') : tr('Afficher le message complet')}${icon(st.unfolded.has(m.id) ? 'up' : 'down', 14)}</button>`
           : `<div class="msg-text" translate="no">${md(m.content)}</div>`}
-        ${files.length ? `<div class="msg-files">${files.map(fileCard).join('')}</div>` : ''}
+        ${files.length ? `<div class="msg-files">${files.map((f) => fileCard(f, m)).join('')}</div>` : ''}
         ${reactionsHtml(m.id)}
         ${threadLinkHtml(m)}
         ${mine && !m.is_ai ? `<small class="msg-read muted">${readersIndicator(m.id)}</small>` : ''}
@@ -302,7 +303,9 @@ B.chat = async (root, { project, channel, mode }) => {
     </div>`;
   }
 
-  function fileCard(f) {
+  function fileCard(f, m) {
+    // Message vocal : bulle façon WhatsApp, lue sur place (jamais de fenêtre ni de lecteur du système)
+    if (B.isVoiceNote(f)) return B.voicePlayerHtml({ path: f.storage_path || f.path, bucket: 'project-files' }, { person: m && !m.is_ai ? B.person(m.author_id) : null });
     const isImg = (f.mime || '').startsWith('image/');
     const media = B.messageMedia(f, 'project-files');
     if (media) {
@@ -361,8 +364,8 @@ B.chat = async (root, { project, channel, mode }) => {
       ${m.is_ai ? aiAvatar(m.ai_provider, 28, author) : avatar(author, 28)}
       <div><div class="msg-head"><span class="name" translate="no">${esc(whoWrote(m))}</span>${m.is_ai ? `<span class="tag ai">${tr('IA')}</span>` : ''}
         <span class="time">${new Date(m.created_at).toLocaleString(B.locale(), { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}</span></div>
-        <div class="msg-text" translate="no">${md(m.content)}</div>
-        ${files.length ? `<div class="msg-files">${files.map(fileCard).join('')}</div>` : ''}</div></div>`;
+        ${B.isVoiceOnlyText(m.content, files) ? '' : `<div class="msg-text" translate="no">${md(m.content)}</div>`}
+        ${files.length ? `<div class="msg-files">${files.map((f) => fileCard(f, m)).join('')}</div>` : ''}</div></div>`;
   }
   async function openThread(id) {
     threadRoot = threadTop(id);

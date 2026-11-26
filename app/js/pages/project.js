@@ -57,6 +57,7 @@ B.pages.project = async (view, [pid, tab = 'projet', sub]) => {
         </div>
         <button class="btn small missed-btn" id="missed" title="${tr('Un résumé de ce qui s\'est passé depuis votre dernière visite')}">${icon('spark', 15)} ${tr('Pendant votre absence')}<span class="unread-badge hidden" data-unread="missed:${pid}"></span></button>
         ${B.canInvite(pid) ? `<button class="btn small" id="invite">${icon('userplus', 15)} ${tr('Inviter')}</button>` : ''}
+        <button class="create-btn proj-plus" id="proj-plus" type="button" aria-label="${tr('Créer')}" title="${tr('Créer')}">${icon('plus', 22)}</button>
         <button class="icon-btn proj-more" id="proj-more" aria-label="${tr('Plus d’options pour ce projet')}">${icon('more', 20)}</button>
       </header>
       <nav class="tabs" data-tour="tabs">
@@ -81,6 +82,7 @@ B.pages.project = async (view, [pid, tab = 'projet', sub]) => {
   $('#invite', view)?.addEventListener('click', () => B.openInvite(pid));
   $('#missed', view)?.addEventListener('click', () => (location.hash = `#/p/${pid}/projet/absence`));
   $('#proj-more', view).onclick = (e) => B.projectMoreMenu(e.currentTarget, pid);
+  $('#proj-plus', view).onclick = (e) => B.openCreate(e); // téléphone : le « + » reste en haut dans un projet (v0.8.86)
   B.enterProject(pid); // retient ma visite précédente (point de départ du résumé)
 
   // Accompagnement (débutants)

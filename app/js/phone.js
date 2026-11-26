@@ -29,7 +29,8 @@ B.whereInProject = () => {
   return { pid: m[1], tab, raw: m[2] || 'projet', sub: m[3] || null };
 };
 
-/** Barre du bas et mode plein écran, à chaque changement de page */
+let lastNavHash = null;
+/** Barre du bas et mode plein écran, à chaque changement de page (et au redimensionnement) */
 B.renderPhoneNav = () => {
   const at = B.whereInProject();
   const project = at && B.project(at.pid);
@@ -39,8 +40,13 @@ B.renderPhoneNav = () => {
   document.body.classList.toggle('phone-full', full);
   // Sous-page du Camp de base (chemin, à décider…) : son propre en-tête « ← titre » remplace celui du projet
   document.body.classList.toggle('in-sub', Boolean(project && at.raw === 'projet' && at.sub && at.sub !== 'absence'));
-  document.body.classList.remove('search-open');
-  $('#search-btn')?.setAttribute('aria-expanded', 'false');
+  // Recherche ouverte : refermée seulement quand on CHANGE de page. Pas au redimensionnement : sur téléphone, le clavier
+  // qui s'ouvre réduit la fenêtre (événement resize), et la refermer ici fermait aussitôt le clavier (bug du 26/11, Apo).
+  if (lastNavHash !== location.hash) {
+    lastNavHash = location.hash;
+    document.body.classList.remove('search-open');
+    $('#search-btn')?.setAttribute('aria-expanded', 'false');
+  }
 
   const nav = $('#project-nav');
   if (!nav) return;
@@ -59,7 +65,8 @@ $('#search-btn')?.addEventListener('click', () => {
   const open = !document.body.classList.contains('search-open');
   document.body.classList.toggle('search-open', open);
   $('#search-btn').setAttribute('aria-expanded', String(open));
-  if (open) setTimeout(() => $('#search-input')?.focus(), 30);
+  // Focus DANS le geste (pas après une attente) : sinon iPhone et certains Android n'ouvrent pas le clavier
+  if (open) $('#search-input')?.focus();
 });
 document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape' && document.body.classList.contains('search-open')) {

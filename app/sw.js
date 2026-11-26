@@ -4,7 +4,7 @@
 // sans connexion. Fichiers du site + (depuis la v0.8.82) dernières lectures de la base, pour lire hors connexion.
 // Le numéro est remplacé à la construction du site (scripts/build-web.mjs).
 // =====================================================================
-const CACHE = 'bivouac-0.8.85-mwxd2oir';
+const CACHE = 'bivouac-0.8.86-mwxnsg7z';
 const SHELL = ['./', 'index.html', 'styles.css', 'manifest.webmanifest'];
 
 self.addEventListener('install', (e) => {

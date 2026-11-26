@@ -210,33 +210,158 @@ $('#new-space').addEventListener('click', () => B.openNewProject());
 // Fenêtre « Nouvel espace » (modèles de projet + rejoindre) : voir templates.js
 
 /**
- * Fenêtre "Inviter" (Créateur et Administrateurs).
- * Un lien = une personne : valable 15 jours, utilisable une seule fois.
- * Clic sur le lien = copié. En dessous : « Copier le lien » et « Partager ».
+ * Fenêtre « Inviter quelqu'un » (v0.8.86, Apo), en deux temps :
+ *   1. « Pour quoi ? » : « Faire découvrir Bivouac » (sans projet) en haut, puis mes projets (le projet ouvert en premier) ;
+ *   2. « Qui ? » : par e-mail, ou un lien à envoyer soi-même, avec un mot personnel facultatif.
+ *      Projet : accès Membre ou Invité limité à un salon (Créateur et Administrateurs).
+ *      Découvrir : case « M'ajouter à son premier projet » (cochée) ; la personne crée SON projet, elle en est Créatrice.
+ * Entre les deux (Apo, 26/11) : les invitations de ce choix (en attente, puis utilisées / expirées / annulées depuis moins de
+ * 15 jours) avec « Nouvelle invitation » ; sans aucune invitation, on va droit à l'étape 2.
+ * B.openInvite(pid) (Équipe, en-tête du projet) ouvre les invitations de ce projet ; B.openInvite(null, { preselect })
+ * (bouton « + ») ouvre l'étape 1. Un lien = une personne : 15 jours, usage unique.
  */
-B.openInvite = async (projectId) => {
-  const p = B.project(projectId);
-  if (!B.canInvite(projectId)) return B.toast(tr('Seuls le créateur et les administrateurs du projet peuvent inviter.'), { type: 'error' });
+B.openInvite = async (projectId, { preselect = null } = {}) => {
+  if (projectId && !B.canInvite(projectId)) return B.toast(tr('Seuls le créateur et les administrateurs du projet peuvent inviter.'), { type: 'error' });
+  if (projectId) return inviteList({ kind: 'project', pid: projectId });
+  return inviteWhat(preselect);
+};
+
+/** Étape 1 : pour quoi ? */
+function inviteWhat(preselect = null) {
+  const mine = [...B.projects].sort((a, b) => (b.id === preselect) - (a.id === preselect));
+  const m = B.modal(`
+    <h2>${tr('Inviter quelqu’un')}</h2>
+    <p class="muted">${tr('Pour quoi ?')}</p>
+    <div class="inv-targets">
+      <button class="inv-target discover" data-t="discover">
+        <span class="inv-ico">${icon('compass', 20)}</span>
+        <span class="inv-txt"><strong>${tr('Faire découvrir Bivouac')}</strong>
+          <span class="muted small">${tr('Sans projet : la personne s’inscrit, suit la visite et crée son propre projet.')}</span></span>
+        ${icon('chevron', 16)}</button>
+      ${mine.length ? `<p class="inv-sub">${tr('Dans un de mes projets')}</p>` : ''}
+      ${mine.map((p) => {
+        const ok = B.canInvite(p.id);
+        return `<button class="inv-target ${p.id === preselect ? 'on' : ''}" data-t="${esc(p.id)}" ${ok ? '' : 'disabled'}>
+          <span class="space-ico" style="background:${esc(p.color)}">${projectIcon(p, 16)}</span>
+          <span class="inv-txt"><strong translate="no">${esc(p.name)}</strong>
+            <span class="muted small">${ok ? (p.id === preselect ? tr('Le projet ouvert') : tr('Inviter dans ce projet')) : tr('Seuls le créateur et les administrateurs invitent')}</span></span>
+          ${ok ? icon('chevron', 16) : ''}</button>`;
+      }).join('')}
+    </div>
+    <div class="actions"><span class="spacer"></span><button class="btn" data-close>${tr('Annuler')}</button></div>`);
+  m.classList.add('invite-modal');
+  $('[data-close]', m).onclick = B.closeModal;
+  $$('.inv-target', m).forEach((b) => (b.onclick = () => {
+    const t = b.dataset.t;
+    inviteList(t === 'discover' ? { kind: 'discover' } : { kind: 'project', pid: t }, { from: 'what' });
+  }));
+  ($('.inv-target.on', m) || $('.inv-target', m))?.focus();
+}
+
+/** Invitations à montrer : en attente, puis utilisées / expirées / annulées depuis moins de 15 jours (Apo, 26/11) */
+const KEEP_DAYS = 15;
+async function invitesOf(target) {
+  const since = new Date(Date.now() - (KEEP_DAYS + 15) * 864e5).toISOString(); // un lien vit 15 jours
+  const { data, error } = target.kind === 'discover'
+    ? await B.sb.from('app_invites').select('code, add_inviter, created_by, created_at, expires_at, used_at, revoked_at')
+      .eq('created_by', B.me.id).gt('created_at', since).order('created_at', { ascending: false }).limit(100)
+    : await B.sb.from('project_invites').select('code, guest_channel, created_by, created_at, expires_at, used_at, used_by, revoked_at')
+      .eq('project_id', target.pid).gt('created_at', since).order('created_at', { ascending: false }).limit(100);
+  if (error) throw error;
+  const now = Date.now(), keep = now - KEEP_DAYS * 864e5, t = (iso) => new Date(iso).getTime();
+  const state = (x) => x.used_at ? 'used' : x.revoked_at ? 'revoked' : t(x.expires_at) <= now ? 'expired' : 'pending';
+  const ended = (x) => t(x.used_at || x.revoked_at || x.expires_at);
+  return (data || []).map((x) => ({ ...x, state: state(x) }))
+    .filter((x) => x.state === 'pending' || ended(x) > keep)
+    .sort((a, b) => (a.state !== 'pending') - (b.state !== 'pending') || String(b.created_at).localeCompare(String(a.created_at)));
+}
+
+/** Les invitations d'un choix (découvrir ou un projet), avec « Nouvelle invitation ». from = 'what' : retour à l'étape 1 */
+async function inviteList(target, { from = null, force = false } = {}) {
+  const discover = target.kind === 'discover';
+  const p = discover ? null : B.project(target.pid);
+  let rows = [];
+  try { rows = await invitesOf(target); } catch { /* liste indisponible : on propose quand même d'inviter */ }
+  if (!rows.length && !force) return inviteWho(target, { back: from });
+  const date = (iso) => new Date(iso).toLocaleDateString(B.locale(), { day: 'numeric', month: 'long' });
+  const m = B.modal(`
+    ${from ? `<button class="link small inv-back">← ${tr('Changer')}</button>` : ''}
+    <h2>${discover ? tr('Faire découvrir Bivouac') : tr('Inviter dans « {name} »', { name: esc(p.name) })}</h2>
+    <div class="inv-list-head"><p class="muted small">${tr('Vos invitations : celles en attente, puis celles utilisées ou expirées (gardées 15 jours).')}</p>
+      <button class="btn primary" id="inv-create">${icon('plus', 15)} ${tr('Nouvelle invitation')}</button></div>
+    <div id="mi-list"></div>
+    <div class="actions"><span class="spacer"></span><button class="btn" data-close>${tr('Fermer')}</button></div>`);
+  m.classList.add('invite-modal');
+  $('[data-close]', m).onclick = B.closeModal;
+  $('.inv-back', m)?.addEventListener('click', () => inviteWhat(target.pid || null));
+  $('#inv-create', m).onclick = () => inviteWho(target, { back: 'list', from });
+  const label = (x) => x.state === 'used' ? tr('Utilisée le {date}', { date: date(x.used_at) })
+    : x.state === 'revoked' ? tr('Annulée')
+    : x.state === 'expired' ? tr('Expirée le {date}', { date: date(x.expires_at) })
+    : tr('En attente · expire le {date}', { date: date(x.expires_at) });
+  const who = (x) => {
+    const bits = [];
+    if (!discover && x.created_by !== B.me.id) bits.push(tr('par {name}', { name: esc(B.person(x.created_by).display_name) }));
+    if (!discover && x.used_by && B.person(x.used_by)?.display_name) bits.push(`<span translate="no">${esc(B.person(x.used_by).display_name)}</span>`);
+    if (!discover && x.guest_channel) bits.push(tr('Invité'));
+    if (discover && x.add_inviter) bits.push(tr('vous ajoute à son premier projet'));
+    return bits.length ? `<span class="muted small">${bits.join(' · ')}</span>` : '';
+  };
+  const fill = (list) => {
+    $('#mi-list', m).innerHTML = list.length ? `<div class="my-invites">${list.map((x) => `
+      <div class="my-invite mi-${x.state}">
+        <div class="mi-meta"><code translate="no">${esc(x.code)}</code><span class="mi-state mi-s-${x.state}">${esc(label(x))}</span>${who(x)}</div>
+        ${x.state === 'pending' ? `<div class="mi-actions"><button class="btn small" data-copy="${esc(x.code)}">${icon('copy', 14)} ${tr('Copier le lien')}</button>
+          <button class="link small" data-cancel="${esc(x.code)}">${tr('Annuler')}</button></div>` : ''}
+      </div>`).join('')}</div>` : `<p class="muted">${tr('Aucune invitation pour l’instant.')}</p>`;
+    paintIcons(m);
+    $$('[data-copy]', m).forEach((b) => (b.onclick = async () => {
+      await navigator.clipboard.writeText(B.inviteLink(b.dataset.copy, discover));
+      b.innerHTML = `${icon('check', 14)} ${tr('Lien copié !')}`; paintIcons(b);
+    }));
+    $$('[data-cancel]', m).forEach((b) => (b.onclick = async () => {
+      try {
+        await (discover ? B.cancelDiscoverInvite : B.cancelInvite)(b.dataset.cancel);
+        fill(await invitesOf(target));
+      } catch (err) { B.error(err); }
+    }));
+  };
+  fill(rows);
+}
+
+/** Étape 2 : qui ? (e-mail ou lien, mot personnel) */
+async function inviteWho(target, { back = null, from = null } = {}) {
+  const discover = target.kind === 'discover';
+  const projectId = discover ? null : target.pid;
+  const p = discover ? null : B.project(projectId);
   const date = (iso) => new Date(iso).toLocaleDateString(B.locale(), { day: 'numeric', month: 'long' });
 
   const m = B.modal(`
-    <h2>${tr('Inviter dans « {name} »', { name: esc(p.name) })}</h2>
+    ${back ? `<button class="link small inv-back">← ${tr('Changer')}</button>` : ''}
+    <h2>${discover ? tr('Faire découvrir Bivouac') : tr('Inviter dans « {name} »', { name: esc(p.name) })}</h2>
+    ${discover ? `<p class="muted">${tr('La personne s’inscrit, suit la visite guidée et crée son premier projet, dont elle est la Créatrice.')}</p>
+      <label class="check inv-addme"><input type="checkbox" id="inv-addme" checked />
+        <span><strong>${tr('M’ajouter à son premier projet')}</strong><br /><span class="muted small">${tr('Vous y entrez comme Membre, sans seconde invitation. Décochez si elle veut découvrir seule.')}</span></span></label>` : `
+      <label for="inv-scope" class="invite-scope-label">${tr('Accès')}</label>
+      <select id="inv-scope"><option value="">${tr('Tout le projet (Membre)')}</option></select>
+      <p class="muted small invite-scope-hint hidden">${tr('Invité : la personne ne voit que ce salon (messages et fichiers), rien d’autre du projet. Pour un client ou un bénévole ponctuel.')}</p>`}
+    <label for="inv-note">${tr('Un mot pour la personne (facultatif)')}</label>
+    <textarea id="inv-note" rows="2" maxlength="300" placeholder="${discover ? tr('ex. Regarde, c’est l’appli dont je t’ai parlé pour l’asso !') : tr('ex. Bienvenue dans l’équipe !')}"></textarea>
     <form class="invite-mail" id="inv-mail-form" novalidate>
       <label for="inv-mail">${tr('Par e-mail')}</label>
       <div class="invite-mail-row">
         <input type="email" id="inv-mail" autocomplete="email" maxlength="254" placeholder="${tr('adresse@exemple.fr')}" />
         <button class="btn primary" id="inv-mail-send" type="submit">${icon('send', 15)} ${tr("Envoyer l'invitation")}</button>
       </div>
-      <p class="muted small" id="inv-mail-msg">${tr('La personne reçoit un e-mail à votre nom, avec un bouton pour rejoindre le projet.')}</p>
+      <p class="muted small" id="inv-mail-msg">${discover ? tr('La personne reçoit un e-mail à votre nom, avec votre mot et un bouton pour découvrir Bivouac.')
+        : tr('La personne reçoit un e-mail à votre nom, avec un bouton pour rejoindre le projet.')}</p>
     </form>
-    <label for="inv-scope" class="invite-scope-label">${tr('Accès')}</label>
-    <select id="inv-scope"><option value="">${tr('Tout le projet (Membre)')}</option></select>
-    <p class="muted small invite-scope-hint hidden">${tr('Invité : la personne ne voit que ce salon (messages et fichiers), rien d’autre du projet. Pour un client ou un bénévole ponctuel.')}</p>
     <h3 class="invite-or">${tr('Ou envoyez un lien vous-même')}</h3>
-    <p class="muted">${tr("Envoyez ce lien à la personne. Il est valable 15 jours et ne sert qu'à une seule personne : pour inviter quelqu'un d'autre, créez un autre lien.")}</p>
-    <button class="invite-link" id="inv-link" title="${tr('Cliquer pour copier')}"><span class="loading">${tr('Chargement…')}</span></button>
+    <p class="muted small">${tr("Valable 15 jours, pour une seule personne : pour inviter quelqu'un d'autre, créez un autre lien.")}</p>
+    <button class="btn" id="inv-make">${icon('link', 15)} ${tr('Créer le lien')}</button>
+    <button class="invite-link hidden" id="inv-link" title="${tr('Cliquer pour copier')}"></button>
     <p class="invite-meta muted small" id="inv-meta"></p>
-    <div class="invite-actions">
+    <div class="invite-actions hidden" id="inv-link-actions">
       <button class="btn" id="inv-copy">${icon('copy', 15)} ${tr('Copier le lien')}</button>
       <button class="btn" id="inv-share">${icon('send', 15)} ${tr('Partager')}</button>
       <span class="spacer"></span>
@@ -247,34 +372,55 @@ B.openInvite = async (projectId) => {
       <button class="btn small" data-share="mail">${tr('E-mail')}</button>
       <button class="btn small" data-share="message">${tr('Copier le message complet')}</button>
     </div>
-    <div id="inv-pending"></div>
     <div class="actions"><span class="spacer"></span><button class="btn" data-close>${tr('Fermer')}</button></div>`);
+  m.classList.add('invite-modal');
   $('[data-close]', m).onclick = B.closeModal;
-  // Invité limité à un salon (migration 050) : le choix du salon ; l'e-mail automatique invite toujours en Membre
-  B.sb.from('channels').select('id, name, kind').eq('project_id', projectId).eq('kind', 'team').order('created_at').then(({ data }) => {
-    const sel = $('#inv-scope', m);
-    if (!sel || !data) return;
-    sel.insertAdjacentHTML('beforeend', data.map((c) => `<option value="${esc(c.id)}">${esc(tr('Invité, seulement dans #{name}', { name: c.name }))}</option>`).join(''));
-  });
-  $('#inv-scope', m).onchange = () => {
-    const guest = !!$('#inv-scope', m).value;
-    $('#inv-mail-form', m).classList.toggle('hidden', guest);
-    $('.invite-scope-hint', m).classList.toggle('hidden', !guest);
-    show(true);
-  };
+  // Retour : à la liste des invitations de ce choix, ou à l'étape 1 quand il n'y en avait aucune
+  $('.inv-back', m)?.addEventListener('click', () => (back === 'list' ? inviteList(target, { from, force: true }) : inviteWhat(projectId)));
+
+  const note = () => $('#inv-note', m).value.trim().slice(0, 300);
+  const addMe = () => !!$('#inv-addme', m)?.checked;
+
+  if (!discover) {
+    // Invité limité à un salon (migration 050) : le choix du salon ; l'e-mail automatique invite toujours en Membre
+    B.sb.from('channels').select('id, name, kind').eq('project_id', projectId).eq('kind', 'team').order('created_at').then(({ data }) => {
+      const sel = $('#inv-scope', m);
+      if (!sel || !data) return;
+      sel.insertAdjacentHTML('beforeend', data.map((c) => `<option value="${esc(c.id)}">${esc(tr('Invité, seulement dans #{name}', { name: c.name }))}</option>`).join(''));
+    });
+    $('#inv-scope', m).onchange = () => {
+      const guest = !!$('#inv-scope', m).value;
+      $('#inv-mail-form', m).classList.toggle('hidden', guest);
+      $('.invite-scope-hint', m).classList.toggle('hidden', !guest);
+      if (current) show(true);
+    };
+  } else {
+    $('#inv-addme', m).onchange = () => current && show(false); // le lien déjà créé suit la case
+  }
 
   let current = null; // { code, expires_at }
-  const link = () => B.inviteLink(current.code);
-  const message = (l = link()) => tr('{who} vous invite à rejoindre « {project} » sur BIVOUAC-TECH : {link}',
-    { who: B.me.display_name, project: p.name, link: l });
+  const link = () => B.inviteLink(current.code, discover);
+  const message = (l = link()) => {
+    const v = { who: B.me.display_name, project: p?.name, link: l };
+    const base = discover
+      ? (addMe() ? tr('{who} vous fait découvrir BIVOUAC-TECH : créez votre premier projet, {who} vous y rejoindra. {link}', v)
+        : tr('{who} vous fait découvrir BIVOUAC-TECH, le camp de base où une équipe et ses IA avancent ensemble : {link}', v))
+      : tr('{who} vous invite à rejoindre « {project} » sur BIVOUAC-TECH : {link}', v);
+    return note() ? `${note()}\n\n${base}` : base;
+  };
   // E-mail préparé dans la messagerie du poste (quand l'envoi automatique n'est pas disponible)
   const mailDraft = (to, l) => {
-    const subject = tr('{who} vous invite dans « {project} » sur BIVOUAC-TECH', { who: B.me.display_name, project: p.name });
-    const v = { who: B.me.display_name, project: p.name };
+    const v = { who: B.me.display_name, project: p?.name };
+    const subject = discover ? tr('{who} vous fait découvrir BIVOUAC-TECH', v) : tr('{who} vous invite dans « {project} » sur BIVOUAC-TECH', v);
     const body = [
       tr('Bonjour,'),
-      tr("{who} vous invite à rejoindre le projet « {project} » sur BIVOUAC-TECH, le camp de base où l'équipe et ses IA avancent ensemble.", v),
-      tr("Pour nous rejoindre, ouvrez ce lien : il s'ouvre dans votre navigateur, rien à installer. Créez votre compte (ou connectez-vous) et vous arrivez directement dans le projet.") + '\n' + l,
+      ...(note() ? [note()] : []),
+      discover
+        ? tr('{who} vous propose d’essayer BIVOUAC-TECH, le camp de base où une équipe et ses IA avancent ensemble sur un projet.', v)
+        : tr("{who} vous invite à rejoindre le projet « {project} » sur BIVOUAC-TECH, le camp de base où l'équipe et ses IA avancent ensemble.", v),
+      (discover
+        ? tr('Ouvrez ce lien : il s’ouvre dans votre navigateur, rien à installer. Créez votre compte, suivez la courte visite, puis créez votre premier projet.')
+        : tr("Pour nous rejoindre, ouvrez ce lien : il s'ouvre dans votre navigateur, rien à installer. Créez votre compte (ou connectez-vous) et vous arrivez directement dans le projet.")) + '\n' + l,
       tr('Cette invitation est personnelle : elle sert une seule fois et reste valable 15 jours.'),
       tr('À bientôt au camp de base !')
     ].join('\n\n');
@@ -291,41 +437,33 @@ B.openInvite = async (projectId) => {
     }
   };
 
+  // Le lien n'est créé qu'à la demande (« Créer le lien ») : ouvrir la fenêtre pour envoyer un e-mail ne laisse pas
+  // de lien inutile en attente.
   const show = async (fresh) => {
     try {
-      const scope = $('#inv-scope', m).value;
-      current = scope ? await B.createGuestInvite(projectId, scope) : await B.createInvite(projectId, fresh);
+      const scope = $('#inv-scope', m)?.value;
+      current = discover ? await B.createDiscoverInvite(addMe(), fresh)
+        : scope ? await B.createGuestInvite(projectId, scope) : await B.createInvite(projectId, fresh);
       $('#inv-link', m).innerHTML = `<span class="url" translate="no">${esc(link())}</span><span class="hint">${icon('copy', 14)}</span>`;
       $('#inv-meta', m).textContent = tr('Code : {code} · expire le {date}', { code: current.code, date: date(current.expires_at) });
+      $('#inv-make', m).classList.add('hidden');
+      $('#inv-link', m).classList.remove('hidden');
+      $('#inv-link-actions', m).classList.remove('hidden');
       paintIcons(m);
-      await showPending();
     } catch (err) {
       $('#inv-link', m).textContent = errText(err);
     }
   };
 
-  const showPending = async () => {
-    const list = (await B.pendingInvites(projectId).catch(() => [])).filter((x) => x.code !== current?.code);
-    $('#inv-pending', m).innerHTML = list.length ? `
-      <h3>${tr('Invitations en attente')}</h3>
-      <div class="pending-invites">${list.map((x) => `
-        <div class="pending-invite"><code translate="no">${esc(x.code)}</code>
-          <span class="muted small">${tr('par {name} · expire le {date}', { name: esc(B.person(x.created_by).display_name), date: date(x.expires_at) })}</span>
-          <span class="spacer"></span><button class="link small" data-cancel="${esc(x.code)}">${tr('Annuler')}</button></div>`).join('')}
-      </div>` : '';
-    $$('[data-cancel]', m).forEach((b) => (b.onclick = async () => {
-      try { await B.cancelInvite(b.dataset.cancel); await showPending(); } catch (err) { B.error(err); }
-    }));
-  };
-
   $('#inv-link', m).onclick = () => current && copied(link(), $('#inv-link .hint', m), `${icon('check', 14)} ${tr('Copié')}`);
   $('#inv-copy', m).onclick = () => current && copied(link(), $('#inv-copy', m), `${icon('check', 15)} ${tr('Lien copié !')}`);
   $('#inv-new', m).onclick = () => show(true);
+  $('#inv-make', m).onclick = () => show(true);
 
   const menu = $('#inv-share-menu', m);
   $('#inv-share', m).onclick = async () => {
     if (!current) return;
-    // Partage du système quand il existe (Windows 10/11), sinon notre petit menu
+    // Partage du système quand il existe (Windows 10/11, téléphones), sinon notre petit menu
     if (navigator.share) {
       try { return await navigator.share({ title: 'BIVOUAC-TECH', text: message() }); } catch { /* fermé ou indisponible */ }
     }
@@ -340,7 +478,7 @@ B.openInvite = async (projectId) => {
   }));
 
   // Invitation par e-mail : la fonction « invite-email » crée une invitation pour CETTE personne et envoie un vrai
-  // e-mail (logo, votre nom, le projet, un bouton). Pas encore activée (secret Brevo absent) ou injoignable :
+  // e-mail (logo, votre nom, votre mot, un bouton). Pas encore activée (secret Brevo absent) ou injoignable :
   // on prépare l'e-mail dans la messagerie du poste, avec une invitation neuve pour cette adresse.
   const mailMsg = $('#inv-mail-msg', m);
   $('#inv-mail-form', m).onsubmit = async (e) => {
@@ -357,18 +495,18 @@ B.openInvite = async (projectId) => {
     mailMsg.className = 'muted small';
     mailMsg.textContent = tr('Envoi…');
     try {
-      const code = await B.sendInviteEmail(projectId, to);
+      const code = discover ? await B.sendDiscoverEmail(to, { note: note(), addMe: addMe() })
+        : await B.sendInviteEmail(projectId, to, { note: note() });
       if (code) {
         mailMsg.className = 'small ok-text';
         mailMsg.textContent = tr('Invitation envoyée à {email}.', { email: to });
         input.value = '';
       } else {
-        const inv = await B.createInvite(projectId, true);
-        mailDraft(to, B.inviteLink(inv.code));
+        const inv = discover ? await B.createDiscoverInvite(addMe(), true) : await B.createInvite(projectId, true);
+        mailDraft(to, B.inviteLink(inv.code, discover));
         mailMsg.className = 'muted small';
         mailMsg.textContent = tr("L'envoi automatique n'est pas encore activé : votre messagerie s'ouvre avec l'invitation prête à envoyer.");
       }
-      await showPending();
     } catch (err) {
       mailMsg.className = 'small error-text';
       mailMsg.textContent = errText(err);
@@ -377,8 +515,8 @@ B.openInvite = async (projectId) => {
     }
   };
 
-  await show(false);
-};
+  paintIcons(m);
+}
 
 /** Choisir un projet (pour les actions rapides de l'accueil) */
 B.pickProject = (title, filter) => new Promise((resolve) => {
