@@ -1,6 +1,6 @@
 // =====================================================================
 // Ambiance d'Aujourd'hui (22/11, Apo) : la scène peinte du bivouac en fond de page, de jour ou de nuit selon l'heure
-//   (scène : scene.js + scene-config.js + scene-positions.js ; jour ou nuit : B.ambianceMoment, ambiance-scene.js).
+//   (scène : scene.js + assets/camp ; jour ou nuit : B.ambianceMoment, ambiance-scene.js).
 //   Son (facultatif, bouton en bas à droite, clic droit = volume) : crépitement du feu, vent dans les feuilles ;
 //   oiseaux le jour, grillons et hibou la nuit. FABRIQUÉ ici par Web Audio (comme sounds.js) : aucun fichier,
 //   aucun extrait d'un tiers (droits d'auteur), rien à télécharger.
@@ -166,9 +166,9 @@
     bare.type = 'button'; bare.className = 'amb-bare-btn icon-btn';
     view.append(bare);
     view.classList.add('has-amb');
-    // Téléphone : scène fixe (images seules, batterie et fluidité) ; ailleurs : réglage Animations et « réduire les animations »
-    const still = () => B.isPhone?.() || !B.animationsOn() || matchMedia('(prefers-reduced-motion: reduce)').matches;
-    // La scène peinte (scene.js) : fond, animaux, feu ; jour ou nuit
+    // Le moteur adapte sa cadence sur téléphone et suit la préférence système en direct.
+    const still = () => !B.animationsOn();
+    // Scène articulée sur les deux formats.
     const fr = (m) => (m === 'night' ? 'nuit' : 'jour');
     const scene = B.Scene(layer, { mode: fr(moment), animated: !still() });
     const syncMotion = () => scene.setAnimated(!still());
@@ -181,7 +181,6 @@
       // Téléphone : pas de bouton du son, celui-ci prend sa place
       const shift = getComputedStyle(btn).display === 'none' ? 60 : 112;
       Object.assign(bare.style, { left: `${r.left + view.clientWidth - shift}px`, top: `${r.bottom - 60}px` });
-      syncMotion(); // passage ordinateur ↔ téléphone : animée ou fixe
     };
     place();
     const ro = new ResizeObserver(place); ro.observe(view);

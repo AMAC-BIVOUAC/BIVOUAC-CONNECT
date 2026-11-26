@@ -1,6 +1,6 @@
 // =====================================================================
 // Jour ou nuit pour les décors (Aujourd'hui et le chemin du Camp de base), selon l'heure du lever / coucher du soleil.
-// La scène d'Aujourd'hui elle-même est dans scene.js (réglages scene-config.js, positions scene-positions.js).
+// La scène d'Aujourd'hui elle-même est dans scene.js (moteur et images : src/assets/camp/).
 // =====================================================================
 (() => {
   // ---------- Jour ou nuit : lever / coucher approximatifs en France (sans réseau ni localisation) ----------

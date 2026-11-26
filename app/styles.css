@@ -2621,29 +2621,13 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--teal); }
 }
 @media (max-width: 760px) { .amb-sound { display: none; } }
 
-/* Scène du bivouac (scene.js) : calques HTML en % du fond, animations Web Animations (transform, opacity) */
-.scn { position: absolute; inset: 0; overflow: hidden; pointer-events: none; }
-.scn-set { position: absolute; inset: 0; opacity: 0; transition: opacity var(--scn-fade, 1.5s) ease-in-out; }
-.scn-set.on { opacity: 1; }
-.scn-stage { position: absolute; left: 0; top: 0; width: 100%; height: 100%; }
-.scn-backdrop { position: absolute; display: block; transform: scale(1.06, -1.06); filter: blur(14px); }
-.scn-stage.scn-fade-top { -webkit-mask-image: linear-gradient(to bottom, transparent 0, var(--navy) 48px); mask-image: linear-gradient(to bottom, transparent 0, var(--navy) 48px); }
-.scn-backdrop[hidden] { display: none; }
-.scn-bg { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
-.scn-a, .scn-fire, .scn-glow { position: absolute; }
-.scn-move, .scn-breath, .scn-head, .scn-flicker { position: absolute; inset: 0; }
-.scn-img, .scn-eyes { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; object-position: 50% 100%; display: block; }
-.scn-fire { mix-blend-mode: screen; }
-.scn-flicker { transform-origin: 50% 100%; }
-.scn-flame { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; object-position: 50% 100%; }
-.scn-glow { background: radial-gradient(closest-side, var(--scene-glow), transparent); }
-.scn-sparks { position: absolute; inset: 0; mix-blend-mode: screen; }
-.scn-spark { position: absolute; background: radial-gradient(closest-side, var(--scene-spark), transparent); }
-.scn-spark.tex { border-radius: 0; background: center / contain no-repeat; }
-.scn-pivot { display: none; }
-.scn-debug .scn-a, .scn-debug .scn-fire, .scn-debug .scn-glow { outline: 1px dashed var(--scene-debug); }
-.scn-debug .scn-pivot { display: block; position: absolute; width: 8px; height: 8px; margin: -4px 0 0 -4px; border-radius: var(--r-round);
-  background: var(--scene-debug); z-index: 1; }
+/* Accueil : illustration fixe pendant le chargement et en cas d'échec. */
+.scn { position: absolute; inset: 0; overflow: hidden; pointer-events: none;
+  background: center / cover no-repeat url("assets/scenes/camp-jour-1000.webp"); }
+.scn[data-mode="nuit"] { background-image: url("assets/scenes/camp-nuit-1000.webp"); }
+.scn[data-scene="ready"] { background-image: none; }
+.scn canvas { display: block; width: 100%; height: 100%; }
+.scn:not([data-scene="ready"]) canvas { visibility: hidden; }
 
 /* ---------- Tâches : « Masquer terminées » et tri de la Liste (23/11, Apo) ---------- */
 .tasks-head .hide-done-btn { display: inline-flex; align-items: center; gap: var(--s-1); white-space: nowrap; }
