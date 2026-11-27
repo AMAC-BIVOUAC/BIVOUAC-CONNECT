@@ -69,7 +69,9 @@ async function loadHuman(){
       const to=throughIntermediate && amount<.5?intermediate:target;
       const phase=throughIntermediate?(amount<.5?2*amount:2*amount-1):amount;
       // Keep the overlap brief to avoid a persistent double outline.
-      const blend=bounded((phase-.32)/.36,0,1);
+      // 26/11 (Amaury : « effet flou ») : fondu réduit à 4 % du geste (au lieu de 36 %), sinon on voit deux mains
+      // transparentes l'une sur l'autre, surtout depuis que les gestes sont plus lents (TEMPO).
+      const blend=bounded((phase-.48)/.04,0,1);
       const turn=target===hand.rest?0:Math.sin(Math.PI*amount)*(near?-7:5);
       const angle=bounded((near?(pose.wrist??0):0)+turn,-15,15);
       const opacity=ctx.globalAlpha;
